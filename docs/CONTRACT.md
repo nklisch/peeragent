@@ -46,7 +46,10 @@ Pass a Codex model override.
 
 `--effort <level>`
 
-Pass a Codex reasoning-effort override when supported.
+Set the Codex reasoning effort. Supported values are `medium` and `high`.
+The default is `medium`, which is the standard setting for implementation work.
+Use `high` for harder or more complex tasks. Lower and extra-high effort modes
+are intentionally not exposed by the wrapper.
 
 `--profile <name>`
 
@@ -105,6 +108,7 @@ Metadata:
 - cwd: <path>
 - mode: blocking|async
 - access: default|full-access|worktree
+- effort: medium|high
 - codex_session: <id if known>
 - job_id: <id if async>
 ```
@@ -122,6 +126,7 @@ JSON output uses equivalent fields:
     "cwd": "",
     "mode": "blocking",
     "access": "default",
+    "effort": "medium",
     "codex_session": null,
     "job_id": null
   }
@@ -196,4 +201,3 @@ After the wrapper returns, Claude:
 - Does not claim success when the result is failed or blocked.
 - Does not rerun Codex automatically in a loop after repeated failures.
 - Asks the user before escalating to full access when the original call did not request it.
-

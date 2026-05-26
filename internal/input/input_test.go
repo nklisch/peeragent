@@ -99,6 +99,33 @@ func TestParseProfileRequiresValue(t *testing.T) {
 	}
 }
 
+func TestParseDefaultsEffortMedium(t *testing.T) {
+	req, err := Parse([]string{"task"}, nil, fixedCWD)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if req.Effort != "medium" {
+		t.Fatalf("Effort = %q", req.Effort)
+	}
+}
+
+func TestParseEffortHigh(t *testing.T) {
+	req, err := Parse([]string{"--effort", "high", "task"}, nil, fixedCWD)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if req.Effort != "high" {
+		t.Fatalf("Effort = %q", req.Effort)
+	}
+}
+
+func TestParseRejectsUnsupportedEffort(t *testing.T) {
+	_, err := Parse([]string{"--effort", "xhigh", "task"}, nil, fixedCWD)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
 func TestParseRequiresTaskText(t *testing.T) {
 	_, err := Parse(nil, nil, fixedCWD)
 	if err == nil {

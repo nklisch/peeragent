@@ -16,6 +16,7 @@ func TestResultJSONFields(t *testing.T) {
 			CWD:      "/repo",
 			Access:   "default",
 			Profile:  "codex-subagent",
+			Effort:   "medium",
 			ExitCode: 0,
 		},
 	}
@@ -32,6 +33,7 @@ func TestResultJSONFields(t *testing.T) {
 		`"verification"`,
 		`"metadata"`,
 		`"exit_code"`,
+		`"effort"`,
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("encoded result missing %s: %s", want, got)

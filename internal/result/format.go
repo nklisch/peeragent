@@ -45,6 +45,9 @@ func FormatText(res Result) string {
 	if res.Metadata.Profile != "" {
 		fmt.Fprintf(&b, "- profile: %s\n", res.Metadata.Profile)
 	}
+	if res.Metadata.Effort != "" {
+		fmt.Fprintf(&b, "- effort: %s\n", res.Metadata.Effort)
+	}
 	fmt.Fprintf(&b, "- exit_code: %d\n", res.Metadata.ExitCode)
 
 	return strings.TrimRight(b.String(), "\n")

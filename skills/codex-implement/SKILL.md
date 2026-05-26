@@ -48,6 +48,8 @@ Use advanced modes only when the request calls for them:
 
 - `--full-access` for explicit trusted full-access execution.
 - `--worktree` for explicit isolated worktree execution.
+- `--effort high` for harder or more complex tasks. Omit effort for the default
+  `medium`; the wrapper intentionally exposes only `medium` and `high`.
 - `--async` for long-running work where Claude should not block.
 - `--prompt-file <path>` for large prompts.
 

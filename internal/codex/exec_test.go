@@ -25,6 +25,7 @@ func TestExecWithRunnerBuildsArgv(t *testing.T) {
 		"--sandbox", "workspace-write",
 		"--ask-for-approval", "on-request",
 		"-c", "approvals_reviewer=auto_review",
+		"-c", `model_reasoning_effort="medium"`,
 		"do work",
 	}
 	if !reflect.DeepEqual(run.args, wantArgs) {
@@ -47,6 +48,7 @@ func TestExecWithRunnerBuildsFullAccessArgv(t *testing.T) {
 		"exec",
 		"--cd", "/repo",
 		"--dangerously-bypass-approvals-and-sandbox",
+		"-c", `model_reasoning_effort="medium"`,
 		"do work",
 	}
 	if !reflect.DeepEqual(run.args, wantArgs) {
@@ -69,6 +71,29 @@ func TestExecWithRunnerBuildsProfileArgv(t *testing.T) {
 		"--ask-for-approval", "on-request",
 		"-c", "approvals_reviewer=auto_review",
 		"--profile", "codex-subagent",
+		"-c", `model_reasoning_effort="medium"`,
+		"do work",
+	}
+	if !reflect.DeepEqual(run.args, wantArgs) {
+		t.Fatalf("args = %#v, want %#v", run.args, wantArgs)
+	}
+}
+
+func TestExecWithRunnerBuildsHighEffortArgv(t *testing.T) {
+	run := &recordingRunner{result: Result{ExitCode: 0}}
+
+	_, err := ExecWithRunner(context.Background(), run, Options{CWD: "/repo", Prompt: "do work", Effort: "high"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	wantArgs := []string{
+		"exec",
+		"--cd", "/repo",
+		"--sandbox", "workspace-write",
+		"--ask-for-approval", "on-request",
+		"-c", "approvals_reviewer=auto_review",
+		"-c", `model_reasoning_effort="high"`,
 		"do work",
 	}
 	if !reflect.DeepEqual(run.args, wantArgs) {

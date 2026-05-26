@@ -66,6 +66,10 @@ The default Codex permissions are classifier-compatible:
 
 This preserves the practical value of automatic approval review while still letting Codex edit the raw repository.
 
+The default Codex reasoning effort is `medium`. The wrapper exposes only
+`medium` and `high` through `--effort`; `high` is reserved for harder or more
+complex implementation tasks.
+
 ## Codex CLI Strategy
 
 The first implementation path uses `codex exec` because it is simple, scriptable, and suitable for blocking calls.
@@ -76,6 +80,7 @@ The wrapper may use these Codex capabilities:
 - `--cd` to set the repository root.
 - `--sandbox` or permission-profile options to control Codex permissions.
 - `--ask-for-approval` or config overrides for approval behavior.
+- `-c model_reasoning_effort="<level>"` for the supported effort setting.
 - `--output-last-message` to capture the final response.
 - `--output-schema` when structured final output is reliable enough for the wrapper.
 - `--json` for machine-readable event streams when useful.

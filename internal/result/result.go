@@ -29,6 +29,7 @@ type Metadata struct {
 	CWD          string `json:"cwd,omitempty"`
 	Access       string `json:"access,omitempty"`
 	Profile      string `json:"profile,omitempty"`
+	Effort       string `json:"effort,omitempty"`
 	ExitCode     int    `json:"exit_code"`
 	CodexSession string `json:"codex_session,omitempty"`
 	JobID        string `json:"job_id,omitempty"`

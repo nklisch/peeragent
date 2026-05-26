@@ -1,7 +1,7 @@
 ---
 id: epic-result-contract-execution-details
 kind: feature
-stage: implementing
+stage: review
 tags: [infra]
 parent: epic-result-contract
 depends_on: [epic-result-contract-formatters]
@@ -70,5 +70,12 @@ Test success, non-zero exit, executor error, and access metadata mapping.
 ## Risks
 
 Changed-file and verification extraction are still placeholders. That is acceptable until Codex final output parsing is based on real examples.
+
+## Implementation Notes
+
+- Added `resultFromExecution` in `cmd/codex-implement`.
+- Main now uses the mapper before formatting output.
+- Added tests for success, non-zero exit, executor error, and access/profile metadata.
+- Folded in effort-level metadata while this result mapping was active: the wrapper supports `--effort medium|high`, defaults to `medium`, passes `model_reasoning_effort` to Codex, and reports effort in metadata.
 
 <!-- The design pass on this feature (`/agile-workflow:feature-design`, refactor-design, or perf-design) will fill in interfaces, signatures, and implementation units. -->

@@ -22,8 +22,10 @@ func run(args []string) error {
 	req, err := input.Parse(args, os.Stdin, os.Getwd)
 	if err != nil {
 		return writeResult(input.Request{JSON: true}, result.Result{
-			Status:  result.StatusFailed,
-			Summary: err.Error(),
+			Status:       result.StatusFailed,
+			Summary:      err.Error(),
+			ChangedFiles: []string{},
+			Verification: []result.Verification{},
 			Metadata: result.Metadata{
 				ExitCode: 2,
 			},
@@ -31,12 +33,15 @@ func run(args []string) error {
 	}
 	if req.Worktree {
 		if err := writeResult(req, result.Result{
-			Status:  result.StatusFailed,
-			Summary: "worktree mode is recognized but not implemented yet",
+			Status:       result.StatusFailed,
+			Summary:      "worktree mode is recognized but not implemented yet",
+			ChangedFiles: []string{},
+			Verification: []result.Verification{},
 			Metadata: result.Metadata{
 				CWD:      req.CWD,
 				Access:   accessMode(req),
 				Profile:  req.Profile,
+				Effort:   req.Effort,
 				ExitCode: 2,
 			},
 		}); err != nil {
@@ -51,34 +56,14 @@ func run(args []string) error {
 		Prompt:     codexPrompt,
 		FullAccess: req.FullAccess,
 		Profile:    req.Profile,
+		Effort:     req.Effort,
 	})
 
-	status := result.StatusSuccess
-	summary := "Codex implementation completed"
-	if execErr != nil {
-		status = result.StatusFailed
-		summary = execErr.Error()
-	} else if execResult.ExitCode != 0 {
-		status = result.StatusFailed
-		summary = "Codex exited with non-zero status"
-	}
-
-	if err := writeResult(req, result.Result{
-		Status:       status,
-		Summary:      summary,
-		ChangedFiles: []string{},
-		Verification: []result.Verification{},
-		Details:      details(execResult.Stdout, execResult.Stderr),
-		Metadata: result.Metadata{
-			CWD:      req.CWD,
-			Access:   accessMode(req),
-			Profile:  req.Profile,
-			ExitCode: execResult.ExitCode,
-		},
-	}); err != nil {
+	res := resultFromExecution(req, execResult, execErr)
+	if err := writeResult(req, res); err != nil {
 		return err
 	}
-	if status != result.StatusSuccess {
+	if res.Status != result.StatusSuccess {
 		os.Exit(1)
 	}
 	return nil
@@ -118,5 +103,32 @@ func details(stdout string, stderr string) string {
 		return "stderr:\n" + stderr
 	default:
 		return ""
+	}
+}
+
+func resultFromExecution(req input.Request, execResult codex.Result, execErr error) result.Result {
+	status := result.StatusSuccess
+	summary := "Codex implementation completed"
+	if execErr != nil {
+		status = result.StatusFailed
+		summary = execErr.Error()
+	} else if execResult.ExitCode != 0 {
+		status = result.StatusFailed
+		summary = "Codex exited with non-zero status"
+	}
+
+	return result.Result{
+		Status:       status,
+		Summary:      summary,
+		ChangedFiles: []string{},
+		Verification: []result.Verification{},
+		Details:      details(execResult.Stdout, execResult.Stderr),
+		Metadata: result.Metadata{
+			CWD:      req.CWD,
+			Access:   accessMode(req),
+			Profile:  req.Profile,
+			Effort:   req.Effort,
+			ExitCode: execResult.ExitCode,
+		},
 	}
 }

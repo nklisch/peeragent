@@ -19,6 +19,7 @@ type Options struct {
 	Prompt     string
 	FullAccess bool
 	Profile    string
+	Effort     string
 }
 
 type runner interface {
@@ -46,6 +47,7 @@ func buildArgs(opts Options) []string {
 			"--dangerously-bypass-approvals-and-sandbox",
 		}
 		args = append(args, profileArgs...)
+		args = append(args, effortArgs(opts.Effort)...)
 		return append(args, opts.Prompt)
 	}
 	args := []string{
@@ -56,6 +58,7 @@ func buildArgs(opts Options) []string {
 		"-c", "approvals_reviewer=auto_review",
 	}
 	args = append(args, profileArgs...)
+	args = append(args, effortArgs(opts.Effort)...)
 	return append(args, opts.Prompt)
 }
 
@@ -64,6 +67,13 @@ func profileArgs(profile string) []string {
 		return nil
 	}
 	return []string{"--profile", profile}
+}
+
+func effortArgs(effort string) []string {
+	if effort == "" {
+		effort = "medium"
+	}
+	return []string{"-c", `model_reasoning_effort="` + effort + `"`}
 }
 
 type osExecRunner struct{}

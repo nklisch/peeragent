@@ -1,0 +1,46 @@
+package main
+
+import (
+	"errors"
+	"testing"
+
+	"github.com/nklisch/codex-implement/internal/codex"
+	"github.com/nklisch/codex-implement/internal/input"
+	"github.com/nklisch/codex-implement/internal/result"
+)
+
+func TestResultFromExecutionSuccess(t *testing.T) {
+	res := resultFromExecution(input.Request{CWD: "/repo"}, codex.Result{ExitCode: 0}, nil)
+	if res.Status != result.StatusSuccess {
+		t.Fatalf("Status = %q", res.Status)
+	}
+	if res.Metadata.Access != "default" {
+		t.Fatalf("Access = %q", res.Metadata.Access)
+	}
+}
+
+func TestResultFromExecutionNonZero(t *testing.T) {
+	res := resultFromExecution(input.Request{CWD: "/repo"}, codex.Result{ExitCode: 2, Stderr: "bad"}, nil)
+	if res.Status != result.StatusFailed {
+		t.Fatalf("Status = %q", res.Status)
+	}
+	if res.Summary == "" || res.Details == "" {
+		t.Fatalf("expected summary and details: %#v", res)
+	}
+}
+
+func TestResultFromExecutionError(t *testing.T) {
+	res := resultFromExecution(input.Request{FullAccess: true, Profile: "p", Effort: "high"}, codex.Result{ExitCode: 127}, errors.New("missing"))
+	if res.Status != result.StatusFailed {
+		t.Fatalf("Status = %q", res.Status)
+	}
+	if res.Metadata.Access != "full-access" {
+		t.Fatalf("Access = %q", res.Metadata.Access)
+	}
+	if res.Metadata.Profile != "p" {
+		t.Fatalf("Profile = %q", res.Metadata.Profile)
+	}
+	if res.Metadata.Effort != "high" {
+		t.Fatalf("Effort = %q", res.Metadata.Effort)
+	}
+}
