@@ -9,7 +9,7 @@ import (
 func TestExecWithRunnerBuildsArgv(t *testing.T) {
 	run := &recordingRunner{result: Result{ExitCode: 0, Stdout: "ok"}}
 
-	result, err := ExecWithRunner(context.Background(), run, "/repo", "do work")
+	result, err := ExecWithRunner(context.Background(), run, Options{CWD: "/repo", Prompt: "do work"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -19,7 +19,14 @@ func TestExecWithRunnerBuildsArgv(t *testing.T) {
 	if run.cwd != "/repo" {
 		t.Fatalf("cwd = %q", run.cwd)
 	}
-	wantArgs := []string{"exec", "--cd", "/repo", "do work"}
+	wantArgs := []string{
+		"exec",
+		"--cd", "/repo",
+		"--sandbox", "workspace-write",
+		"--ask-for-approval", "on-request",
+		"-c", "approvals_reviewer=auto_review",
+		"do work",
+	}
 	if !reflect.DeepEqual(run.args, wantArgs) {
 		t.Fatalf("args = %#v, want %#v", run.args, wantArgs)
 	}

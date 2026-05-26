@@ -14,20 +14,36 @@ type Result struct {
 	Stderr   string
 }
 
+type Options struct {
+	CWD    string
+	Prompt string
+}
+
 type runner interface {
 	Run(ctx context.Context, name string, args []string, cwd string) (Result, error)
 }
 
-func Exec(ctx context.Context, cwd string, prompt string) (Result, error) {
-	return ExecWithRunner(ctx, osExecRunner{}, cwd, prompt)
+func Exec(ctx context.Context, opts Options) (Result, error) {
+	return ExecWithRunner(ctx, osExecRunner{}, opts)
 }
 
-func ExecWithRunner(ctx context.Context, run runner, cwd string, prompt string) (Result, error) {
+func ExecWithRunner(ctx context.Context, run runner, opts Options) (Result, error) {
 	path, err := exec.LookPath("codex")
 	if err != nil {
 		return Result{ExitCode: 127}, errors.New("codex CLI not found in PATH")
 	}
-	return run.Run(ctx, path, []string{"exec", "--cd", cwd, prompt}, cwd)
+	return run.Run(ctx, path, buildArgs(opts), opts.CWD)
+}
+
+func buildArgs(opts Options) []string {
+	return []string{
+		"exec",
+		"--cd", opts.CWD,
+		"--sandbox", "workspace-write",
+		"--ask-for-approval", "on-request",
+		"-c", "approvals_reviewer=auto_review",
+		opts.Prompt,
+	}
 }
 
 type osExecRunner struct{}

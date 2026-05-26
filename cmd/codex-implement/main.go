@@ -30,7 +30,10 @@ func run(args []string) error {
 	}
 
 	codexPrompt := prompt.Build(req.TaskText)
-	execResult, execErr := codex.Exec(context.Background(), req.CWD, codexPrompt)
+	execResult, execErr := codex.Exec(context.Background(), codex.Options{
+		CWD:    req.CWD,
+		Prompt: codexPrompt,
+	})
 
 	status := "success"
 	summary := "Codex implementation completed"
