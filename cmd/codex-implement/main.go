@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"os"
+
+	"github.com/nklisch/codex-implement/internal/input"
 )
 
 func main() {
@@ -13,7 +15,11 @@ func main() {
 }
 
 func run(args []string) error {
-	_ = args
-	_, err := fmt.Fprintln(os.Stdout, `{"status":"blocked","summary":"codex-implement wrapper is not implemented yet"}`)
+	req, err := input.Parse(args, os.Stdin, os.Getwd)
+	if err != nil {
+		return err
+	}
+
+	_, err = fmt.Fprintf(os.Stdout, "{\"status\":\"blocked\",\"summary\":\"codex-implement wrapper is not implemented yet\",\"cwd\":%q,\"task_text\":%q}\n", req.CWD, req.TaskText)
 	return err
 }

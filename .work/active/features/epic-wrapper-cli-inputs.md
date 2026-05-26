@@ -1,7 +1,7 @@
 ---
 id: epic-wrapper-cli-inputs
 kind: feature
-stage: implementing
+stage: review
 tags: [infra]
 parent: epic-wrapper-cli
 depends_on: []
@@ -105,5 +105,12 @@ Add tests for args, prompt file, stdin, cwd override, combined inputs, and missi
 ## Risks
 
 Reading stdin without blocking is subtle. Treat stdin as an explicit reader in tests and let command execution read whatever Claude pipes to the process.
+
+## Implementation Notes
+
+- Added `internal/input` with normalized request parsing.
+- Supports args, stdin, `--prompt-file`, `--cwd`, and default JSON mode.
+- Wired `cmd/codex-implement` to use parsed input and emit placeholder JSON containing cwd and task text.
+- Added unit coverage for all input paths and missing task text.
 
 <!-- The design pass on this feature (`/agile-workflow:feature-design`, refactor-design, or perf-design) will fill in interfaces, signatures, and implementation units. -->
