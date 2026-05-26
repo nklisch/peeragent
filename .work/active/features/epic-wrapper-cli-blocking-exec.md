@@ -1,7 +1,7 @@
 ---
 id: epic-wrapper-cli-blocking-exec
 kind: feature
-stage: implementing
+stage: review
 tags: [infra]
 parent: epic-wrapper-cli
 depends_on: [epic-wrapper-cli-prompt]
@@ -101,5 +101,12 @@ Run the wrapper with a harmless prompt. If live Codex execution is not practical
 ## Risks
 
 Running live Codex during tests can be expensive and environment-dependent. Unit tests should avoid invoking real Codex; smoke tests can be manual or guarded.
+
+## Implementation Notes
+
+- Added `internal/codex` executor around `codex exec --cd <cwd> <prompt>`.
+- Captures stdout, stderr, and exit code without shell interpolation.
+- Wired `cmd/codex-implement` to call the executor and emit minimal JSON.
+- Added unit coverage for argv construction.
 
 <!-- The design pass on this feature (`/agile-workflow:feature-design`, refactor-design, or perf-design) will fill in interfaces, signatures, and implementation units. -->
