@@ -1,7 +1,7 @@
 ---
 id: epic-wrapper-cli-inputs
 kind: feature
-stage: drafting
+stage: implementing
 tags: [infra]
 parent: epic-wrapper-cli
 depends_on: []
@@ -33,5 +33,77 @@ The feature exists so Claude can pass short tasks ergonomically while long tasks
 
 - **Task input forms**: Support CLI args, stdin, and `--prompt-file`.
 
-<!-- The design pass on this feature (`/agile-workflow:feature-design`, refactor-design, or perf-design) will fill in interfaces, signatures, and implementation units. -->
+## Architectural Choice
 
+Create an `internal/input` package that parses wrapper flags and returns a normalized request containing task text and cwd. Keeping input parsing outside `main` makes it directly testable and keeps later prompt/execution packages independent of shell details.
+
+Alternative considered: parse in `main.go`. Rejected because prompt construction and execution need a clean request object, and input precedence deserves unit tests.
+
+## Implementation Units
+
+### Unit 1: Input Package
+
+**File**: `internal/input/input.go`
+
+```go
+package input
+
+type Request struct {
+	TaskText string
+	CWD      string
+	JSON     bool
+}
+
+func Parse(args []string, stdin io.Reader, getwd func() (string, error)) (Request, error)
+```
+
+**Implementation Notes**:
+- `--cwd <path>` overrides process cwd.
+- `--prompt-file <path>` reads task text from a file.
+- Positional args join with spaces.
+- If stdin has data, append it after arg text, separated by a blank line.
+- If both prompt-file and positional args are present, append args before file content so caller context can prefix the larger prompt.
+- Error when no task text is supplied.
+
+**Acceptance Criteria**:
+- [ ] Positional args produce task text.
+- [ ] `--prompt-file` reads file content.
+- [ ] stdin can provide task text.
+- [ ] args plus stdin combine deterministically.
+- [ ] `--cwd` overrides cwd.
+- [ ] missing task text returns an error.
+
+### Unit 2: Main Integration
+
+**File**: `cmd/codex-implement/main.go`
+
+```go
+req, err := input.Parse(args, os.Stdin, os.Getwd)
+```
+
+**Implementation Notes**:
+- Keep placeholder JSON output, but include enough of the parsed request to prove parsing is wired.
+- Full result contract lands later.
+
+**Acceptance Criteria**:
+- [ ] `go test ./...` passes.
+- [ ] `go run ./cmd/codex-implement hello` succeeds.
+
+## Implementation Order
+
+1. Create `internal/input`.
+2. Add input parsing tests.
+3. Wire `main.go` to use the parser.
+4. Run `gofmt` and `go test ./...`.
+
+## Testing
+
+### Unit Tests
+
+Add tests for args, prompt file, stdin, cwd override, combined inputs, and missing text.
+
+## Risks
+
+Reading stdin without blocking is subtle. Treat stdin as an explicit reader in tests and let command execution read whatever Claude pipes to the process.
+
+<!-- The design pass on this feature (`/agile-workflow:feature-design`, refactor-design, or perf-design) will fill in interfaces, signatures, and implementation units. -->
