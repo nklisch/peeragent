@@ -1,7 +1,7 @@
 ---
 id: epic-wrapper-cli
 kind: epic
-stage: implementing
+stage: done
 tags: [infra]
 parent: null
 depends_on: [epic-plugin-foundation]
@@ -48,5 +48,9 @@ Split by the core blocking execution pipeline. Input collection establishes the 
 ### Decomposition risks
 
 The main risk is overlapping with the later result-contract and safety-permissions epics. This epic should keep output and permission behavior minimal, with explicit seams for those downstream capabilities.
+
+## Review
+
+Approved. The wrapper CLI now accepts task input, builds a stable Codex prompt, and has a blocking `codex exec` execution path with minimal JSON output. Safety policy refinement and richer result shaping remain correctly isolated in downstream epics.
 
 <!-- The design pass on each child feature will fill in real specifics. -->
