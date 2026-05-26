@@ -1,7 +1,7 @@
 ---
 id: epic-packaging-docs-build-artifacts
 kind: feature
-stage: review
+stage: done
 tags: [docs, infra]
 parent: epic-packaging-docs
 depends_on: []
@@ -148,5 +148,9 @@ Verification:
 - `make build`
 - `test -x dist/codex-implement`
 - `bin/codex-implement --status missing-job`
+
+## Review
+
+Approved. The repository now has a repeatable local build path for the compiled wrapper, conventional make aliases, and the shim reaches the built artifact. The missing-job smoke returns contract-shaped JSON with exit code 4. Review verification passed with `go test ./...`, `scripts/build.sh`, and the shim smoke.
 
 <!-- The design pass on this feature (`/agile-workflow:feature-design`, refactor-design, or perf-design) will fill in interfaces, signatures, and implementation units. -->
