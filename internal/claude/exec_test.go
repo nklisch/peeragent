@@ -23,7 +23,7 @@ func TestExecWithRunnerBuildsDefaultArgv(t *testing.T) {
 		"--output-format", "text",
 		"--add-dir", "/repo",
 		"--permission-mode", "auto",
-		"--effort", "medium",
+		"--effort", "xhigh",
 		"do work",
 	}
 	if !reflect.DeepEqual(run.args, wantArgs) {
@@ -71,7 +71,7 @@ func TestExecWithRunnerBuildsModelArgv(t *testing.T) {
 		"--add-dir", "/repo",
 		"--permission-mode", "auto",
 		"--model", "opus",
-		"--effort", "medium",
+		"--effort", "xhigh",
 		"do work",
 	}
 	if !reflect.DeepEqual(run.args, wantArgs) {

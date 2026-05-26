@@ -40,8 +40,8 @@ Options:
 - `--full-access`: Run the target with full local access.
 - `--worktree`: Reserved for future isolated worktree execution.
 - `--effort <medium|high|xhigh>`: Set target reasoning effort. Codex defaults to
-  `high` and accepts `medium`, `high`, or `xhigh`; Claude defaults to `medium`
-  and accepts `medium` or `high`.
+  `high` and accepts `medium`, `high`, or `xhigh`; Claude defaults to `xhigh`
+  and accepts `high` or `xhigh`.
 - `--model <sonnet|opus|haiku|gemini-3.5>`: Select a Claude model alias, or
   explicitly record the fixed Gemini 3.5 target. Gemini model selection is not
   passed to `agy` because `agy --print` does not expose a non-interactive model
@@ -71,7 +71,7 @@ The default result is JSON:
     "agent": "claude",
     "access": "default",
     "profile": "",
-    "effort": "medium",
+    "effort": "xhigh",
     "model": "sonnet",
     "exit_code": 0,
     "job_id": ""

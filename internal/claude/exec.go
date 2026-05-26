@@ -47,7 +47,7 @@ func buildArgs(opts Options) []string {
 		args = append(args, "--model", opts.Model)
 	}
 	if opts.Effort == "" {
-		opts.Effort = "medium"
+		opts.Effort = "xhigh"
 	}
 	args = append(args, "--effort", opts.Effort)
 	return append(args, opts.Prompt)

@@ -4,8 +4,8 @@ description: >
   Delegate implementation, research, or review work from Codex to Claude Code
   through the bundled alt-subagent wrapper. Use when Codex should hand arbitrary
   task text to Claude as an autonomous worker in the current repository. Use
-  Claude sonnet for normal work, opus plus high effort for deeper work, and
-  haiku for lightweight work.
+  Claude sonnet for normal work, opus plus xhigh effort for deeper work, and
+  haiku plus high effort for lightweight work.
 metadata:
   short-description: Delegate to Claude
 allowed-tools: Bash
@@ -38,11 +38,12 @@ that JSON before responding to the user.
 ## Options
 
 - `--full-access` for explicit trusted full-access execution.
-- `--model sonnet` for the normal Claude task pass.
-- `--model opus --effort high` for a deeper Claude implementation, research, or
-  review pass.
-- `--model haiku` for lightweight or fast Claude work.
-- `--effort high` for harder or more complex tasks.
+- `--model sonnet` for the normal Claude task pass; effort defaults to `xhigh`.
+- `--model opus --effort xhigh` for a deeper Claude implementation, research,
+  or review pass.
+- `--model haiku --effort high` for lightweight or fast Claude work.
+- `--effort high` for a lighter Claude pass when `xhigh` is unnecessary.
+- `--effort xhigh` for the default/deeper Claude pass.
 - `--async` for long-running work.
 - `--prompt-file <path>` for large prompts.
 

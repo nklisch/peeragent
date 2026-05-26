@@ -146,12 +146,12 @@ func TestParseDefaultsEffortHighForCodex(t *testing.T) {
 	}
 }
 
-func TestParseDefaultsEffortMediumForClaude(t *testing.T) {
+func TestParseDefaultsEffortXHighForClaude(t *testing.T) {
 	req, err := Parse([]string{"--agent", "claude", "task"}, nil, fixedCWD)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if req.Effort != "medium" {
+	if req.Effort != "xhigh" {
 		t.Fatalf("Effort = %q", req.Effort)
 	}
 }
@@ -203,8 +203,28 @@ func TestParseRejectsUnsupportedEffort(t *testing.T) {
 	}
 }
 
-func TestParseRejectsXHighEffortForClaude(t *testing.T) {
-	_, err := Parse([]string{"--agent", "claude", "--effort", "xhigh", "task"}, nil, fixedCWD)
+func TestParseEffortXHighForClaude(t *testing.T) {
+	req, err := Parse([]string{"--agent", "claude", "--effort", "xhigh", "task"}, nil, fixedCWD)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if req.Effort != "xhigh" {
+		t.Fatalf("Effort = %q", req.Effort)
+	}
+}
+
+func TestParseEffortHighForClaude(t *testing.T) {
+	req, err := Parse([]string{"--agent", "claude", "--effort", "high", "task"}, nil, fixedCWD)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if req.Effort != "high" {
+		t.Fatalf("Effort = %q", req.Effort)
+	}
+}
+
+func TestParseRejectsMediumEffortForClaude(t *testing.T) {
+	_, err := Parse([]string{"--agent", "claude", "--effort", "medium", "task"}, nil, fixedCWD)
 	if err == nil {
 		t.Fatal("expected error")
 	}

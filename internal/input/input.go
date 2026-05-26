@@ -234,13 +234,13 @@ func normalizeEffort(agent string, effort string) (string, error) {
 		}
 	case "claude":
 		if effort == "" {
-			return "medium", nil
+			return "xhigh", nil
 		}
 		switch effort {
-		case "medium", "high":
+		case "high", "xhigh":
 			return effort, nil
 		default:
-			return "", errors.New("--effort for claude must be medium or high")
+			return "", errors.New("--effort for claude must be high or xhigh")
 		}
 	case "gemini":
 		if effort == "" {

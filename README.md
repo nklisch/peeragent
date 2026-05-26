@@ -85,9 +85,9 @@ Use this rough equivalence when choosing a target:
 
 | Desired delegated pass | Codex target | Claude target | Gemini target |
 | --- | --- | --- | --- |
-| Lightweight or fast pass | `--agent codex --effort medium` | `--agent claude --model haiku --effort medium` | `--agent gemini --model gemini-3.5` |
-| Normal implementation, research, or review sub-agent | `--agent codex` or `--agent codex --effort high` | `--agent claude --model sonnet --effort medium` | `--agent gemini --model gemini-3.5` |
-| Deeper implementation, research, or review pass | `--agent codex --effort xhigh` | `--agent claude --model opus --effort high` | `--agent gemini --model gemini-3.5` |
+| Lightweight or fast pass | `--agent codex --effort medium` | `--agent claude --model haiku --effort high` | `--agent gemini --model gemini-3.5` |
+| Normal implementation, research, or review sub-agent | `--agent codex` or `--agent codex --effort high` | `--agent claude --model sonnet` or `--agent claude --model sonnet --effort xhigh` | `--agent gemini --model gemini-3.5` |
+| Deeper implementation, research, or review pass | `--agent codex --effort xhigh` | `--agent claude --model opus --effort xhigh` | `--agent gemini --model gemini-3.5` |
 
 Gemini through Antigravity is treated as fixed Gemini 3.5 for this wrapper. The
 `--model gemini-3.5` spelling is accepted when you want to be explicit, but the
@@ -125,14 +125,15 @@ docs updates, build fixes, research passes, and review passes in this
 repository.
 
 - Use `claude-implement` for a Claude Code task pass.
-- Use `--model sonnet` for normal Claude work, `--model opus --effort high` for
-  the deeper Claude pass, and `--model haiku` for lightweight Claude work.
+- Use `--model sonnet` for normal Claude work, `--model opus --effort xhigh`
+  for the deeper Claude pass, and `--model haiku --effort high` for lightweight
+  Claude work.
 - Use `gemini-implement` for a Gemini 3.5 task pass through
   Antigravity; `--model gemini-3.5` is the only accepted Gemini model value.
-- Use default high effort for routine Codex work and default medium effort for
+- Use default high effort for routine Codex work and default xhigh effort for
   routine Claude work.
 - Ask the wrapper for `--effort xhigh` when Codex should take the deeper pass;
-  use `--model opus --effort high` for the deeper Claude pass.
+  use `--model opus --effort xhigh` for the deeper Claude pass.
 - Research-only and review-only delegation are allowed when a second-agent pass
   is useful.
 - Do not use Alt Subagent for planning-only orchestration work.
@@ -177,15 +178,16 @@ bin/alt-subagent --text --agent gemini "Fix the failing parser test."
 ## Models, Effort, Profiles, And Access
 
 Codex and Claude support `--effort`. Codex defaults to `high`; use `medium`
-only for lightweight work and `xhigh` for deeper passes:
+only for lightweight Codex work and `xhigh` for deeper Codex passes. Claude
+defaults to `xhigh` and accepts only `high` or `xhigh`:
 
 ```sh
 bin/alt-subagent --agent codex "Implement the routine change."
 bin/alt-subagent --agent codex --effort medium "Make the localized docs update."
 bin/alt-subagent --agent codex --effort xhigh "Review the cross-module migration for hidden regressions."
-bin/alt-subagent --agent claude --model sonnet --effort medium "Implement the small change."
-bin/alt-subagent --agent claude --model opus --effort high "Untangle the failing integration test."
-bin/alt-subagent --agent claude --model haiku "Make the localized docs update."
+bin/alt-subagent --agent claude --model sonnet "Implement the small change."
+bin/alt-subagent --agent claude --model opus --effort xhigh "Untangle the failing integration test."
+bin/alt-subagent --agent claude --model haiku --effort high "Make the localized docs update."
 ```
 
 Claude supports `--model sonnet`, `--model opus`, and `--model haiku`. Gemini
@@ -280,23 +282,23 @@ is not available locally.
 Build release archives locally:
 
 ```sh
-make release VERSION=0.1.2
+make release VERSION=0.1.3
 ```
 
 That writes:
 
 ```text
-dist/release/alt-subagent_0.1.2_linux_amd64.tar.gz
-dist/release/alt-subagent_0.1.2_linux_arm64.tar.gz
-dist/release/alt-subagent_0.1.2_darwin_amd64.tar.gz
-dist/release/alt-subagent_0.1.2_darwin_arm64.tar.gz
+dist/release/alt-subagent_0.1.3_linux_amd64.tar.gz
+dist/release/alt-subagent_0.1.3_linux_arm64.tar.gz
+dist/release/alt-subagent_0.1.3_darwin_amd64.tar.gz
+dist/release/alt-subagent_0.1.3_darwin_arm64.tar.gz
 dist/release/checksums.txt
 ```
 
 Publish a GitHub release from a machine with `gh` authenticated:
 
 ```sh
-make publish-release VERSION=0.1.2
+make publish-release VERSION=0.1.3
 ```
 
 The GitHub Actions workflow in `.github/workflows/release.yml` also publishes

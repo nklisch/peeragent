@@ -80,6 +80,11 @@ if grep -R -F -- '--effort low' README.md docs skills; then
   exit 1
 fi
 
+if grep -R -E -- '--agent claude.*--effort medium|--model (sonnet|opus|haiku).*--effort medium|Claude defaults to `medium`|Claude reasoning effort defaults to `medium`|accepts `medium` or `high`' README.md docs skills; then
+  echo "stale Claude medium effort example found"
+  exit 1
+fi
+
 if grep -R -F -- '--model pro' README.md docs skills; then
   echo "unsupported Gemini model example found"
   exit 1
