@@ -1,7 +1,7 @@
 ---
 id: epic-async-jobs
 kind: epic
-stage: implementing
+stage: done
 tags: [infra]
 parent: null
 depends_on: [epic-result-contract]
@@ -46,5 +46,9 @@ Split by lifecycle. Job storage defines the local state shape, launch creates tr
 ### Decomposition risks
 
 Detached process handling differs across platforms. Keep the first implementation local and simple: metadata, pid, log/result files, and best-effort cancellation without promising robust daemon semantics.
+
+## Review
+
+Done. The async lifecycle now has local job metadata, detached launch, status lookup, stored result retrieval, and best-effort cancellation. Verification for child implementations included `go test ./...` plus smoke checks for async launch, status, result, and cancel behavior.
 
 <!-- The design pass on each child feature will fill in real specifics. -->
