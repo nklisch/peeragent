@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/nklisch/codex-implement/internal/codex"
@@ -68,5 +69,21 @@ func TestIsTerminalJobStatus(t *testing.T) {
 	}
 	if isTerminalJobStatus("running") {
 		t.Fatal("running should not be terminal")
+	}
+}
+
+func TestJobLookupFailureResult(t *testing.T) {
+	res := jobLookupFailureResult(input.Request{CWD: "/repo"}, "job-1", errors.New("missing"))
+	if res.Status != result.StatusFailed {
+		t.Fatalf("Status = %q", res.Status)
+	}
+	if res.Metadata.ExitCode != 4 {
+		t.Fatalf("ExitCode = %d", res.Metadata.ExitCode)
+	}
+	if res.Metadata.JobID != "job-1" {
+		t.Fatalf("JobID = %q", res.Metadata.JobID)
+	}
+	if !strings.Contains(res.Summary, "missing") {
+		t.Fatalf("Summary = %q", res.Summary)
 	}
 }

@@ -143,7 +143,7 @@ func showJobStatus(req input.Request) error {
 	store := jobs.NewStore(req.CWD)
 	job, err := store.Load(req.StatusJobID)
 	if err != nil {
-		return err
+		return writeJobLookupFailure(req, req.StatusJobID, err)
 	}
 
 	return writeResult(req, result.Result{
@@ -163,7 +163,7 @@ func showJobResult(req input.Request) error {
 	store := jobs.NewStore(req.CWD)
 	job, err := store.Load(req.ResultJobID)
 	if err != nil {
-		return err
+		return writeJobLookupFailure(req, req.ResultJobID, err)
 	}
 
 	content, err := os.ReadFile(job.ResultPath)
@@ -219,7 +219,7 @@ func cancelJob(req input.Request) error {
 	store := jobs.NewStore(req.CWD)
 	job, err := store.Load(req.CancelJobID)
 	if err != nil {
-		return err
+		return writeJobLookupFailure(req, req.CancelJobID, err)
 	}
 
 	if isTerminalJobStatus(job.Status) {
@@ -267,6 +267,28 @@ func cancelJob(req input.Request) error {
 		return err
 	}
 	return writeResult(req, res)
+}
+
+func writeJobLookupFailure(req input.Request, jobID string, err error) error {
+	if writeErr := writeResult(req, jobLookupFailureResult(req, jobID, err)); writeErr != nil {
+		return writeErr
+	}
+	os.Exit(4)
+	return nil
+}
+
+func jobLookupFailureResult(req input.Request, jobID string, err error) result.Result {
+	return result.Result{
+		Status:       result.StatusFailed,
+		Summary:      fmt.Sprintf("async job %s lookup failed: %v", jobID, err),
+		ChangedFiles: []string{},
+		Verification: []result.Verification{},
+		Metadata: result.Metadata{
+			CWD:      req.CWD,
+			ExitCode: 4,
+			JobID:    jobID,
+		},
+	}
 }
 
 func isTerminalJobStatus(status string) bool {

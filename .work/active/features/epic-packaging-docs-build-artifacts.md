@@ -1,7 +1,7 @@
 ---
 id: epic-packaging-docs-build-artifacts
 kind: feature
-stage: implementing
+stage: review
 tags: [docs, infra]
 parent: epic-packaging-docs
 depends_on: []
@@ -133,5 +133,20 @@ No new Go unit tests are required; this feature is packaging glue.
 ## Risks
 
 The smoke command intentionally returns a missing-job failure, so validation should check that the wrapper starts and emits contract-shaped JSON rather than expecting a successful lookup.
+
+## Implementation Notes
+
+Implemented a repeatable build path through `scripts/build.sh`, thin `Makefile` aliases for `build`, `test`, and `clean`, and `dist/` ignore rules for local compiled artifacts. The existing shim already preferred `dist/codex-implement`, so no shim path change was required.
+
+The shim smoke exposed that async job lookup failures returned raw Go errors. Fixed the status/result/cancel lookup paths to emit JSON result objects with `exit_code: 4` before exiting.
+
+Verification:
+
+- `go test ./...`
+- `make test`
+- `scripts/build.sh`
+- `make build`
+- `test -x dist/codex-implement`
+- `bin/codex-implement --status missing-job`
 
 <!-- The design pass on this feature (`/agile-workflow:feature-design`, refactor-design, or perf-design) will fill in interfaces, signatures, and implementation units. -->
