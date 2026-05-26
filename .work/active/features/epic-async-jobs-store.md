@@ -1,7 +1,7 @@
 ---
 id: epic-async-jobs-store
 kind: feature
-stage: review
+stage: done
 tags: [infra]
 parent: epic-async-jobs
 depends_on: []
@@ -76,5 +76,9 @@ Job metadata should not become a second substrate. Keep it operational and local
 - Added `internal/jobs` with repo-local `.codex-implement/jobs/<id>/` storage.
 - Jobs persist metadata to `job.json` and reserve `result.json` / `codex.log` paths.
 - Added create/load/save tests.
+
+## Review
+
+Approved. The job store is repo-local, durable across sessions, and deliberately limited to operational async state. It gives launch/status/result/cancel one shared state model.
 
 <!-- The design pass on this feature (`/agile-workflow:feature-design`, refactor-design, or perf-design) will fill in interfaces, signatures, and implementation units. -->
