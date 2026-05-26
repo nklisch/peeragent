@@ -1,7 +1,7 @@
 ---
 id: epic-safety-permissions-defaults
 kind: feature
-stage: review
+stage: done
 tags: [security, infra]
 parent: epic-safety-permissions
 depends_on: []
@@ -98,5 +98,9 @@ Codex CLI flag names can change over time. Keeping the defaults centralized make
 - Centralized Codex argv construction in `internal/codex`.
 - Default args now include `--sandbox workspace-write`, `--ask-for-approval on-request`, and `-c approvals_reviewer=auto_review`.
 - Updated tests to assert the explicit default permission flags.
+
+## Review
+
+Approved. The classifier-compatible defaults are now explicit and centrally tested, so normal execution no longer depends on ambient Codex user config.
 
 <!-- The design pass on this feature (`/agile-workflow:feature-design`, refactor-design, or perf-design) will fill in interfaces, signatures, and implementation units. -->
