@@ -1,7 +1,7 @@
 ---
 id: epic-plugin-foundation-manifest
 kind: feature
-stage: review
+stage: done
 tags: [infra]
 parent: epic-plugin-foundation
 depends_on: []
@@ -86,5 +86,9 @@ Claude Code plugin manifest fields may grow as packaging is finalized. Keep this
 
 - Created `.claude-plugin/plugin.json` with the distributable plugin identity.
 - Validated the manifest as JSON.
+
+## Review
+
+Approved. The manifest is intentionally minimal, valid JSON, and matches the distributable plugin decision. This makes the plugin discoverable as a first-class Claude Code plugin root.
 
 <!-- The design pass on this feature (`/agile-workflow:feature-design`, refactor-design, or perf-design) will fill in interfaces, signatures, and implementation units. -->
