@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/nklisch/codex-implement/internal/input"
+	"github.com/nklisch/codex-implement/internal/prompt"
 )
 
 func main() {
@@ -20,6 +21,8 @@ func run(args []string) error {
 		return err
 	}
 
-	_, err = fmt.Fprintf(os.Stdout, "{\"status\":\"blocked\",\"summary\":\"codex-implement wrapper is not implemented yet\",\"cwd\":%q,\"task_text\":%q}\n", req.CWD, req.TaskText)
+	codexPrompt := prompt.Build(req.TaskText)
+
+	_, err = fmt.Fprintf(os.Stdout, "{\"status\":\"blocked\",\"summary\":\"codex-implement wrapper is not implemented yet\",\"cwd\":%q,\"prompt\":%q}\n", req.CWD, codexPrompt)
 	return err
 }

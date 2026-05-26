@@ -1,7 +1,7 @@
 ---
 id: epic-wrapper-cli-prompt
 kind: feature
-stage: implementing
+stage: review
 tags: [infra]
 parent: epic-wrapper-cli
 depends_on: [epic-wrapper-cli-inputs]
@@ -84,5 +84,12 @@ Test that the built prompt includes task text and the durable behavioral instruc
 ## Risks
 
 Overly long prompt boilerplate would waste model context. Keep the envelope focused on operating posture, not project-specific recap.
+
+## Implementation Notes
+
+- Added `internal/prompt.Build`.
+- Prompt preserves task text and adds direct-edit, verification, concise-result, and blocker-reporting instructions.
+- Wired `main.go` to build the prompt before placeholder output.
+- Added unit tests for task preservation and operating instructions.
 
 <!-- The design pass on this feature (`/agile-workflow:feature-design`, refactor-design, or perf-design) will fill in interfaces, signatures, and implementation units. -->
