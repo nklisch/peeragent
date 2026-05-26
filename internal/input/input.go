@@ -16,6 +16,8 @@ type Request struct {
 	Worktree   bool
 	Profile    string
 	Effort     string
+	Async      bool
+	JobRunID   string
 }
 
 func Parse(args []string, stdin io.Reader, getwd func() (string, error)) (Request, error) {
@@ -71,6 +73,8 @@ func Parse(args []string, stdin io.Reader, getwd func() (string, error)) (Reques
 		Worktree:   parsed.worktree,
 		Profile:    parsed.profile,
 		Effort:     parsed.effort,
+		Async:      parsed.async,
+		JobRunID:   parsed.jobRunID,
 	}, nil
 }
 
@@ -82,6 +86,8 @@ type parsedArgs struct {
 	worktree    bool
 	profile     string
 	effort      string
+	async       bool
+	jobRunID    string
 	positionals []string
 }
 
@@ -127,6 +133,14 @@ func parseArgs(args []string) (parsedArgs, error) {
 			default:
 				return parsedArgs{}, errors.New("--effort must be medium or high")
 			}
+		case "--async":
+			parsed.async = true
+		case "--job-run":
+			i++
+			if i >= len(args) {
+				return parsedArgs{}, errors.New("--job-run requires a value")
+			}
+			parsed.jobRunID = args[i]
 		default:
 			parsed.positionals = append(parsed.positionals, arg)
 		}

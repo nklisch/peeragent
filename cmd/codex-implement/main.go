@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 
 	"github.com/nklisch/codex-implement/internal/codex"
 	"github.com/nklisch/codex-implement/internal/input"
+	"github.com/nklisch/codex-implement/internal/jobs"
 	"github.com/nklisch/codex-implement/internal/prompt"
 	"github.com/nklisch/codex-implement/internal/result"
 )
@@ -30,6 +32,12 @@ func run(args []string) error {
 				ExitCode: 2,
 			},
 		})
+	}
+	if req.JobRunID != "" {
+		return runAsyncJob(req)
+	}
+	if req.Async {
+		return launchAsync(args, req)
 	}
 	if req.Worktree {
 		if err := writeResult(req, result.Result{
@@ -67,6 +75,123 @@ func run(args []string) error {
 		os.Exit(1)
 	}
 	return nil
+}
+
+func launchAsync(args []string, req input.Request) error {
+	store := jobs.NewStore(req.CWD)
+	job, err := store.Create(req.TaskText)
+	if err != nil {
+		return err
+	}
+
+	executable, err := os.Executable()
+	if err != nil {
+		return err
+	}
+
+	childArgs := []string{"--job-run", job.ID, "--cwd", req.CWD}
+	childArgs = append(childArgs, stripAsync(args)...)
+	cmd := exec.Command(executable, childArgs...)
+	cmd.Dir = req.CWD
+
+	logFile, err := os.OpenFile(job.LogPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	if err != nil {
+		return err
+	}
+	defer logFile.Close()
+	cmd.Stdout = logFile
+	cmd.Stderr = logFile
+
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	job.PID = cmd.Process.Pid
+	if err := store.Save(job); err != nil {
+		return err
+	}
+	if err := cmd.Process.Release(); err != nil {
+		return err
+	}
+
+	return writeResult(req, result.Result{
+		Status:       result.StatusRunning,
+		Summary:      "Codex implementation job started",
+		ChangedFiles: []string{},
+		Verification: []result.Verification{},
+		Metadata: result.Metadata{
+			CWD:      req.CWD,
+			Access:   accessMode(req),
+			Profile:  req.Profile,
+			Effort:   req.Effort,
+			ExitCode: 0,
+			JobID:    job.ID,
+		},
+	})
+}
+
+func runAsyncJob(req input.Request) error {
+	store := jobs.NewStore(req.CWD)
+	job, err := store.Load(req.JobRunID)
+	if err != nil {
+		return err
+	}
+	if req.Worktree {
+		res := result.Result{
+			Status:       result.StatusFailed,
+			Summary:      "worktree mode is recognized but not implemented yet",
+			ChangedFiles: []string{},
+			Verification: []result.Verification{},
+			Metadata: result.Metadata{
+				CWD:      req.CWD,
+				Access:   accessMode(req),
+				Profile:  req.Profile,
+				Effort:   req.Effort,
+				ExitCode: 2,
+				JobID:    job.ID,
+			},
+		}
+		return finishAsyncJob(store, job, res)
+	}
+
+	codexPrompt := prompt.Build(req.TaskText)
+	execResult, execErr := codex.Exec(context.Background(), codex.Options{
+		CWD:        req.CWD,
+		Prompt:     codexPrompt,
+		FullAccess: req.FullAccess,
+		Profile:    req.Profile,
+		Effort:     req.Effort,
+	})
+	res := resultFromExecution(req, execResult, execErr)
+	res.Metadata.JobID = job.ID
+	return finishAsyncJob(store, job, res)
+}
+
+func finishAsyncJob(store jobs.Store, job jobs.Job, res result.Result) error {
+	encoded, err := result.FormatJSON(res)
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(job.ResultPath, append(encoded, '\n'), 0o644); err != nil {
+		return err
+	}
+	if res.Status == result.StatusSuccess {
+		job.Status = "complete"
+	} else {
+		job.Status = "failed"
+	}
+	job.PID = 0
+	return store.Save(job)
+}
+
+func stripAsync(args []string) []string {
+	out := make([]string, 0, len(args))
+	for _, arg := range args {
+		if arg == "--async" {
+			continue
+		}
+		out = append(out, arg)
+	}
+	return out
 }
 
 func accessMode(req input.Request) string {

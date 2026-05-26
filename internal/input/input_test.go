@@ -126,6 +126,26 @@ func TestParseRejectsUnsupportedEffort(t *testing.T) {
 	}
 }
 
+func TestParseAsync(t *testing.T) {
+	req, err := Parse([]string{"--async", "task"}, nil, fixedCWD)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !req.Async {
+		t.Fatal("expected Async")
+	}
+}
+
+func TestParseJobRun(t *testing.T) {
+	req, err := Parse([]string{"--job-run", "job-1", "task"}, nil, fixedCWD)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if req.JobRunID != "job-1" {
+		t.Fatalf("JobRunID = %q", req.JobRunID)
+	}
+}
+
 func TestParseRequiresTaskText(t *testing.T) {
 	_, err := Parse(nil, nil, fixedCWD)
 	if err == nil {
