@@ -1,7 +1,7 @@
 ---
 id: epic-safety-permissions-profile-reporting
 kind: feature
-stage: review
+stage: done
 tags: [security, infra]
 parent: epic-safety-permissions
 depends_on: [epic-safety-permissions-full-access, epic-safety-permissions-worktree]
@@ -94,5 +94,9 @@ The result-contract epic may rename fields. Keep this metadata small and obvious
 - Added profile pass-through to Codex argv.
 - Added `access` and `profile` metadata to CLI JSON output.
 - Added unit tests for profile parsing and argv construction.
+
+## Review
+
+Approved. Profile pass-through is tested, and JSON output now exposes the safety posture that Claude needs to report or reason about. The fields are intentionally small and can be absorbed by the formal result contract later.
 
 <!-- The design pass on this feature (`/agile-workflow:feature-design`, refactor-design, or perf-design) will fill in interfaces, signatures, and implementation units. -->
