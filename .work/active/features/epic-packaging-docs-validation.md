@@ -1,7 +1,7 @@
 ---
 id: epic-packaging-docs-validation
 kind: feature
-stage: review
+stage: done
 tags: [docs, infra]
 parent: epic-packaging-docs
 depends_on: [epic-packaging-docs-build-artifacts, epic-packaging-docs-user-guide]
@@ -139,5 +139,9 @@ Verification:
 
 - `scripts/validate.sh`
 - `make validate`
+
+## Review
+
+Approved. Validation is executable, local, and does not require a live Codex implementation run. It checks the core packaging and documentation surfaces and passed in review with `make validate`.
 
 <!-- The design pass on this feature (`/agile-workflow:feature-design`, refactor-design, or perf-design) will fill in interfaces, signatures, and implementation units. -->
