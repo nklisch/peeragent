@@ -1,7 +1,7 @@
 ---
 id: epic-plugin-foundation-skill
 kind: feature
-stage: review
+stage: done
 tags: [infra, docs]
 parent: epic-plugin-foundation
 depends_on: [epic-plugin-foundation-entrypoint]
@@ -87,5 +87,9 @@ If the skill becomes too explicit, it recreates the control-panel feel the proje
 - Created `skills/codex-implement/SKILL.md`.
 - The skill delegates arbitrary `$ARGUMENTS` to `codex-implement`.
 - The skill treats JSON as the default result and documents explicit escape hatches for `--full-access`, `--worktree`, `--async`, and `--prompt-file`.
+
+## Review
+
+Approved. The skill is thin, delegation-oriented, names the correct wrapper command, and keeps advanced modes explicit. This completes the Claude-facing foundation for the plugin.
 
 <!-- The design pass on this feature (`/agile-workflow:feature-design`, refactor-design, or perf-design) will fill in interfaces, signatures, and implementation units. -->
