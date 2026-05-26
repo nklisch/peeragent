@@ -1,7 +1,7 @@
 ---
 id: epic-async-jobs-store
 kind: feature
-stage: implementing
+stage: review
 tags: [infra]
 parent: epic-async-jobs
 depends_on: []
@@ -70,5 +70,11 @@ Create, save, and load a job in a temp directory.
 ## Risks
 
 Job metadata should not become a second substrate. Keep it operational and local to async process tracking.
+
+## Implementation Notes
+
+- Added `internal/jobs` with repo-local `.codex-implement/jobs/<id>/` storage.
+- Jobs persist metadata to `job.json` and reserve `result.json` / `codex.log` paths.
+- Added create/load/save tests.
 
 <!-- The design pass on this feature (`/agile-workflow:feature-design`, refactor-design, or perf-design) will fill in interfaces, signatures, and implementation units. -->
