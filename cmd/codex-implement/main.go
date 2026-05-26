@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -35,6 +36,12 @@ func run(args []string) error {
 	}
 	if req.JobRunID != "" {
 		return runAsyncJob(req)
+	}
+	if req.StatusJobID != "" {
+		return showJobStatus(req)
+	}
+	if req.ResultJobID != "" {
+		return showJobResult(req)
 	}
 	if req.Async {
 		return launchAsync(args, req)
@@ -127,6 +134,82 @@ func launchAsync(args []string, req input.Request) error {
 			JobID:    job.ID,
 		},
 	})
+}
+
+func showJobStatus(req input.Request) error {
+	store := jobs.NewStore(req.CWD)
+	job, err := store.Load(req.StatusJobID)
+	if err != nil {
+		return err
+	}
+
+	return writeResult(req, result.Result{
+		Status:       resultStatusFromJob(job.Status),
+		Summary:      fmt.Sprintf("Async job %s is %s", job.ID, job.Status),
+		ChangedFiles: []string{},
+		Verification: []result.Verification{},
+		Metadata: result.Metadata{
+			CWD:      req.CWD,
+			ExitCode: 0,
+			JobID:    job.ID,
+		},
+	})
+}
+
+func showJobResult(req input.Request) error {
+	store := jobs.NewStore(req.CWD)
+	job, err := store.Load(req.ResultJobID)
+	if err != nil {
+		return err
+	}
+
+	content, err := os.ReadFile(job.ResultPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return writeResult(req, result.Result{
+				Status:       result.StatusRunning,
+				Summary:      fmt.Sprintf("Async job %s is still running", job.ID),
+				ChangedFiles: []string{},
+				Verification: []result.Verification{},
+				Metadata: result.Metadata{
+					CWD:      req.CWD,
+					ExitCode: 0,
+					JobID:    job.ID,
+				},
+			})
+		}
+		return err
+	}
+
+	if req.JSON {
+		_, err := os.Stdout.Write(content)
+		if err != nil {
+			return err
+		}
+		if len(content) == 0 || content[len(content)-1] != '\n' {
+			_, err = fmt.Fprintln(os.Stdout)
+		}
+		return err
+	}
+
+	var res result.Result
+	if err := json.Unmarshal(content, &res); err != nil {
+		return err
+	}
+	return writeResult(req, res)
+}
+
+func resultStatusFromJob(status string) result.Status {
+	switch status {
+	case "complete":
+		return result.StatusSuccess
+	case "failed":
+		return result.StatusFailed
+	case "cancelled":
+		return result.StatusCancelled
+	default:
+		return result.StatusRunning
+	}
 }
 
 func runAsyncJob(req input.Request) error {

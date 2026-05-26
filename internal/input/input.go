@@ -9,15 +9,17 @@ import (
 )
 
 type Request struct {
-	TaskText   string
-	CWD        string
-	JSON       bool
-	FullAccess bool
-	Worktree   bool
-	Profile    string
-	Effort     string
-	Async      bool
-	JobRunID   string
+	TaskText    string
+	CWD         string
+	JSON        bool
+	FullAccess  bool
+	Worktree    bool
+	Profile     string
+	Effort      string
+	Async       bool
+	JobRunID    string
+	StatusJobID string
+	ResultJobID string
 }
 
 func Parse(args []string, stdin io.Reader, getwd func() (string, error)) (Request, error) {
@@ -62,19 +64,25 @@ func Parse(args []string, stdin io.Reader, getwd func() (string, error)) (Reques
 
 	taskText := strings.Join(parts, "\n\n")
 	if taskText == "" {
-		return Request{}, errors.New("no task text supplied")
+		if parsed.statusJobID != "" || parsed.resultJobID != "" {
+			taskText = ""
+		} else {
+			return Request{}, errors.New("no task text supplied")
+		}
 	}
 
 	return Request{
-		TaskText:   taskText,
-		CWD:        cwd,
-		JSON:       parsed.json,
-		FullAccess: parsed.fullAccess,
-		Worktree:   parsed.worktree,
-		Profile:    parsed.profile,
-		Effort:     parsed.effort,
-		Async:      parsed.async,
-		JobRunID:   parsed.jobRunID,
+		TaskText:    taskText,
+		CWD:         cwd,
+		JSON:        parsed.json,
+		FullAccess:  parsed.fullAccess,
+		Worktree:    parsed.worktree,
+		Profile:     parsed.profile,
+		Effort:      parsed.effort,
+		Async:       parsed.async,
+		JobRunID:    parsed.jobRunID,
+		StatusJobID: parsed.statusJobID,
+		ResultJobID: parsed.resultJobID,
 	}, nil
 }
 
@@ -88,6 +96,8 @@ type parsedArgs struct {
 	effort      string
 	async       bool
 	jobRunID    string
+	statusJobID string
+	resultJobID string
 	positionals []string
 }
 
@@ -141,6 +151,18 @@ func parseArgs(args []string) (parsedArgs, error) {
 				return parsedArgs{}, errors.New("--job-run requires a value")
 			}
 			parsed.jobRunID = args[i]
+		case "--status":
+			i++
+			if i >= len(args) {
+				return parsedArgs{}, errors.New("--status requires a job id")
+			}
+			parsed.statusJobID = args[i]
+		case "--result":
+			i++
+			if i >= len(args) {
+				return parsedArgs{}, errors.New("--result requires a job id")
+			}
+			parsed.resultJobID = args[i]
 		default:
 			parsed.positionals = append(parsed.positionals, arg)
 		}

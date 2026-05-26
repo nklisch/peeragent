@@ -146,6 +146,26 @@ func TestParseJobRun(t *testing.T) {
 	}
 }
 
+func TestParseStatus(t *testing.T) {
+	req, err := Parse([]string{"--status", "job-1", "ignored"}, nil, fixedCWD)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if req.StatusJobID != "job-1" {
+		t.Fatalf("StatusJobID = %q", req.StatusJobID)
+	}
+}
+
+func TestParseResult(t *testing.T) {
+	req, err := Parse([]string{"--result", "job-1", "ignored"}, nil, fixedCWD)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if req.ResultJobID != "job-1" {
+		t.Fatalf("ResultJobID = %q", req.ResultJobID)
+	}
+}
+
 func TestParseRequiresTaskText(t *testing.T) {
 	_, err := Parse(nil, nil, fixedCWD)
 	if err == nil {

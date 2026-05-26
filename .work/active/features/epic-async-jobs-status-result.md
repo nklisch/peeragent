@@ -1,7 +1,7 @@
 ---
 id: epic-async-jobs-status-result
 kind: feature
-stage: implementing
+stage: review
 tags: [infra]
 parent: epic-async-jobs
 depends_on: [epic-async-jobs-launch]
@@ -64,5 +64,15 @@ Cover flag parsing. Use smoke tests for local file behavior.
 ## Risks
 
 The contract allows optional job ids, but this implementation requires explicit ids until a latest-job policy is designed.
+
+## Implementation Notes
+
+Implemented `--status <job-id>` and `--result <job-id>` in the Go wrapper. Status loads `job.json` and maps local job lifecycle states into the result contract. Result loads and returns `result.json` unchanged for JSON output, or formats it through the text renderer when `--text` is requested. Missing result files report the job as still running.
+
+Verification:
+
+- `go test ./...`
+- `go run ./cmd/codex-implement --status 20260526T034837Z-2da71b11`
+- `go run ./cmd/codex-implement --result 20260526T034837Z-2da71b11`
 
 <!-- The design pass on this feature (`/agile-workflow:feature-design`, refactor-design, or perf-design) will fill in interfaces, signatures, and implementation units. -->

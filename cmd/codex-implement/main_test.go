@@ -44,3 +44,18 @@ func TestResultFromExecutionError(t *testing.T) {
 		t.Fatalf("Effort = %q", res.Metadata.Effort)
 	}
 }
+
+func TestResultStatusFromJob(t *testing.T) {
+	cases := map[string]result.Status{
+		"running":   result.StatusRunning,
+		"complete":  result.StatusSuccess,
+		"failed":    result.StatusFailed,
+		"cancelled": result.StatusCancelled,
+		"unknown":   result.StatusRunning,
+	}
+	for status, want := range cases {
+		if got := resultStatusFromJob(status); got != want {
+			t.Fatalf("resultStatusFromJob(%q) = %q, want %q", status, got, want)
+		}
+	}
+}
