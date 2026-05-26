@@ -14,6 +14,7 @@ type Request struct {
 	JSON       bool
 	FullAccess bool
 	Worktree   bool
+	Profile    string
 }
 
 func Parse(args []string, stdin io.Reader, getwd func() (string, error)) (Request, error) {
@@ -67,6 +68,7 @@ func Parse(args []string, stdin io.Reader, getwd func() (string, error)) (Reques
 		JSON:       parsed.json,
 		FullAccess: parsed.fullAccess,
 		Worktree:   parsed.worktree,
+		Profile:    parsed.profile,
 	}, nil
 }
 
@@ -76,6 +78,7 @@ type parsedArgs struct {
 	json        bool
 	fullAccess  bool
 	worktree    bool
+	profile     string
 	positionals []string
 }
 
@@ -104,6 +107,12 @@ func parseArgs(args []string) (parsedArgs, error) {
 			parsed.fullAccess = true
 		case "--worktree":
 			parsed.worktree = true
+		case "--profile":
+			i++
+			if i >= len(args) {
+				return parsedArgs{}, errors.New("--profile requires a value")
+			}
+			parsed.profile = args[i]
 		default:
 			parsed.positionals = append(parsed.positionals, arg)
 		}

@@ -18,6 +18,7 @@ type Options struct {
 	CWD        string
 	Prompt     string
 	FullAccess bool
+	Profile    string
 }
 
 type runner interface {
@@ -37,22 +38,32 @@ func ExecWithRunner(ctx context.Context, run runner, opts Options) (Result, erro
 }
 
 func buildArgs(opts Options) []string {
+	profileArgs := profileArgs(opts.Profile)
 	if opts.FullAccess {
-		return []string{
+		args := []string{
 			"exec",
 			"--cd", opts.CWD,
 			"--dangerously-bypass-approvals-and-sandbox",
-			opts.Prompt,
 		}
+		args = append(args, profileArgs...)
+		return append(args, opts.Prompt)
 	}
-	return []string{
+	args := []string{
 		"exec",
 		"--cd", opts.CWD,
 		"--sandbox", "workspace-write",
 		"--ask-for-approval", "on-request",
 		"-c", "approvals_reviewer=auto_review",
-		opts.Prompt,
 	}
+	args = append(args, profileArgs...)
+	return append(args, opts.Prompt)
+}
+
+func profileArgs(profile string) []string {
+	if profile == "" {
+		return nil
+	}
+	return []string{"--profile", profile}
 }
 
 type osExecRunner struct{}

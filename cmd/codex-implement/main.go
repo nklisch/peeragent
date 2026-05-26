@@ -33,6 +33,8 @@ func run(args []string) error {
 			Status:   "failed",
 			Summary:  "worktree mode is recognized but not implemented yet",
 			CWD:      req.CWD,
+			Access:   accessMode(req),
+			Profile:  req.Profile,
 			ExitCode: 2,
 		}); err != nil {
 			return err
@@ -45,6 +47,7 @@ func run(args []string) error {
 		CWD:        req.CWD,
 		Prompt:     codexPrompt,
 		FullAccess: req.FullAccess,
+		Profile:    req.Profile,
 	})
 
 	status := "success"
@@ -61,6 +64,8 @@ func run(args []string) error {
 		Status:   status,
 		Summary:  summary,
 		CWD:      req.CWD,
+		Access:   accessMode(req),
+		Profile:  req.Profile,
 		ExitCode: execResult.ExitCode,
 		Stdout:   execResult.Stdout,
 		Stderr:   execResult.Stderr,
@@ -77,9 +82,22 @@ type result struct {
 	Status   string `json:"status"`
 	Summary  string `json:"summary"`
 	CWD      string `json:"cwd,omitempty"`
+	Access   string `json:"access,omitempty"`
+	Profile  string `json:"profile,omitempty"`
 	ExitCode int    `json:"exit_code"`
 	Stdout   string `json:"stdout,omitempty"`
 	Stderr   string `json:"stderr,omitempty"`
+}
+
+func accessMode(req input.Request) string {
+	switch {
+	case req.Worktree:
+		return "worktree"
+	case req.FullAccess:
+		return "full-access"
+	default:
+		return "default"
+	}
 }
 
 func writeResult(res result) error {

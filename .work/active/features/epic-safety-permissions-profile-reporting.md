@@ -1,7 +1,7 @@
 ---
 id: epic-safety-permissions-profile-reporting
 kind: feature
-stage: implementing
+stage: review
 tags: [security, infra]
 parent: epic-safety-permissions
 depends_on: [epic-safety-permissions-full-access, epic-safety-permissions-worktree]
@@ -87,5 +87,12 @@ Run `go run ./cmd/codex-implement --worktree task` and verify JSON includes work
 ## Risks
 
 The result-contract epic may rename fields. Keep this metadata small and obvious so it can be folded into the final schema cleanly.
+
+## Implementation Notes
+
+- Added `--profile <name>` parsing.
+- Added profile pass-through to Codex argv.
+- Added `access` and `profile` metadata to CLI JSON output.
+- Added unit tests for profile parsing and argv construction.
 
 <!-- The design pass on this feature (`/agile-workflow:feature-design`, refactor-design, or perf-design) will fill in interfaces, signatures, and implementation units. -->

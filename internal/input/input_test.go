@@ -82,6 +82,23 @@ func TestParseWorktree(t *testing.T) {
 	}
 }
 
+func TestParseProfile(t *testing.T) {
+	req, err := Parse([]string{"--profile", "codex-subagent", "task"}, nil, fixedCWD)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if req.Profile != "codex-subagent" {
+		t.Fatalf("Profile = %q", req.Profile)
+	}
+}
+
+func TestParseProfileRequiresValue(t *testing.T) {
+	_, err := Parse([]string{"--profile"}, nil, fixedCWD)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
 func TestParseRequiresTaskText(t *testing.T) {
 	_, err := Parse(nil, nil, fixedCWD)
 	if err == nil {
