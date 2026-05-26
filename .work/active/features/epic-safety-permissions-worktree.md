@@ -1,7 +1,7 @@
 ---
 id: epic-safety-permissions-worktree
 kind: feature
-stage: review
+stage: done
 tags: [security, infra]
 parent: epic-safety-permissions
 depends_on: [epic-safety-permissions-defaults]
@@ -78,5 +78,9 @@ A recognized-but-unsupported flag is less capable than ideal, but it is safer th
 - Added `--worktree` parsing.
 - Added an early JSON failure for worktree mode so isolation requests are not silently run in the raw checkout.
 - Added unit coverage for parsing.
+
+## Review
+
+Approved. Worktree requests are recognized and fail clearly rather than silently using the raw checkout. That is the right safe behavior until real worktree creation and cleanup are designed.
 
 <!-- The design pass on this feature (`/agile-workflow:feature-design`, refactor-design, or perf-design) will fill in interfaces, signatures, and implementation units. -->

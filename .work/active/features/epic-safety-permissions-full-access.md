@@ -1,7 +1,7 @@
 ---
 id: epic-safety-permissions-full-access
 kind: feature
-stage: review
+stage: done
 tags: [security, infra]
 parent: epic-safety-permissions
 depends_on: [epic-safety-permissions-defaults]
@@ -81,5 +81,9 @@ Full access weakens normal safety boundaries. Keep the flag explicit and avoid a
 - Added `codex.Options.FullAccess`.
 - Full-access argv uses `--dangerously-bypass-approvals-and-sandbox` and omits default approval/reviewer flags.
 - Added unit tests for parsing and argv construction.
+
+## Review
+
+Approved. Full access is explicit, tested, and maps to Codex's clearly named bypass flag without adding ambiguous shorthand modes.
 
 <!-- The design pass on this feature (`/agile-workflow:feature-design`, refactor-design, or perf-design) will fill in interfaces, signatures, and implementation units. -->
