@@ -1,0 +1,9 @@
+{
+  "name": "codex-implement",
+  "version": "0.1.0",
+  "description": "Delegate Claude Code implementation tasks to OpenAI Codex CLI",
+  "author": {
+    "name": "nklisch"
+  },
+  "license": "MIT"
+}

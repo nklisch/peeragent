@@ -1,7 +1,7 @@
 ---
 id: epic-plugin-foundation-go-skeleton
 kind: feature
-stage: implementing
+stage: review
 tags: [infra]
 parent: epic-plugin-foundation
 depends_on: []
@@ -116,5 +116,11 @@ Run `go run ./cmd/codex-implement` and parse stdout as JSON.
 ## Risks
 
 The final module path may change if the repository name or owner changes. That is packaging metadata, not an architectural concern, and can be rolled forward when known.
+
+## Implementation Notes
+
+- Created `go.mod` for `github.com/nklisch/codex-implement`.
+- Created `cmd/codex-implement/main.go` with a compiling JSON-shaped placeholder command.
+- Verified the module with `go test ./...` and a command smoke test.
 
 <!-- The design pass on this feature (`/agile-workflow:feature-design`, refactor-design, or perf-design) will fill in interfaces, signatures, and implementation units. -->

@@ -1,7 +1,7 @@
 ---
 id: epic-plugin-foundation-manifest
 kind: feature
-stage: implementing
+stage: review
 tags: [infra]
 parent: epic-plugin-foundation
 depends_on: []
@@ -81,5 +81,10 @@ Use a JSON parser such as `python3 -m json.tool .claude-plugin/plugin.json` to v
 ## Risks
 
 Claude Code plugin manifest fields may grow as packaging is finalized. Keep this manifest intentionally small rather than guessing at distribution metadata now.
+
+## Implementation Notes
+
+- Created `.claude-plugin/plugin.json` with the distributable plugin identity.
+- Validated the manifest as JSON.
 
 <!-- The design pass on this feature (`/agile-workflow:feature-design`, refactor-design, or perf-design) will fill in interfaces, signatures, and implementation units. -->
