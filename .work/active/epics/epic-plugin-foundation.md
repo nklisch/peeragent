@@ -1,7 +1,7 @@
 ---
 id: epic-plugin-foundation
 kind: epic
-stage: implementing
+stage: done
 tags: [infra]
 parent: null
 depends_on: []
@@ -45,5 +45,9 @@ Split by plugin-facing capability. The manifest establishes installability, the 
 ### Decomposition risks
 
 The main risk is packaging the Go binary inside a Claude Code plugin across platforms. The foundation should keep the shim and build layout explicit so later packaging work can choose the final distribution strategy without changing the skill contract.
+
+## Review
+
+Approved. All four child features reached `stage: done`: manifest, Go skeleton, wrapper entrypoint, and Claude-facing skill. The plugin is now discoverable, has a compiling wrapper base, exposes a command entrypoint, and gives Claude a delegation skill.
 
 <!-- The design pass on each child feature will fill in real specifics. -->
