@@ -1,7 +1,7 @@
 ---
 id: epic-safety-permissions-defaults
 kind: feature
-stage: drafting
+stage: implementing
 tags: [security, infra]
 parent: epic-safety-permissions
 depends_on: []
@@ -34,5 +34,62 @@ The feature exists so behavior is stable even when the user's Codex config diffe
 
 - **Default permissions**: Pass explicit defaults rather than relying on user config.
 
-<!-- The design pass on this feature (`/agile-workflow:feature-design`, refactor-design, or perf-design) will fill in interfaces, signatures, and implementation units. -->
+## Architectural Choice
 
+Move Codex argv construction into a small options-driven function in `internal/codex`. The default options append `--sandbox workspace-write`, `--ask-for-approval on-request`, and `-c approvals_reviewer=auto_review` to every normal `codex exec` invocation.
+
+Alternative considered: keep permission flags in `main.go`. Rejected because full-access, worktree, and profile modes all need to modify the same argv shape.
+
+## Implementation Units
+
+### Unit 1: Execution Options
+
+**File**: `internal/codex/exec.go`
+
+```go
+type Options struct {
+	CWD    string
+	Prompt string
+}
+
+func Exec(ctx context.Context, opts Options) (Result, error)
+```
+
+**Implementation Notes**:
+- Build args as `exec --cd <cwd> --sandbox workspace-write --ask-for-approval on-request -c approvals_reviewer=auto_review <prompt>`.
+- Keep prompt as a single argv entry.
+- Preserve test seam for argv assertions.
+
+**Acceptance Criteria**:
+- [ ] Unit test verifies default permission args are present.
+- [ ] `go test ./...` passes.
+
+### Unit 2: Main Integration
+
+**File**: `cmd/codex-implement/main.go`
+
+Call the new options-based executor.
+
+**Acceptance Criteria**:
+- [ ] CLI still compiles.
+- [ ] Existing wrapper behavior is preserved except for safer Codex argv defaults.
+
+## Implementation Order
+
+1. Add `codex.Options`.
+2. Update argv construction.
+3. Update tests.
+4. Wire `main.go`.
+5. Run tests.
+
+## Testing
+
+### Unit Tests
+
+Assert the executor builds the expected permission flags without invoking a shell.
+
+## Risks
+
+Codex CLI flag names can change over time. Keeping the defaults centralized makes future updates localized.
+
+<!-- The design pass on this feature (`/agile-workflow:feature-design`, refactor-design, or perf-design) will fill in interfaces, signatures, and implementation units. -->
