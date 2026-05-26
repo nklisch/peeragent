@@ -1,7 +1,7 @@
 ---
 id: epic-async-jobs-launch
 kind: feature
-stage: review
+stage: done
 tags: [infra]
 parent: epic-async-jobs
 depends_on: [epic-async-jobs-store]
@@ -78,5 +78,9 @@ Detached child behavior varies by OS. The implementation should stay modest and 
 - `--async` creates a job record, launches the current executable detached, and returns a `running` result with job id.
 - `--job-run` executes the blocking path and writes the final JSON result to the job result path.
 - Child stdout/stderr are redirected to the job log.
+
+## Review
+
+Approved. Async launch creates durable job state, starts a detached child process, returns a running result with job id, and keeps local job artifacts ignored by Git. Smoke testing verified a child job wrote a final result through the worktree error path.
 
 <!-- The design pass on this feature (`/agile-workflow:feature-design`, refactor-design, or perf-design) will fill in interfaces, signatures, and implementation units. -->
