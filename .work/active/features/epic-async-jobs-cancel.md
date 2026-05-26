@@ -1,7 +1,7 @@
 ---
 id: epic-async-jobs-cancel
 kind: feature
-stage: review
+stage: done
 tags: [infra]
 parent: epic-async-jobs
 depends_on: [epic-async-jobs-status-result]
@@ -69,5 +69,9 @@ Verification:
 
 - `go test ./...`
 - `go run ./cmd/codex-implement --cancel 20260526T034837Z-2da71b11`
+
+## Review
+
+Approved. The implementation preserves terminal jobs, records cancellation through the same result contract used by blocking and async completion, and keeps cancellation best-effort as designed. Review verification passed with `go test ./...`.
 
 <!-- The design pass on this feature (`/agile-workflow:feature-design`, refactor-design, or perf-design) will fill in interfaces, signatures, and implementation units. -->
