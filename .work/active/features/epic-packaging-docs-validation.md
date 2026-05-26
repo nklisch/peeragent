@@ -1,7 +1,7 @@
 ---
 id: epic-packaging-docs-validation
 kind: feature
-stage: implementing
+stage: review
 tags: [docs, infra]
 parent: epic-packaging-docs
 depends_on: [epic-packaging-docs-build-artifacts, epic-packaging-docs-user-guide]
@@ -130,5 +130,14 @@ make validate
 ## Risks
 
 The validation script should not require a live Codex implementation call. It should only run the wrapper against cheap local failure paths and avoid network-dependent checks.
+
+## Implementation Notes
+
+Added `scripts/validate.sh` as the local release-readiness check, wired `make validate`, and documented validation in the README. The script runs Go tests, builds the wrapper, checks executable artifacts, verifies plugin metadata, scans documented command examples for drift, and smokes the shim through the missing-job JSON path.
+
+Verification:
+
+- `scripts/validate.sh`
+- `make validate`
 
 <!-- The design pass on this feature (`/agile-workflow:feature-design`, refactor-design, or perf-design) will fill in interfaces, signatures, and implementation units. -->

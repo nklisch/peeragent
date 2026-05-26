@@ -41,6 +41,16 @@ Run tests with:
 make test
 ```
 
+## Validation
+
+Run the local release-readiness check with:
+
+```sh
+make validate
+```
+
+Validation runs the Go test suite, builds the compiled wrapper, checks plugin metadata and documented command examples, and smokes the executable shim without requiring a live Codex implementation pass.
+
 ## Plugin Layout
 
 The distributable plugin files are:
