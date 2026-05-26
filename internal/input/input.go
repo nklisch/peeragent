@@ -20,6 +20,7 @@ type Request struct {
 	JobRunID    string
 	StatusJobID string
 	ResultJobID string
+	CancelJobID string
 }
 
 func Parse(args []string, stdin io.Reader, getwd func() (string, error)) (Request, error) {
@@ -64,7 +65,7 @@ func Parse(args []string, stdin io.Reader, getwd func() (string, error)) (Reques
 
 	taskText := strings.Join(parts, "\n\n")
 	if taskText == "" {
-		if parsed.statusJobID != "" || parsed.resultJobID != "" {
+		if parsed.statusJobID != "" || parsed.resultJobID != "" || parsed.cancelJobID != "" {
 			taskText = ""
 		} else {
 			return Request{}, errors.New("no task text supplied")
@@ -83,6 +84,7 @@ func Parse(args []string, stdin io.Reader, getwd func() (string, error)) (Reques
 		JobRunID:    parsed.jobRunID,
 		StatusJobID: parsed.statusJobID,
 		ResultJobID: parsed.resultJobID,
+		CancelJobID: parsed.cancelJobID,
 	}, nil
 }
 
@@ -98,6 +100,7 @@ type parsedArgs struct {
 	jobRunID    string
 	statusJobID string
 	resultJobID string
+	cancelJobID string
 	positionals []string
 }
 
@@ -163,6 +166,12 @@ func parseArgs(args []string) (parsedArgs, error) {
 				return parsedArgs{}, errors.New("--result requires a job id")
 			}
 			parsed.resultJobID = args[i]
+		case "--cancel":
+			i++
+			if i >= len(args) {
+				return parsedArgs{}, errors.New("--cancel requires a job id")
+			}
+			parsed.cancelJobID = args[i]
 		default:
 			parsed.positionals = append(parsed.positionals, arg)
 		}

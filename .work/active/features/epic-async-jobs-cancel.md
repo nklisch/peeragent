@@ -1,7 +1,7 @@
 ---
 id: epic-async-jobs-cancel
 kind: feature
-stage: implementing
+stage: review
 tags: [infra]
 parent: epic-async-jobs
 depends_on: [epic-async-jobs-status-result]
@@ -60,5 +60,14 @@ Cover flag parsing and helper behavior for terminal status detection.
 
 - `go test ./...`
 - Smoke test `--cancel` against an already-failed local async job.
+
+## Implementation Notes
+
+Implemented `--cancel <job-id>` parsing and the cancellation handler. Running jobs are marked cancelled after a best-effort PID kill, with a cancelled result written to the job result file. Terminal jobs return their existing terminal status and are not rewritten.
+
+Verification:
+
+- `go test ./...`
+- `go run ./cmd/codex-implement --cancel 20260526T034837Z-2da71b11`
 
 <!-- The design pass on this feature (`/agile-workflow:feature-design`, refactor-design, or perf-design) will fill in interfaces, signatures, and implementation units. -->

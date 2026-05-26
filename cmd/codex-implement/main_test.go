@@ -59,3 +59,14 @@ func TestResultStatusFromJob(t *testing.T) {
 		}
 	}
 }
+
+func TestIsTerminalJobStatus(t *testing.T) {
+	for _, status := range []string{"complete", "failed", "cancelled"} {
+		if !isTerminalJobStatus(status) {
+			t.Fatalf("expected %q to be terminal", status)
+		}
+	}
+	if isTerminalJobStatus("running") {
+		t.Fatal("running should not be terminal")
+	}
+}

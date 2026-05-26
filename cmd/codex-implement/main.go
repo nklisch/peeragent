@@ -43,6 +43,9 @@ func run(args []string) error {
 	if req.ResultJobID != "" {
 		return showJobResult(req)
 	}
+	if req.CancelJobID != "" {
+		return cancelJob(req)
+	}
 	if req.Async {
 		return launchAsync(args, req)
 	}
@@ -209,6 +212,69 @@ func resultStatusFromJob(status string) result.Status {
 		return result.StatusCancelled
 	default:
 		return result.StatusRunning
+	}
+}
+
+func cancelJob(req input.Request) error {
+	store := jobs.NewStore(req.CWD)
+	job, err := store.Load(req.CancelJobID)
+	if err != nil {
+		return err
+	}
+
+	if isTerminalJobStatus(job.Status) {
+		return writeResult(req, result.Result{
+			Status:       resultStatusFromJob(job.Status),
+			Summary:      fmt.Sprintf("Async job %s is already %s", job.ID, job.Status),
+			ChangedFiles: []string{},
+			Verification: []result.Verification{},
+			Metadata: result.Metadata{
+				CWD:      req.CWD,
+				ExitCode: 0,
+				JobID:    job.ID,
+			},
+		})
+	}
+
+	if job.PID > 0 {
+		process, err := os.FindProcess(job.PID)
+		if err == nil {
+			_ = process.Kill()
+		}
+	}
+
+	res := result.Result{
+		Status:       result.StatusCancelled,
+		Summary:      fmt.Sprintf("Async job %s cancelled", job.ID),
+		ChangedFiles: []string{},
+		Verification: []result.Verification{},
+		Metadata: result.Metadata{
+			CWD:      req.CWD,
+			ExitCode: 0,
+			JobID:    job.ID,
+		},
+	}
+	encoded, err := result.FormatJSON(res)
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(job.ResultPath, append(encoded, '\n'), 0o644); err != nil {
+		return err
+	}
+	job.Status = "cancelled"
+	job.PID = 0
+	if err := store.Save(job); err != nil {
+		return err
+	}
+	return writeResult(req, res)
+}
+
+func isTerminalJobStatus(status string) bool {
+	switch status {
+	case "complete", "failed", "cancelled":
+		return true
+	default:
+		return false
 	}
 }
 

@@ -166,6 +166,16 @@ func TestParseResult(t *testing.T) {
 	}
 }
 
+func TestParseCancel(t *testing.T) {
+	req, err := Parse([]string{"--cancel", "job-1"}, nil, fixedCWD)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if req.CancelJobID != "job-1" {
+		t.Fatalf("CancelJobID = %q", req.CancelJobID)
+	}
+}
+
 func TestParseRequiresTaskText(t *testing.T) {
 	_, err := Parse(nil, nil, fixedCWD)
 	if err == nil {
