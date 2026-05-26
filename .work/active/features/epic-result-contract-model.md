@@ -1,7 +1,7 @@
 ---
 id: epic-result-contract-model
 kind: feature
-stage: review
+stage: done
 tags: [infra, docs]
 parent: epic-result-contract
 depends_on: []
@@ -88,5 +88,9 @@ The schema should be stable enough for Claude but conservative enough to evolve.
 
 - Added `internal/result` with statuses, result, verification, and metadata types.
 - Added JSON field-name coverage for the core schema.
+
+## Review
+
+Approved. The result schema is centralized, conservative, and aligned with the contract fields Claude needs. This unblocks JSON/text rendering.
 
 <!-- The design pass on this feature (`/agile-workflow:feature-design`, refactor-design, or perf-design) will fill in interfaces, signatures, and implementation units. -->
