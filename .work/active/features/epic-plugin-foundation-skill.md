@@ -1,7 +1,7 @@
 ---
 id: epic-plugin-foundation-skill
 kind: feature
-stage: implementing
+stage: review
 tags: [infra, docs]
 parent: epic-plugin-foundation
 depends_on: [epic-plugin-foundation-entrypoint]
@@ -81,5 +81,11 @@ Read the skill file and verify it names the right skill, command, default behavi
 ## Risks
 
 If the skill becomes too explicit, it recreates the control-panel feel the project avoids. Keep the default path short and delegation-oriented.
+
+## Implementation Notes
+
+- Created `skills/codex-implement/SKILL.md`.
+- The skill delegates arbitrary `$ARGUMENTS` to `codex-implement`.
+- The skill treats JSON as the default result and documents explicit escape hatches for `--full-access`, `--worktree`, `--async`, and `--prompt-file`.
 
 <!-- The design pass on this feature (`/agile-workflow:feature-design`, refactor-design, or perf-design) will fill in interfaces, signatures, and implementation units. -->
