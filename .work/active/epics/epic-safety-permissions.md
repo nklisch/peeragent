@@ -1,7 +1,7 @@
 ---
 id: epic-safety-permissions
 kind: epic
-stage: implementing
+stage: done
 tags: [security, infra]
 parent: null
 depends_on: [epic-wrapper-cli]
@@ -46,5 +46,9 @@ Split by safety capability. Default classifier-compatible invocation is the foun
 ### Decomposition risks
 
 The main risk is making "same checkout" and "full access" blur together. The implementation should keep the default same-worktree behavior while preserving Codex approval boundaries unless the caller explicitly chooses full access.
+
+## Review
+
+Approved. Default Codex execution now uses explicit classifier-compatible flags; full-access is an explicit bypass mode; worktree is recognized and fails clearly until implemented; and output reports access/profile metadata.
 
 <!-- The design pass on each child feature will fill in real specifics. -->
