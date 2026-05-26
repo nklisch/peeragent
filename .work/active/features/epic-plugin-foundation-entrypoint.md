@@ -1,7 +1,7 @@
 ---
 id: epic-plugin-foundation-entrypoint
 kind: feature
-stage: review
+stage: done
 tags: [infra]
 parent: epic-plugin-foundation
 depends_on: [epic-plugin-foundation-go-skeleton]
@@ -96,5 +96,9 @@ The final packaged binary layout may differ by platform. Keeping the shim small 
 - The shim locates the plugin root from its own path.
 - The shim prefers `dist/codex-implement` and falls back to `go run ./cmd/codex-implement`.
 - Verified direct and argument-bearing invocations.
+
+## Review
+
+Approved. The shim is small, executable, preserves arguments/stdin by using `exec`, and gives the project a working development path before packaged binaries exist. This unblocks the Claude-facing skill instructions.
 
 <!-- The design pass on this feature (`/agile-workflow:feature-design`, refactor-design, or perf-design) will fill in interfaces, signatures, and implementation units. -->
