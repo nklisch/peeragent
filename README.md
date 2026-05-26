@@ -74,6 +74,59 @@ Use gemini-implement to inspect the CLI docs and patch stale usage text.
 Codex remains responsible for the final response. The delegated agent is only
 the implementation worker.
 
+## Agent Equivalence And Harness Overrides
+
+Alt Subagent does not automatically replace a host assistant's normal sub-agent
+pattern. If you want that behavior, add a project instruction to `CLAUDE.md` or
+`AGENTS.md` telling the host when to delegate through these skills.
+
+Use this rough equivalence when choosing a target:
+
+| Desired implementation pass | Codex target | Claude target | Gemini target |
+| --- | --- | --- | --- |
+| Normal implementation sub-agent | `--agent codex --effort medium` | `--agent claude --effort medium` | `--agent gemini` |
+| Higher-thinking implementation pass | `--agent codex --effort high` | `--agent claude --effort high` | `--agent gemini` |
+
+Gemini through Antigravity is treated as fixed Gemini 3.5 for this wrapper. It
+has no `--effort` mapping here, so use it when you specifically want a Gemini
+implementation pass rather than a tunable thinking level.
+
+Claude Code project snippet:
+
+```markdown
+## Alt Subagent Delegation
+
+When you would normally use an implementation sub-agent, prefer Alt Subagent for
+concrete code changes, bug fixes, refactors, tests, docs updates, and build
+fixes in this repository.
+
+- Use `/codex-implement` for a Codex implementation pass.
+- Use `/gemini-implement` for a Gemini 3.5 implementation pass through
+  Antigravity.
+- Use the default medium effort for routine work.
+- Ask the wrapper for `--effort high` when the task would normally need a deeper
+  implementation pass.
+- Do not use Alt Subagent for planning-only, research-only, or review-only work.
+```
+
+Codex project snippet:
+
+```markdown
+## Alt Subagent Delegation
+
+When you would normally use an implementation sub-agent, prefer Alt Subagent for
+concrete code changes, bug fixes, refactors, tests, docs updates, and build
+fixes in this repository.
+
+- Use `claude-implement` for a Claude Code implementation pass.
+- Use `gemini-implement` for a Gemini 3.5 implementation pass through
+  Antigravity.
+- Use the default medium effort for routine work.
+- Ask the wrapper for `--effort high` when the task would normally need a deeper
+  implementation pass.
+- Do not use Alt Subagent for planning-only, research-only, or review-only work.
+```
+
 ## Direct CLI Usage
 
 Clone and build for local development:
