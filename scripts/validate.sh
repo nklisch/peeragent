@@ -13,16 +13,23 @@ go test ./...
 
 step "build"
 scripts/build.sh
-test -x dist/codex-implement
-test -x bin/codex-implement
+test -x dist/alt-subagent
+test -x bin/alt-subagent
 
 step "plugin metadata"
-grep -q '"name": "codex-implement"' .claude-plugin/plugin.json
+grep -q '"name": "alt-subagent"' .claude-plugin/plugin.json
+grep -q '"name": "alt-subagent"' .codex-plugin/plugin.json
+grep -q '"skills": "./skills/"' .codex-plugin/plugin.json
+grep -q '"defaultPrompt"' .codex-plugin/plugin.json
 grep -q 'name: codex-implement' skills/codex-implement/SKILL.md
 grep -q 'allowed-tools: Bash' skills/codex-implement/SKILL.md
+grep -q 'name: gemini-implement' skills/gemini-implement/SKILL.md
+grep -q 'name: claude-implement' skills/claude-implement/SKILL.md
 
 step "documentation examples"
 grep -q 'make build' README.md
+grep -q -- '--agent gemini' README.md
+grep -q -- '--agent claude' README.md
 grep -q -- '--effort high' README.md
 grep -q -- '--async' README.md
 grep -q -- '--status <job-id>' README.md
@@ -47,7 +54,7 @@ fi
 
 step "shim smoke"
 set +e
-status_output=$(bin/codex-implement --status missing-job 2>&1)
+status_output=$(bin/alt-subagent --status missing-job 2>&1)
 status_code=$?
 set -e
 

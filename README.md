@@ -1,154 +1,205 @@
-# Codex Implement
+# Alt Subagent
 
-Codex Implement is a Claude Code plugin that lets Claude delegate implementation work to OpenAI Codex CLI through a small local wrapper.
+Alt Subagent lets one local coding assistant hand an implementation task to
+another local coding assistant without leaving the current repository.
 
-Claude stays responsible for the conversation. Codex gets an implementation task, works in the same repository by default, and returns a compact JSON result that Claude can read.
+Use it when you are working in Claude Code or Codex and want a second agent to
+take an implementation pass. The host assistant keeps the conversation with you;
+the target agent edits the repo, runs whatever verification it can, and returns a
+small JSON result for the host to summarize.
 
-## Prerequisites
+## What It Can Call
 
-- Claude Code with plugin and skill support.
-- Codex CLI installed and authenticated locally.
-- Go installed for local builds.
-- A repository open in Claude Code.
+Alt Subagent wraps local CLIs you already have installed:
 
-The plugin uses your local Codex CLI and authentication. It does not bundle Codex or manage a separate account.
+- `codex`: OpenAI Codex CLI through `codex exec`
+- `gemini`: Gemini through Google Antigravity CLI, `agy --print`
+- `claude`: Claude Code CLI through `claude --print`
 
-## Build
+It does not include accounts, API keys, or the target agents themselves. Install
+and sign in to the CLIs you want to use before delegating work.
 
-Build the wrapper binary:
+## Quick Start
+
+Clone and build the wrapper:
 
 ```sh
+git clone https://github.com/nklisch/alt-subagent.git
+cd alt-subagent
 make build
 ```
 
-This writes:
+That creates `dist/alt-subagent`. The checked-in shim at `bin/alt-subagent`
+uses the compiled binary when it exists and falls back to `go run` during local
+development.
+
+Try a direct call:
+
+```sh
+bin/alt-subagent --agent gemini --text "Inspect the repo and suggest a small cleanup."
+```
+
+Use JSON output, the default, when another assistant is reading the result:
+
+```sh
+bin/alt-subagent --agent claude "Implement the requested README update and run tests."
+```
+
+## Using It From Claude Code
+
+The Claude Code plugin exposes these skills:
+
+- `/codex-implement`: delegate implementation work to Codex
+- `/gemini-implement`: delegate implementation work to Gemini through Antigravity
+
+Example prompts:
 
 ```text
-dist/codex-implement
+/codex-implement Fix the failing parser test and run the relevant test package.
+/gemini-implement Refactor the result formatter and update its tests.
 ```
 
-The executable shim at `bin/codex-implement` prefers that compiled binary. If the binary is missing, the shim falls back to `go run` for development.
+Claude Code remains responsible for reading the wrapper result and explaining
+the outcome to you.
 
-You can also run the build script directly:
+## Using It From Codex
 
-```sh
-scripts/build.sh
-```
+The Codex plugin exposes these skills:
 
-Run tests with:
+- `claude-implement`: delegate implementation work to Claude Code
+- `gemini-implement`: delegate implementation work to Gemini through Antigravity
 
-```sh
-make test
-```
-
-## Validation
-
-Run the local release-readiness check with:
-
-```sh
-make validate
-```
-
-Validation runs the Go test suite, builds the compiled wrapper, checks plugin metadata and documented command examples, and smokes the executable shim without requiring a live Codex implementation pass.
-
-## Plugin Layout
-
-The distributable plugin files are:
+Example requests:
 
 ```text
-.claude-plugin/plugin.json
-skills/codex-implement/SKILL.md
-bin/codex-implement
-dist/codex-implement
+Use claude-implement to add the missing validation test.
+Use gemini-implement to inspect the CLI docs and patch stale usage text.
 ```
 
-Use Claude Code's local plugin installation flow for this plugin directory. After installation, Claude should see the `codex-implement` skill.
+Codex remains responsible for the final response. The delegated agent is only
+the implementation worker.
 
-## Usage
+## Direct CLI Usage
 
 Blocking mode is the default:
 
 ```sh
-bin/codex-implement "Implement the requested change and run relevant tests."
+bin/alt-subagent --agent codex "Implement the requested change and run relevant tests."
+bin/alt-subagent --agent gemini "Implement the requested change and run relevant tests."
+bin/alt-subagent --agent claude "Implement the requested change and run relevant tests."
 ```
 
-The wrapper emits JSON by default. Use text output for manual terminal use:
+Read task text from a file:
 
 ```sh
-bin/codex-implement --text "Fix the failing parser test."
+bin/alt-subagent --agent codex --prompt-file task.md
 ```
 
-For larger prompts:
+Run against another checkout:
 
 ```sh
-bin/codex-implement --prompt-file task.md
+bin/alt-subagent --cwd /path/to/repo --agent claude "Update the CLI help text."
 ```
 
-Run from another directory:
+Ask for human-readable output:
 
 ```sh
-bin/codex-implement --cwd /path/to/repo "Update the CLI help text."
+bin/alt-subagent --text --agent gemini "Fix the failing parser test."
 ```
 
-## Reasoning Effort
+## Effort, Profiles, And Access
 
-The wrapper exposes two effort levels:
+Codex and Claude support `--effort`:
 
 ```sh
-bin/codex-implement --effort medium "Implement the small change."
-bin/codex-implement --effort high "Implement the cross-module migration."
+bin/alt-subagent --agent codex --effort medium "Implement the small change."
+bin/alt-subagent --agent codex --effort high "Implement the cross-module migration."
+bin/alt-subagent --agent claude --effort high "Untangle the failing integration test."
 ```
 
-`medium` is the default and is the standard setting for implementation work. Use `high` for harder or more complex tasks. Lower and extra-high effort modes are intentionally not exposed.
+Codex also supports profiles:
+
+```sh
+bin/alt-subagent --agent codex --profile alt-subagent "Use this Codex profile."
+```
+
+Default execution stays inside the current checkout using the safest bounded
+mode each target CLI exposes:
+
+```text
+codex exec --cd <repo> --sandbox workspace-write --ask-for-approval on-request ...
+agy --print --sandbox --add-dir <repo> ...
+claude --print --permission-mode auto --add-dir <repo> ...
+```
+
+Use full access only for a trusted repo and an explicit reason:
+
+```sh
+bin/alt-subagent --agent claude --full-access "Run the trusted local migration."
+```
+
+`--worktree` is reserved for future isolated worktree execution. Today it
+returns a clear JSON failure instead of silently changing how work is done.
 
 ## Async Jobs
 
-Async mode starts a tracked local job and returns a job id:
+For longer work, start a background job:
 
 ```sh
-bin/codex-implement --async "Refactor the result formatter and run tests."
+bin/alt-subagent --agent gemini --async "Refactor the result formatter and run tests."
 ```
 
 Check status:
 
 ```sh
-bin/codex-implement --status <job-id>
+bin/alt-subagent --status <job-id>
 ```
 
-Fetch the final result:
+Fetch the result:
 
 ```sh
-bin/codex-implement --result <job-id>
+bin/alt-subagent --result <job-id>
 ```
 
-Cancel a running job:
+Cancel the job:
 
 ```sh
-bin/codex-implement --cancel <job-id>
+bin/alt-subagent --cancel <job-id>
 ```
 
-Async state is stored under `.codex-implement/jobs/` in the target repository. That directory is local runtime state and is ignored by git.
+Async state lives under `.alt-subagent/jobs/` in the target repository. It is
+local runtime state and ignored by git.
 
-## Safety And Access
+## Development
 
-By default, Codex runs in the current checkout with classifier-compatible approval review:
-
-```text
-codex exec --cd <repo> --sandbox workspace-write --ask-for-approval on-request ...
-```
-
-Use full access only when the user explicitly wants Codex to bypass normal approval and sandbox boundaries:
+Run the test suite:
 
 ```sh
-bin/codex-implement --full-access "Run the trusted local migration."
+make test
 ```
 
-`--worktree` is recognized but not implemented yet. It returns a JSON failure instead of silently changing the execution model.
+Run the full validation script:
+
+```sh
+scripts/validate.sh
+```
+
+The validation script builds the binary, checks plugin metadata, verifies README
+examples, and runs a small shim smoke test.
 
 ## Troubleshooting
 
-If Codex CLI is missing or unauthenticated, install or authenticate Codex CLI first, then retry the wrapper.
+If delegation fails immediately, confirm the target CLI is installed and signed
+in:
 
-If an async lookup fails, the wrapper returns JSON with `exit_code: 4` and the requested `job_id`. Confirm the job id came from the same repository and that `.codex-implement/jobs/<job-id>/job.json` still exists.
+```sh
+codex --version
+agy --version
+claude --version
+```
 
-If the shim falls back to `go run` and you expected a compiled binary, run `make build` and confirm `dist/codex-implement` is executable.
+If an async lookup fails, make sure the job id came from the same repository and
+that `.alt-subagent/jobs/<job-id>/job.json` still exists.
+
+If `bin/alt-subagent` falls back to `go run` and you expected a compiled binary,
+run `make build` and confirm `dist/alt-subagent` is executable.

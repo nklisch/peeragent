@@ -3,8 +3,16 @@ package prompt
 import "strings"
 
 func Build(taskText string) string {
+	return BuildForAgent("Codex", taskText)
+}
+
+func BuildForAgent(agentName string, taskText string) string {
 	taskText = strings.TrimSpace(taskText)
-	return strings.TrimSpace(`You are Codex running as an autonomous implementation agent for Claude Code.
+	agentName = strings.TrimSpace(agentName)
+	if agentName == "" {
+		agentName = "the selected agent"
+	}
+	return strings.TrimSpace(`You are ` + agentName + ` running as an autonomous implementation agent for another coding assistant.
 
 Work in the current repository. Make the requested code changes directly. Follow project instructions and existing code patterns. Run relevant verification commands when practical. Keep the final response concise and include changed files, verification status, and any blockers.
 

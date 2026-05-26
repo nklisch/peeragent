@@ -1,7 +1,7 @@
 {
-  "name": "codex-implement",
+  "name": "alt-subagent",
   "version": "0.1.0",
-  "description": "Delegate Claude Code implementation tasks to OpenAI Codex CLI",
+  "description": "Delegate implementation tasks from Claude Code to alternate local coding agents",
   "author": {
     "name": "nklisch"
   },

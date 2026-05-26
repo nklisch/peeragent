@@ -1,54 +1,81 @@
 # Vision
 
-## Purpose
+Alt Subagent gives coding assistants a low-friction way to delegate
+implementation work to another local agent without leaving the current
+repository workflow.
 
-Codex Implement gives Claude Code a low-friction way to delegate implementation work to OpenAI Codex without leaving the current repository workflow.
+The host assistant remains the primary collaborator in the session. When an
+implementation task benefits from a different autonomous coding agent, the host
+invokes an Alt Subagent skill, passes arbitrary task text, waits by default, and
+resumes with a compact result. The target agent works in the same checkout and
+may edit files directly according to its local permission model.
 
-Claude remains the primary collaborator in the session. When an implementation task benefits from an independent autonomous coding agent, Claude calls the `codex-implement` skill, passes arbitrary task text, waits for Codex by default, and resumes with a compact result. Codex works in the same checkout Claude is already using and may edit files directly.
+## Primary Users
 
-## Users
+The primary user is a developer who works in Claude Code or Codex and also has
+one or more alternate local agent CLIs installed:
 
-The primary user is a developer working in Claude Code who also has Codex CLI installed and authenticated locally. The user wants Claude to stay in control of the conversation while Codex performs focused implementation passes in the background of the same development environment.
+- OpenAI Codex CLI
+- Google Antigravity CLI (`agy`) for Gemini-backed agents
+- Claude Code CLI
 
-Claude is also a user of this project. The skill gives Claude a clear delegation contract: when to call Codex, what to send, how to interpret results, and how to continue after Codex returns.
+Claude and Codex are also users of this project. Skills give each host a clear
+delegation contract: when to call another agent, what to send, how to interpret
+results, and how to continue after the target agent returns.
 
 ## Problem
 
-Claude Code and Codex each have different strengths. Switching between them manually interrupts flow, loses context, and forces the human to act as the integration layer. Existing bridge patterns often expose too many explicit commands, job-management surfaces, or separate review flows. That makes delegation feel like operating another tool rather than asking another implementor to take a pass.
+Different coding agents have different strengths. Switching between them
+manually interrupts flow, loses context, and forces the human to act as the
+integration layer. Existing bridge patterns often expose too many explicit
+commands, job-management surfaces, or separate review flows. That makes
+delegation feel like operating another tool rather than asking another
+implementor to take a pass.
 
-Codex Implement solves the narrow problem of implementation delegation. It avoids becoming a general Codex control panel.
+Alt Subagent solves the narrow problem of implementation delegation. It avoids
+becoming a general multi-agent control panel.
 
-## Product Definition
+## Product Shape
 
-Codex Implement is a Claude Code plugin containing a `codex-implement` skill and a bundled `codex-implement` CLI wrapper. Claude invokes the skill with arbitrary implementation text. The skill runs the wrapper. The wrapper invokes Codex CLI with predictable defaults, captures the outcome, and returns a concise result to Claude.
+Alt Subagent is a plugin-ready repository containing:
 
-The default execution mode is:
+- A bundled `alt-subagent` CLI wrapper.
+- Claude-facing skills for delegating to Codex and Gemini.
+- Codex-facing skills for delegating to Claude and Gemini.
+- A shared JSON result contract for host agents.
 
-- Same repository checkout.
-- Same working tree.
-- Blocking call.
-- Codex may edit files directly.
-- No worktree or isolation unless explicitly requested.
-- Classifier-compatible Codex permissions by default.
-- Explicit full-access mode for trusted environments.
-- Optional async mode for long-running tasks.
+The wrapper invokes the selected local CLI with predictable defaults, captures
+the outcome, and returns a concise result to the host.
 
-## What Good Looks Like
+## Principles
 
-Delegation feels natural when Claude can say what needs implementing, wait for Codex to work, and then continue from a clear result. The user should not need to manually copy prompts into another terminal, monitor two agents, or reconcile ambiguous outputs.
+- Same checkout by default.
+- Explicit target agent selection.
+- Direct implementation, not patch-only output.
+- Safe defaults before full access.
+- Blocking first, async as an explicit mode.
+- Compact machine-readable results.
+- Host assistant remains responsible for user communication.
 
-The first useful version is successful when:
+## Success
 
-- Claude can invoke `codex-implement` with arbitrary text.
-- Codex runs in the current repository by default.
-- Codex can make direct edits and run relevant verification commands.
-- Classifier-backed safety is preserved by default instead of being bypassed accidentally.
-- Claude receives a compact result containing status, summary, changed files, verification, and failure details when applicable.
-- Async operation is available without becoming the default mental model.
+Delegation feels natural when the host can say what needs implementing, wait for
+another local agent to work, and then continue from a clear result. The user
+should not need to manually copy prompts into another terminal, monitor two
+agents, or reconcile ambiguous outputs.
+
+Concrete success criteria:
+
+- Claude can invoke `codex-implement` or `gemini-implement` skills.
+- Codex can invoke `claude-implement` or `gemini-implement` skills.
+- The wrapper can target `codex`, `gemini`, or `claude`.
+- Target agents run in the current repository by default.
+- Target agents can make direct edits and run relevant verification commands.
+- Results include status, summary, verification, changed files when known,
+  details, and metadata.
 
 ## Non-Goals
 
-Codex Implement is not a Codex dashboard, a general multi-agent orchestrator, a mandatory worktree manager, or a patch-only generator. It does not replace Claude Code subagents, Claude Code hooks, or Codex's native interfaces.
-
-The project does not hide risk by silently granting full access. Full access is an explicit caller decision.
-
+Alt Subagent is not a dashboard, a general multi-agent orchestrator, a mandatory
+worktree manager, or a patch-only generator. It does not replace native
+interfaces, host-agent permissions, or human review for high-risk changes.

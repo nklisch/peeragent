@@ -12,7 +12,7 @@ func FormatJSON(res Result) ([]byte, error) {
 
 func FormatText(res Result) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "Codex Implement: %s\n\n", res.Status)
+	fmt.Fprintf(&b, "Alt Subagent: %s\n\n", res.Status)
 	fmt.Fprintf(&b, "Summary:\n%s\n\n", res.Summary)
 
 	if len(res.ChangedFiles) > 0 {
@@ -38,6 +38,9 @@ func FormatText(res Result) string {
 	b.WriteString("Metadata:\n")
 	if res.Metadata.CWD != "" {
 		fmt.Fprintf(&b, "- cwd: %s\n", res.Metadata.CWD)
+	}
+	if res.Metadata.Agent != "" {
+		fmt.Fprintf(&b, "- agent: %s\n", res.Metadata.Agent)
 	}
 	if res.Metadata.Access != "" {
 		fmt.Fprintf(&b, "- access: %s\n", res.Metadata.Access)

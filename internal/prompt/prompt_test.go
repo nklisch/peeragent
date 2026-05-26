@@ -12,6 +12,13 @@ func TestBuildIncludesTaskText(t *testing.T) {
 	}
 }
 
+func TestBuildForAgentIncludesAgentName(t *testing.T) {
+	got := BuildForAgent("Gemini through Antigravity CLI", "task")
+	if !strings.Contains(got, "Gemini through Antigravity CLI") {
+		t.Fatalf("prompt does not include agent name: %q", got)
+	}
+}
+
 func TestBuildIncludesOperatingInstructions(t *testing.T) {
 	got := Build("task")
 	for _, want := range []string{

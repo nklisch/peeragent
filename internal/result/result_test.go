@@ -14,8 +14,9 @@ func TestResultJSONFields(t *testing.T) {
 		Verification: []Verification{{Command: "go test ./...", Status: "passed"}},
 		Metadata: Metadata{
 			CWD:      "/repo",
+			Agent:    "codex",
 			Access:   "default",
-			Profile:  "codex-subagent",
+			Profile:  "alt-subagent",
 			Effort:   "medium",
 			ExitCode: 0,
 		},
@@ -32,6 +33,7 @@ func TestResultJSONFields(t *testing.T) {
 		`"changed_files"`,
 		`"verification"`,
 		`"metadata"`,
+		`"agent"`,
 		`"exit_code"`,
 		`"effort"`,
 	} {

@@ -12,6 +12,7 @@ type Request struct {
 	TaskText    string
 	CWD         string
 	JSON        bool
+	Agent       string
 	FullAccess  bool
 	Worktree    bool
 	Profile     string
@@ -76,6 +77,7 @@ func Parse(args []string, stdin io.Reader, getwd func() (string, error)) (Reques
 		TaskText:    taskText,
 		CWD:         cwd,
 		JSON:        parsed.json,
+		Agent:       parsed.agent,
 		FullAccess:  parsed.fullAccess,
 		Worktree:    parsed.worktree,
 		Profile:     parsed.profile,
@@ -92,6 +94,7 @@ type parsedArgs struct {
 	cwd         string
 	promptFile  string
 	json        bool
+	agent       string
 	fullAccess  bool
 	worktree    bool
 	profile     string
@@ -105,7 +108,7 @@ type parsedArgs struct {
 }
 
 func parseArgs(args []string) (parsedArgs, error) {
-	parsed := parsedArgs{json: true, effort: "medium"}
+	parsed := parsedArgs{json: true, agent: "codex", effort: "medium"}
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		switch arg {
@@ -125,6 +128,16 @@ func parseArgs(args []string) (parsedArgs, error) {
 			parsed.json = true
 		case "--text":
 			parsed.json = false
+		case "--agent":
+			i++
+			if i >= len(args) {
+				return parsedArgs{}, errors.New("--agent requires a value")
+			}
+			agent, err := normalizeAgent(args[i])
+			if err != nil {
+				return parsedArgs{}, err
+			}
+			parsed.agent = agent
 		case "--full-access":
 			parsed.fullAccess = true
 		case "--worktree":
@@ -177,4 +190,17 @@ func parseArgs(args []string) (parsedArgs, error) {
 		}
 	}
 	return parsed, nil
+}
+
+func normalizeAgent(agent string) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(agent)) {
+	case "", "codex":
+		return "codex", nil
+	case "gemini", "agy", "antigravity":
+		return "gemini", nil
+	case "claude":
+		return "claude", nil
+	default:
+		return "", errors.New("--agent must be codex, gemini, or claude")
+	}
 }

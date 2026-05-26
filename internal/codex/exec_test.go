@@ -7,6 +7,7 @@ import (
 )
 
 func TestExecWithRunnerBuildsArgv(t *testing.T) {
+	stubLookPath(t)
 	run := &recordingRunner{result: Result{ExitCode: 0, Stdout: "ok"}}
 
 	result, err := ExecWithRunner(context.Background(), run, Options{CWD: "/repo", Prompt: "do work"})
@@ -37,6 +38,7 @@ func TestExecWithRunnerBuildsArgv(t *testing.T) {
 }
 
 func TestExecWithRunnerBuildsFullAccessArgv(t *testing.T) {
+	stubLookPath(t)
 	run := &recordingRunner{result: Result{ExitCode: 0}}
 
 	_, err := ExecWithRunner(context.Background(), run, Options{CWD: "/repo", Prompt: "do work", FullAccess: true})
@@ -57,9 +59,10 @@ func TestExecWithRunnerBuildsFullAccessArgv(t *testing.T) {
 }
 
 func TestExecWithRunnerBuildsProfileArgv(t *testing.T) {
+	stubLookPath(t)
 	run := &recordingRunner{result: Result{ExitCode: 0}}
 
-	_, err := ExecWithRunner(context.Background(), run, Options{CWD: "/repo", Prompt: "do work", Profile: "codex-subagent"})
+	_, err := ExecWithRunner(context.Background(), run, Options{CWD: "/repo", Prompt: "do work", Profile: "alt-subagent"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +73,7 @@ func TestExecWithRunnerBuildsProfileArgv(t *testing.T) {
 		"--sandbox", "workspace-write",
 		"--ask-for-approval", "on-request",
 		"-c", "approvals_reviewer=auto_review",
-		"--profile", "codex-subagent",
+		"--profile", "alt-subagent",
 		"-c", `model_reasoning_effort="medium"`,
 		"do work",
 	}
@@ -80,6 +83,7 @@ func TestExecWithRunnerBuildsProfileArgv(t *testing.T) {
 }
 
 func TestExecWithRunnerBuildsHighEffortArgv(t *testing.T) {
+	stubLookPath(t)
 	run := &recordingRunner{result: Result{ExitCode: 0}}
 
 	_, err := ExecWithRunner(context.Background(), run, Options{CWD: "/repo", Prompt: "do work", Effort: "high"})
@@ -106,6 +110,17 @@ type recordingRunner struct {
 	args   []string
 	cwd    string
 	result Result
+}
+
+func stubLookPath(t *testing.T) {
+	t.Helper()
+	previous := lookPath
+	lookPath = func(name string) (string, error) {
+		return "/test/bin/" + name, nil
+	}
+	t.Cleanup(func() {
+		lookPath = previous
+	})
 }
 
 func (r *recordingRunner) Run(_ context.Context, name string, args []string, cwd string) (Result, error) {

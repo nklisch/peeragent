@@ -7,11 +7,14 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/nklisch/codex-implement/internal/codex"
-	"github.com/nklisch/codex-implement/internal/input"
-	"github.com/nklisch/codex-implement/internal/jobs"
-	"github.com/nklisch/codex-implement/internal/prompt"
-	"github.com/nklisch/codex-implement/internal/result"
+	"github.com/nklisch/alt-subagent/internal/claude"
+	"github.com/nklisch/alt-subagent/internal/codex"
+	"github.com/nklisch/alt-subagent/internal/executil"
+	"github.com/nklisch/alt-subagent/internal/gemini"
+	"github.com/nklisch/alt-subagent/internal/input"
+	"github.com/nklisch/alt-subagent/internal/jobs"
+	"github.com/nklisch/alt-subagent/internal/prompt"
+	"github.com/nklisch/alt-subagent/internal/result"
 )
 
 func main() {
@@ -57,6 +60,7 @@ func run(args []string) error {
 			Verification: []result.Verification{},
 			Metadata: result.Metadata{
 				CWD:      req.CWD,
+				Agent:    agentID(req),
 				Access:   accessMode(req),
 				Profile:  req.Profile,
 				Effort:   req.Effort,
@@ -68,15 +72,7 @@ func run(args []string) error {
 		os.Exit(1)
 	}
 
-	codexPrompt := prompt.Build(req.TaskText)
-	execResult, execErr := codex.Exec(context.Background(), codex.Options{
-		CWD:        req.CWD,
-		Prompt:     codexPrompt,
-		FullAccess: req.FullAccess,
-		Profile:    req.Profile,
-		Effort:     req.Effort,
-	})
-
+	execResult, execErr := executeRequest(context.Background(), req)
 	res := resultFromExecution(req, execResult, execErr)
 	if err := writeResult(req, res); err != nil {
 		return err
@@ -125,11 +121,12 @@ func launchAsync(args []string, req input.Request) error {
 
 	return writeResult(req, result.Result{
 		Status:       result.StatusRunning,
-		Summary:      "Codex implementation job started",
+		Summary:      fmt.Sprintf("%s implementation job started", agentDisplayName(req)),
 		ChangedFiles: []string{},
 		Verification: []result.Verification{},
 		Metadata: result.Metadata{
 			CWD:      req.CWD,
+			Agent:    agentID(req),
 			Access:   accessMode(req),
 			Profile:  req.Profile,
 			Effort:   req.Effort,
@@ -314,6 +311,7 @@ func runAsyncJob(req input.Request) error {
 			Verification: []result.Verification{},
 			Metadata: result.Metadata{
 				CWD:      req.CWD,
+				Agent:    agentID(req),
 				Access:   accessMode(req),
 				Profile:  req.Profile,
 				Effort:   req.Effort,
@@ -324,14 +322,7 @@ func runAsyncJob(req input.Request) error {
 		return finishAsyncJob(store, job, res)
 	}
 
-	codexPrompt := prompt.Build(req.TaskText)
-	execResult, execErr := codex.Exec(context.Background(), codex.Options{
-		CWD:        req.CWD,
-		Prompt:     codexPrompt,
-		FullAccess: req.FullAccess,
-		Profile:    req.Profile,
-		Effort:     req.Effort,
-	})
+	execResult, execErr := executeRequest(context.Background(), req)
 	res := resultFromExecution(req, execResult, execErr)
 	res.Metadata.JobID = job.ID
 	return finishAsyncJob(store, job, res)
@@ -402,15 +393,42 @@ func details(stdout string, stderr string) string {
 	}
 }
 
-func resultFromExecution(req input.Request, execResult codex.Result, execErr error) result.Result {
+func executeRequest(ctx context.Context, req input.Request) (executil.Result, error) {
+	agentPrompt := prompt.BuildForAgent(agentPromptName(req), req.TaskText)
+	switch agentID(req) {
+	case "gemini":
+		return gemini.Exec(ctx, gemini.Options{
+			CWD:        req.CWD,
+			Prompt:     agentPrompt,
+			FullAccess: req.FullAccess,
+		})
+	case "claude":
+		return claude.Exec(ctx, claude.Options{
+			CWD:        req.CWD,
+			Prompt:     agentPrompt,
+			FullAccess: req.FullAccess,
+			Effort:     req.Effort,
+		})
+	default:
+		return codex.Exec(ctx, codex.Options{
+			CWD:        req.CWD,
+			Prompt:     agentPrompt,
+			FullAccess: req.FullAccess,
+			Profile:    req.Profile,
+			Effort:     req.Effort,
+		})
+	}
+}
+
+func resultFromExecution(req input.Request, execResult executil.Result, execErr error) result.Result {
 	status := result.StatusSuccess
-	summary := "Codex implementation completed"
+	summary := fmt.Sprintf("%s implementation completed", agentDisplayName(req))
 	if execErr != nil {
 		status = result.StatusFailed
 		summary = execErr.Error()
 	} else if execResult.ExitCode != 0 {
 		status = result.StatusFailed
-		summary = "Codex exited with non-zero status"
+		summary = fmt.Sprintf("%s exited with non-zero status", agentDisplayName(req))
 	}
 
 	return result.Result{
@@ -421,10 +439,40 @@ func resultFromExecution(req input.Request, execResult codex.Result, execErr err
 		Details:      details(execResult.Stdout, execResult.Stderr),
 		Metadata: result.Metadata{
 			CWD:      req.CWD,
+			Agent:    agentID(req),
 			Access:   accessMode(req),
 			Profile:  req.Profile,
 			Effort:   req.Effort,
 			ExitCode: execResult.ExitCode,
 		},
+	}
+}
+
+func agentID(req input.Request) string {
+	if req.Agent == "" {
+		return "codex"
+	}
+	return req.Agent
+}
+
+func agentDisplayName(req input.Request) string {
+	switch agentID(req) {
+	case "gemini":
+		return "Gemini"
+	case "claude":
+		return "Claude"
+	default:
+		return "Codex"
+	}
+}
+
+func agentPromptName(req input.Request) string {
+	switch agentID(req) {
+	case "gemini":
+		return "Gemini through Antigravity CLI"
+	case "claude":
+		return "Claude Code"
+	default:
+		return "Codex"
 	}
 }

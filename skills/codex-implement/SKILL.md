@@ -2,7 +2,7 @@
 name: codex-implement
 description: >
   Delegate implementation work to OpenAI Codex CLI through the bundled
-  codex-implement wrapper. Use when Claude should hand arbitrary implementation
+  alt-subagent wrapper. Use when Claude should hand arbitrary implementation
   text to Codex as an autonomous implementor in the current repository.
 allowed-tools: Bash
 ---
@@ -17,7 +17,7 @@ Claude remains responsible for the user conversation.
 Pass the user's implementation request to the bundled wrapper:
 
 ```bash
-codex-implement "$ARGUMENTS"
+alt-subagent --agent codex "$ARGUMENTS"
 ```
 
 The wrapper runs in the current repository and returns JSON by default. Read

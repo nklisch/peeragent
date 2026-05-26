@@ -1,203 +1,155 @@
 # Contract
 
-## Skill Contract
+## Skill Interface
 
-The `codex-implement` skill accepts arbitrary task text from Claude or the user.
+Skills accept arbitrary task text from the host or user.
+
+Claude-facing skills:
 
 ```text
 /codex-implement <task text>
+/gemini-implement <task text>
 ```
 
-The skill calls the bundled CLI:
+Codex-facing skills:
 
 ```text
-codex-implement <task text>
+claude-implement
+gemini-implement
 ```
 
-The task text is treated as implementation intent, not as shell syntax. The wrapper is responsible for preserving the text safely when invoking Codex.
+The task text is treated as implementation intent, not as shell syntax. The
+wrapper is responsible for preserving the text safely when invoking the target
+agent.
 
-## CLI Synopsis
+## Wrapper Interface
 
 ```text
-codex-implement [options] <task text>
-codex-implement [options] --prompt-file <path>
-codex-implement --status <job-id>
-codex-implement --result <job-id>
-codex-implement --cancel <job-id>
+alt-subagent [options] <task text>
+alt-subagent [options] --prompt-file <path>
+alt-subagent --status <job-id>
+alt-subagent --result <job-id>
+alt-subagent --cancel <job-id>
 ```
 
-## Core Options
+Options:
 
-`--async`
+- `--agent <codex|gemini|claude>`: Select the target agent. Defaults to
+  `codex`.
+- `--async`: Start the target in the background and return a job id.
+- `--full-access`: Run the target with full local access.
+- `--worktree`: Reserved for future isolated worktree execution.
+- `--effort <medium|high>`: Set Codex or Claude reasoning effort.
+- `--profile <name>`: Pass a Codex configuration profile.
+- `--cwd <path>`: Set the repository root.
+- `--prompt-file <path>`: Read task text from a file.
+- `--json`: Emit JSON output. This is the default.
+- `--text`: Emit human-readable text output.
+- `--status <job-id>`: Inspect an async job.
+- `--result <job-id>`: Fetch an async job result.
+- `--cancel <job-id>`: Cancel an async job.
 
-Start Codex in the background and return a job id.
+## Result JSON
 
-`--full-access`
-
-Run Codex with full local access. This is explicit because it weakens or removes normal permission boundaries.
-
-`--worktree`
-
-Run Codex in an isolated worktree when supported. This is explicit and not the default.
-
-`--model <name>`
-
-Pass a Codex model override.
-
-`--effort <level>`
-
-Set the Codex reasoning effort. Supported values are `medium` and `high`.
-The default is `medium`, which is the standard setting for implementation work.
-Use `high` for harder or more complex tasks. Lower and extra-high effort modes
-are intentionally not exposed by the wrapper.
-
-`--profile <name>`
-
-Use a Codex configuration profile.
-
-`--cwd <path>`
-
-Set the working directory. Defaults to the current directory from Claude's Bash call.
-
-`--json`
-
-Emit machine-readable wrapper output.
-
-`--prompt-file <path>`
-
-Read task text from a file. This is useful for large prompts.
-
-## Working Directory
-
-The default working directory is the current directory of the Claude Code session. Codex operates in that same checkout. The wrapper does not create a worktree, clone, or sandbox copy unless explicitly requested.
-
-The wrapper passes the resolved directory to Codex with `--cd` or the equivalent app-server field.
-
-## Default Codex Invocation
-
-The default invocation is conceptually:
-
-```text
-codex exec --cd <cwd> <constructed prompt>
-```
-
-The wrapper layers in permission and output options according to local Codex capabilities and user flags.
-
-The default permission posture keeps Codex Auto-review useful when the local Codex configuration supports it. The wrapper does not default to unchecked full access.
-
-## Result Shape
-
-Human-readable output uses this structure:
-
-```text
-Codex Implement: <status>
-
-Summary:
-<short summary>
-
-Changed Files:
-- <path>
-
-Verification:
-- <command>: <passed|failed|not run>
-
-Details:
-<Codex final message or concise failure detail>
-
-Metadata:
-- cwd: <path>
-- mode: blocking|async
-- access: default|full-access|worktree
-- effort: medium|high
-- codex_session: <id if known>
-- job_id: <id if async>
-```
-
-JSON output uses equivalent fields:
+The default result is JSON:
 
 ```json
 {
   "status": "success",
-  "summary": "Implemented the requested change.",
+  "summary": "Codex implementation completed",
   "changed_files": [],
   "verification": [],
-  "details": "",
+  "details": "stdout:\n...",
   "metadata": {
-    "cwd": "",
-    "mode": "blocking",
+    "cwd": "/repo",
+    "agent": "codex",
     "access": "default",
+    "profile": "",
     "effort": "medium",
-    "codex_session": null,
-    "job_id": null
+    "exit_code": 0,
+    "job_id": ""
   }
 }
 ```
 
-Valid statuses are:
+`status` values:
 
-- `success`
-- `failed`
-- `blocked`
-- `cancelled`
-- `running`
+- `success`: Target completed successfully.
+- `failed`: Target or wrapper failed.
+- `blocked`: Reserved for explicit target-reported blockers.
+- `running`: Async job started or is still running.
+- `cancelled`: Async job was cancelled.
+
+## Text Result
+
+Text output starts with:
+
+```text
+Alt Subagent: <status>
+```
+
+It includes summary, changed files, verification, details, and metadata sections
+when available.
+
+## Working Directory
+
+The default working directory is the current directory of the host session. The
+target operates in that same checkout. The wrapper does not create a worktree,
+clone, or sandbox copy unless explicitly requested.
+
+## Target Invocation
+
+Default Codex:
+
+```text
+codex exec --cd <repo> --sandbox workspace-write --ask-for-approval on-request ...
+```
+
+Default Gemini:
+
+```text
+agy --print --sandbox --add-dir <repo> --print-timeout 15m ...
+```
+
+Default Claude:
+
+```text
+claude --print --output-format text --add-dir <repo> --permission-mode auto ...
+```
+
+Full access maps to each target's explicit bypass flag.
 
 ## Exit Codes
 
-`0`
+- `0`: Completed successfully. For async launch, this means the job started.
+- `1`: Target failed or exited non-zero.
+- `2`: Wrapper usage error or unsupported mode.
+- `4`: Async job lookup failed.
 
-The command completed successfully. For async launch, this means the job started successfully, not that Codex completed the implementation.
+## Async State
 
-`1`
+Async state is stored under:
 
-Codex ran but failed, or the wrapper encountered an expected operational failure.
+```text
+.alt-subagent/jobs/<job-id>/
+  job.json
+  agent.log
+  result.json
+```
 
-`2`
+`--cancel` attempts to stop the local child wrapper process and marks the job
+cancelled.
 
-Invalid arguments or invalid mode combination.
+## Guarantees
 
-`3`
+The wrapper:
 
-Codex CLI is missing, unauthenticated, or incompatible with the requested mode.
+- Preserves arbitrary task text as data.
+- Does not run full access unless explicitly requested.
+- Does not silently switch target agents.
+- Does not rerun a failed target automatically in a loop.
+- Reports the target exit status when available.
+- Reports stdout/stderr excerpts in `details`.
 
-`4`
-
-Async job lookup failed.
-
-## Failure Reporting
-
-On failure, the wrapper returns:
-
-- The failing phase.
-- The Codex exit status when available.
-- A concise stderr excerpt.
-- The log path when available.
-- A suggested next action for Claude.
-
-The wrapper does not hide partial edits. If Codex changed files before failing, the result says so when the information is available.
-
-## Async Job Contract
-
-Async jobs have:
-
-- A stable job id.
-- A status file.
-- A log file.
-- The original task text or a safe reference to it.
-- Start and completion timestamps.
-- Codex session metadata when available.
-
-`--status` reports whether the job is running, complete, failed, blocked, or cancelled.
-
-`--result` returns the final result in the same shape as blocking mode.
-
-`--cancel` attempts to stop the local Codex process and marks the job cancelled.
-
-## Claude Continuation Contract
-
-After the wrapper returns, Claude:
-
-- Reads the status first.
-- Uses changed files and verification information to decide the next step.
-- Does not claim success when the result is failed or blocked.
-- Does not rerun Codex automatically in a loop after repeated failures.
-- Asks the user before escalating to full access when the original call did not request it.
+The wrapper does not guarantee that target-agent output is complete,
+well-structured, or free of partial edits before failure.

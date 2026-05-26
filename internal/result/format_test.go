@@ -29,11 +29,12 @@ func TestFormatText(t *testing.T) {
 		Details:      "stderr",
 		Metadata: Metadata{
 			CWD:      "/repo",
+			Agent:    "codex",
 			Access:   "default",
 			ExitCode: 1,
 		},
 	})
-	for _, want := range []string{"Codex Implement: failed", "Changed Files:", "Verification:", "Details:", "Metadata:"} {
+	for _, want := range []string{"Alt Subagent: failed", "Changed Files:", "Verification:", "Details:", "Metadata:", "agent: codex"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("text missing %q: %s", want, text)
 		}

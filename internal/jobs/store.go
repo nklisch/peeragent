@@ -25,7 +25,7 @@ type Store struct {
 }
 
 func NewStore(cwd string) Store {
-	return Store{Root: filepath.Join(cwd, ".codex-implement", "jobs")}
+	return Store{Root: filepath.Join(cwd, ".alt-subagent", "jobs")}
 }
 
 func (s Store) Create(taskText string) (Job, error) {
@@ -41,7 +41,7 @@ func (s Store) Create(taskText string) (Job, error) {
 		TaskText:   taskText,
 		CreatedAt:  now,
 		UpdatedAt:  now,
-		LogPath:    filepath.Join(dir, "codex.log"),
+		LogPath:    filepath.Join(dir, "agent.log"),
 		ResultPath: filepath.Join(dir, "result.json"),
 	}
 	if err := os.MkdirAll(dir, 0o755); err != nil {

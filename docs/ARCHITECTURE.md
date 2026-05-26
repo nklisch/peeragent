@@ -2,127 +2,153 @@
 
 ## Overview
 
-Codex Implement is a Claude Code plugin that bridges Claude Code to Codex CLI through a small wrapper command.
+Alt Subagent is a plugin-packaged wrapper that lets one coding assistant invoke
+another local coding agent for implementation work.
 
 ```text
-Claude Code session
-  -> codex-implement skill
-    -> bin/codex-implement
-      -> scripts/codex-implement runtime
-        -> codex exec
+Host assistant session
+  -> host skill
+    -> bin/alt-subagent
+      -> dist/alt-subagent or go run cmd/alt-subagent
+        -> target CLI
           -> current repository working tree
 ```
 
-Claude decides when delegation is useful. The skill constrains Claude's behavior around delegation. The wrapper constrains process execution, prompt construction, result capture, logging, and return formatting. Codex performs the implementation work.
+Supported target CLIs:
+
+- `codex exec` for Codex.
+- `agy --print` for Gemini through Antigravity CLI.
+- `claude --print` for Claude Code.
+
+The host decides when delegation is useful. The skill constrains host behavior
+around delegation. The wrapper constrains process execution, prompt
+construction, result capture, logging, and return formatting. The target agent
+performs the implementation work.
 
 ## Plugin Layout
 
 ```text
 .claude-plugin/
   plugin.json
+.codex-plugin/
+  plugin.json
 skills/
   codex-implement/
     SKILL.md
+  claude-implement/
+    SKILL.md
+  gemini-implement/
+    SKILL.md
 bin/
-  codex-implement
+  alt-subagent
 cmd/
-  codex-implement/
+  alt-subagent/
 internal/
-  ...
+  claude/
+  codex/
+  executil/
+  gemini/
+  input/
+  jobs/
+  prompt/
+  result/
 docs/
-  VISION.md
-  SPEC.md
-  ARCHITECTURE.md
-  CONTRACT.md
 ```
 
-The exact script decomposition is internal to the wrapper. The plugin-level contract is the skill and the `codex-implement` executable.
+The plugin-level contract is the skill set and the `alt-subagent` executable.
 
 ## Skill Role
 
-`skills/codex-implement/SKILL.md` tells Claude:
+Each skill tells the host:
 
 - When implementation delegation is appropriate.
+- Which target agent it invokes.
 - How to pass arbitrary task text to the wrapper.
 - Which flags are available.
 - That blocking mode is the default.
-- That Codex output should be returned or summarized according to the wrapper result.
-- That Claude remains responsible for continuing the user conversation after Codex returns.
+- That the wrapper result must be read before responding.
+- That the host remains responsible for continuing the user conversation.
 
-The skill is deliberately thin. It does not ask Claude to manually inspect the repository before every delegation, re-plan Codex's work, or operate a command suite. Its job is to make delegation natural and reliable.
+The skills are deliberately thin. They do not ask the host to manually inspect
+the repository before every delegation, re-plan the target's work, or operate a
+large command suite.
 
 ## Wrapper Role
 
-`bin/codex-implement` is the executable entrypoint. It invokes the platform-compatible Go wrapper binary supplied by the plugin. The Go implementation lives under `cmd/codex-implement/` with shared packages under `internal/`.
+`bin/alt-subagent` is the executable entrypoint. It invokes the compiled Go
+wrapper from `dist/alt-subagent` when present and falls back to `go run` during
+development.
 
 The wrapper:
 
 - Parses flags and arbitrary task text.
 - Resolves the working directory.
-- Checks that Codex CLI is available.
-- Builds the Codex prompt.
-- Chooses the Codex permission mode.
-- Runs Codex.
+- Selects the target agent backend.
+- Checks that the target CLI is available.
+- Builds a target-specific prompt.
+- Chooses the target permission mode.
+- Runs the target CLI.
 - Captures final output and useful diagnostics.
-- Emits a concise result for Claude.
+- Emits a concise result for the host.
 - Stores async job metadata when async mode is used.
 
 ## Prompt Construction
 
-The wrapper sends Codex a task prompt that preserves Claude's requested implementation text and adds stable execution instructions:
+The wrapper sends the target agent a task prompt that preserves the requested
+implementation text and adds stable execution instructions:
 
 - Work in the current repository.
 - Make the requested code changes directly.
-- Follow project instructions discovered by Codex.
+- Follow project instructions discovered by the target.
 - Run relevant verification.
 - Keep the final answer concise.
-- Report changed files and verification status.
-- Stop and report blockers instead of guessing around missing credentials or unsafe operations.
+- Report changed files, verification status, and blockers.
+- Stop and report blockers instead of guessing around missing credentials or
+  unsafe operations.
 
-Claude's task text remains the primary input. The wrapper does not impose a rigid schema on the implementation request.
+The host's task text remains the primary input. The wrapper does not impose a
+rigid schema on the implementation request.
 
 ## Permission Model
 
-Default execution uses the current checkout with classifier-compatible Codex permissions. This gives Codex direct access to the same working tree while preserving Codex approval review at policy boundaries.
+Default execution uses the current checkout with the target CLI's bounded mode
+where one is available.
 
-Full-access execution is explicit. The wrapper exposes it as an option for trusted contexts and labels it clearly in the result.
+Full-access execution is explicit. The wrapper exposes it as `--full-access` and
+labels it in the result.
 
-Worktree execution is optional and explicit. It is a task-level escape hatch, not the default architecture.
+Worktree execution is recognized but not implemented yet.
 
 ## Blocking Flow
 
 ```text
-1. Claude invokes the skill with task text.
-2. The skill calls `codex-implement`.
-3. The wrapper runs `codex exec` in the current working directory.
-4. Codex edits, runs commands, and returns a final message.
+1. Host invokes a skill with task text.
+2. The skill calls `alt-subagent --agent <target>`.
+3. The wrapper runs the target CLI in the current working directory.
+4. The target edits, runs commands, and returns a final message.
 5. The wrapper formats the result.
-6. Claude reads the result and continues the session.
+6. The host reads the result and continues the session.
 ```
-
-Blocking mode does not create persistent job state beyond optional logs.
 
 ## Async Flow
 
 ```text
-1. Claude invokes `codex-implement --async <task>`.
+1. Host invokes `alt-subagent --agent <target> --async <task>`.
 2. The wrapper creates a local job record.
-3. The wrapper starts Codex detached from Claude's blocking tool call.
+3. The wrapper starts a detached child wrapper process.
 4. The wrapper returns a job id and log location.
-5. Claude checks status or result through `codex-implement --status` or `--result`.
+5. The host checks status or result through `--status` or `--result`.
 ```
 
-Async jobs are local to the repository or plugin data directory. Async output is concise by default and log-backed for diagnostics.
+Async jobs are local to the repository under `.alt-subagent/jobs/`.
 
 ## Extension Points
 
-The architecture supports these extensions without changing the user-facing skill:
+The architecture supports these extensions without changing the user-facing
+skills:
 
-- Codex app-server transport for streamed events and resumable threads.
-- Structured output schemas once stable enough for reliable final result parsing.
+- Structured output parsing when target CLIs provide reliable schemas.
 - Optional worktree mode.
 - Optional review-after-implementation hooks.
 - Richer async status and cancellation.
-- Project-specific Codex config profiles.
-
-These are extensions, not separate product surfaces.
+- Target-specific config profiles.

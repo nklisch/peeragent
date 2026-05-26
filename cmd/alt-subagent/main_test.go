@@ -5,13 +5,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/nklisch/codex-implement/internal/codex"
-	"github.com/nklisch/codex-implement/internal/input"
-	"github.com/nklisch/codex-implement/internal/result"
+	"github.com/nklisch/alt-subagent/internal/executil"
+	"github.com/nklisch/alt-subagent/internal/input"
+	"github.com/nklisch/alt-subagent/internal/result"
 )
 
 func TestResultFromExecutionSuccess(t *testing.T) {
-	res := resultFromExecution(input.Request{CWD: "/repo"}, codex.Result{ExitCode: 0}, nil)
+	res := resultFromExecution(input.Request{CWD: "/repo"}, executil.Result{ExitCode: 0}, nil)
 	if res.Status != result.StatusSuccess {
 		t.Fatalf("Status = %q", res.Status)
 	}
@@ -21,7 +21,7 @@ func TestResultFromExecutionSuccess(t *testing.T) {
 }
 
 func TestResultFromExecutionNonZero(t *testing.T) {
-	res := resultFromExecution(input.Request{CWD: "/repo"}, codex.Result{ExitCode: 2, Stderr: "bad"}, nil)
+	res := resultFromExecution(input.Request{CWD: "/repo"}, executil.Result{ExitCode: 2, Stderr: "bad"}, nil)
 	if res.Status != result.StatusFailed {
 		t.Fatalf("Status = %q", res.Status)
 	}
@@ -31,7 +31,7 @@ func TestResultFromExecutionNonZero(t *testing.T) {
 }
 
 func TestResultFromExecutionError(t *testing.T) {
-	res := resultFromExecution(input.Request{FullAccess: true, Profile: "p", Effort: "high"}, codex.Result{ExitCode: 127}, errors.New("missing"))
+	res := resultFromExecution(input.Request{FullAccess: true, Profile: "p", Effort: "high"}, executil.Result{ExitCode: 127}, errors.New("missing"))
 	if res.Status != result.StatusFailed {
 		t.Fatalf("Status = %q", res.Status)
 	}
@@ -43,6 +43,16 @@ func TestResultFromExecutionError(t *testing.T) {
 	}
 	if res.Metadata.Effort != "high" {
 		t.Fatalf("Effort = %q", res.Metadata.Effort)
+	}
+}
+
+func TestResultFromExecutionGemini(t *testing.T) {
+	res := resultFromExecution(input.Request{CWD: "/repo", Agent: "gemini"}, executil.Result{ExitCode: 0}, nil)
+	if res.Metadata.Agent != "gemini" {
+		t.Fatalf("Agent = %q", res.Metadata.Agent)
+	}
+	if !strings.Contains(res.Summary, "Gemini") {
+		t.Fatalf("Summary = %q", res.Summary)
 	}
 }
 

@@ -1,18 +1,14 @@
 package codex
 
 import (
-	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"os/exec"
+
+	"github.com/nklisch/alt-subagent/internal/executil"
 )
 
-type Result struct {
-	ExitCode int
-	Stdout   string
-	Stderr   string
-}
+type Result = executil.Result
 
 type Options struct {
 	CWD        string
@@ -22,16 +18,14 @@ type Options struct {
 	Effort     string
 }
 
-type runner interface {
-	Run(ctx context.Context, name string, args []string, cwd string) (Result, error)
-}
+var lookPath = exec.LookPath
 
 func Exec(ctx context.Context, opts Options) (Result, error) {
-	return ExecWithRunner(ctx, osExecRunner{}, opts)
+	return ExecWithRunner(ctx, executil.OSRunner{}, opts)
 }
 
-func ExecWithRunner(ctx context.Context, run runner, opts Options) (Result, error) {
-	path, err := exec.LookPath("codex")
+func ExecWithRunner(ctx context.Context, run executil.Runner, opts Options) (Result, error) {
+	path, err := lookPath("codex")
 	if err != nil {
 		return Result{ExitCode: 127}, errors.New("codex CLI not found in PATH")
 	}
@@ -74,35 +68,4 @@ func effortArgs(effort string) []string {
 		effort = "medium"
 	}
 	return []string{"-c", `model_reasoning_effort="` + effort + `"`}
-}
-
-type osExecRunner struct{}
-
-func (osExecRunner) Run(ctx context.Context, name string, args []string, cwd string) (Result, error) {
-	cmd := exec.CommandContext(ctx, name, args...)
-	cmd.Dir = cwd
-
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	err := cmd.Run()
-	result := Result{
-		ExitCode: 0,
-		Stdout:   stdout.String(),
-		Stderr:   stderr.String(),
-	}
-	if err == nil {
-		return result, nil
-	}
-
-	var exitErr *exec.ExitError
-	if errors.As(err, &exitErr) {
-		result.ExitCode = exitErr.ExitCode()
-		return result, nil
-	}
-
-	result.ExitCode = 1
-	return result, fmt.Errorf("run codex: %w", err)
 }

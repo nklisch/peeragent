@@ -72,6 +72,43 @@ func TestParseFullAccess(t *testing.T) {
 	}
 }
 
+func TestParseDefaultsAgentCodex(t *testing.T) {
+	req, err := Parse([]string{"task"}, nil, fixedCWD)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if req.Agent != "codex" {
+		t.Fatalf("Agent = %q", req.Agent)
+	}
+}
+
+func TestParseAgentGemini(t *testing.T) {
+	req, err := Parse([]string{"--agent", "gemini", "task"}, nil, fixedCWD)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if req.Agent != "gemini" {
+		t.Fatalf("Agent = %q", req.Agent)
+	}
+}
+
+func TestParseAgentClaude(t *testing.T) {
+	req, err := Parse([]string{"--agent", "claude", "task"}, nil, fixedCWD)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if req.Agent != "claude" {
+		t.Fatalf("Agent = %q", req.Agent)
+	}
+}
+
+func TestParseRejectsUnsupportedAgent(t *testing.T) {
+	_, err := Parse([]string{"--agent", "llama", "task"}, nil, fixedCWD)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
 func TestParseWorktree(t *testing.T) {
 	req, err := Parse([]string{"--worktree", "task"}, nil, fixedCWD)
 	if err != nil {
@@ -83,11 +120,11 @@ func TestParseWorktree(t *testing.T) {
 }
 
 func TestParseProfile(t *testing.T) {
-	req, err := Parse([]string{"--profile", "codex-subagent", "task"}, nil, fixedCWD)
+	req, err := Parse([]string{"--profile", "alt-subagent", "task"}, nil, fixedCWD)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if req.Profile != "codex-subagent" {
+	if req.Profile != "alt-subagent" {
 		t.Fatalf("Profile = %q", req.Profile)
 	}
 }
