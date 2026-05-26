@@ -51,6 +51,9 @@ Use advanced modes only when the request calls for them:
 - `--effort high` for harder or more complex tasks. Omit effort for the default
   `medium`; the wrapper intentionally exposes only `medium` and `high`.
 - `--async` for long-running work where Claude should not block.
+- `--status <job-id>` to check an async job.
+- `--result <job-id>` to fetch an async job's final result.
+- `--cancel <job-id>` to stop an async job best-effort.
 - `--prompt-file <path>` for large prompts.
 
 Full access is never implied by ordinary delegation. If the wrapper reports that

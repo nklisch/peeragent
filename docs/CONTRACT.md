@@ -21,8 +21,8 @@ The task text is treated as implementation intent, not as shell syntax. The wrap
 ```text
 codex-implement [options] <task text>
 codex-implement [options] --prompt-file <path>
-codex-implement --status [job-id]
-codex-implement --result [job-id]
+codex-implement --status <job-id>
+codex-implement --result <job-id>
 codex-implement --cancel <job-id>
 ```
 

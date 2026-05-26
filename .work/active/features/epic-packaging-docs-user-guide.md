@@ -1,7 +1,7 @@
 ---
 id: epic-packaging-docs-user-guide
 kind: feature
-stage: implementing
+stage: review
 tags: [docs]
 parent: epic-packaging-docs
 depends_on: [epic-packaging-docs-build-artifacts]
@@ -132,5 +132,16 @@ codex-implement --result <job-id>
 ## Risks
 
 Docs may imply behavior the wrapper does not yet support. Keep examples limited to implemented or explicitly recognized behavior, and label `--worktree` as not implemented.
+
+## Implementation Notes
+
+Added `README.md` with prerequisites, build instructions, plugin layout, blocking usage, text/JSON behavior, effort selection, async lifecycle commands, safety/full-access posture, and troubleshooting. Updated the Claude-facing skill with async follow-up commands and corrected `docs/CONTRACT.md` so status/result require explicit job ids.
+
+Verification:
+
+- `go test ./...`
+- `make build`
+- `bin/codex-implement --status missing-job`
+- `rg -- "--status \\[|--result \\[|xhigh|extra-high" README.md docs/CONTRACT.md skills/codex-implement/SKILL.md`
 
 <!-- The design pass on this feature (`/agile-workflow:feature-design`, refactor-design, or perf-design) will fill in interfaces, signatures, and implementation units. -->
