@@ -1,7 +1,7 @@
 ---
 id: epic-wrapper-cli-blocking-exec
 kind: feature
-stage: review
+stage: done
 tags: [infra]
 parent: epic-wrapper-cli
 depends_on: [epic-wrapper-cli-prompt]
@@ -108,5 +108,9 @@ Running live Codex during tests can be expensive and environment-dependent. Unit
 - Captures stdout, stderr, and exit code without shell interpolation.
 - Wired `cmd/codex-implement` to call the executor and emit minimal JSON.
 - Added unit coverage for argv construction.
+
+## Review
+
+Approved. The blocking execution path has a reusable process boundary, does not route through a shell, captures process output, and keeps the richer result contract for the downstream result epic. Live Codex execution was not run during review to avoid spending model/network resources.
 
 <!-- The design pass on this feature (`/agile-workflow:feature-design`, refactor-design, or perf-design) will fill in interfaces, signatures, and implementation units. -->
