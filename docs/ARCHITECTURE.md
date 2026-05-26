@@ -3,7 +3,7 @@
 ## Overview
 
 Alt Subagent is a plugin-packaged wrapper that lets one coding assistant invoke
-another local coding agent for implementation work.
+another local coding agent for implementation, research, or review work.
 
 ```text
 Host assistant session
@@ -23,7 +23,7 @@ Supported target CLIs:
 The host decides when delegation is useful. The skill constrains host behavior
 around delegation. The wrapper constrains process execution, prompt
 construction, result capture, logging, and return formatting. The target agent
-performs the implementation work.
+performs the implementation, research, or review work.
 
 ## Plugin Layout
 
@@ -61,7 +61,7 @@ The plugin-level contract is the skill set and the `alt-subagent` executable.
 
 Each skill tells the host:
 
-- When implementation delegation is appropriate.
+- When implementation, research, or review delegation is appropriate.
 - Which target agent it invokes.
 - How to pass arbitrary task text to the wrapper.
 - Which flags are available.
@@ -95,19 +95,19 @@ The wrapper:
 ## Prompt Construction
 
 The wrapper sends the target agent a task prompt that preserves the requested
-implementation text and adds stable execution instructions:
+task text and adds stable execution instructions:
 
 - Work in the current repository.
-- Make the requested code changes directly.
+- Make requested code changes directly when the task calls for edits.
 - Follow project instructions discovered by the target.
-- Run relevant verification.
+- Run relevant verification or inspection commands.
 - Keep the final answer concise.
-- Report changed files, verification status, and blockers.
+- Report changed files, verification or inspection status, and blockers.
 - Stop and report blockers instead of guessing around missing credentials or
   unsafe operations.
 
 The host's task text remains the primary input. The wrapper does not impose a
-rigid schema on the implementation request.
+rigid schema on the delegated task request.
 
 ## Permission Model
 

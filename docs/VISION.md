@@ -1,12 +1,12 @@
 # Vision
 
 Alt Subagent gives coding assistants a low-friction way to delegate
-implementation work to another local agent without leaving the current
-repository workflow.
+implementation, research, or review work to another local agent without
+leaving the current repository workflow.
 
-The host assistant remains the primary collaborator in the session. When an
-implementation task benefits from a different autonomous coding agent, the host
-invokes an Alt Subagent skill, passes arbitrary task text, waits by default, and
+The host assistant remains the primary collaborator in the session. When a task
+benefits from a different autonomous coding agent, the host invokes an Alt
+Subagent skill, passes arbitrary task text, waits by default, and
 resumes with a compact result. The target agent works in the same checkout and
 may edit files directly according to its local permission model.
 
@@ -29,10 +29,10 @@ Different coding agents have different strengths. Switching between them
 manually interrupts flow, loses context, and forces the human to act as the
 integration layer. Existing bridge patterns often expose too many explicit
 commands, job-management surfaces, or separate review flows. That makes
-delegation feel like operating another tool rather than asking another
-implementor to take a pass.
+delegation feel like operating another tool rather than asking another agent to
+take a pass.
 
-Alt Subagent solves the narrow problem of implementation delegation. It avoids
+Alt Subagent solves the narrow problem of focused task delegation. It avoids
 becoming a general multi-agent control panel.
 
 ## Product Shape
@@ -51,7 +51,7 @@ the outcome, and returns a concise result to the host.
 
 - Same checkout by default.
 - Explicit target agent selection.
-- Direct implementation, not patch-only output.
+- Direct task execution, not patch-only output.
 - Safe defaults before full access.
 - Blocking first, async as an explicit mode.
 - Compact machine-readable results.
@@ -59,9 +59,10 @@ the outcome, and returns a concise result to the host.
 
 ## Success
 
-Delegation feels natural when the host can say what needs implementing, wait for
-another local agent to work, and then continue from a clear result. The user
-should not need to manually copy prompts into another terminal, monitor two
+Delegation feels natural when the host can say what needs implementing,
+researching, or reviewing, wait for another local agent to work, and then
+continue from a clear result. The user should not need to manually copy prompts
+into another terminal, monitor two
 agents, or reconcile ambiguous outputs.
 
 Concrete success criteria:

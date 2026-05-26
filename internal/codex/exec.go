@@ -65,7 +65,7 @@ func profileArgs(profile string) []string {
 
 func effortArgs(effort string) []string {
 	if effort == "" {
-		effort = "medium"
+		effort = "high"
 	}
 	return []string{"-c", `model_reasoning_effort="` + effort + `"`}
 }

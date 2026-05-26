@@ -1,7 +1,7 @@
 {
   "name": "alt-subagent",
-  "version": "0.1.1",
-  "description": "Delegate implementation tasks from Codex to alternate local coding agents",
+  "version": "0.1.2",
+  "description": "Delegate implementation, research, or review tasks from Codex to alternate local coding agents",
   "author": {
     "name": "nklisch"
   },
@@ -10,7 +10,7 @@
   "interface": {
     "displayName": "Alt Subagent",
     "shortDescription": "Delegate Codex tasks to Claude or Gemini",
-    "longDescription": "Alt Subagent wraps local coding agent CLIs so Codex can hand implementation tasks to Claude Code or Gemini through Antigravity.",
+    "longDescription": "Alt Subagent wraps local coding agent CLIs so Codex can hand implementation, research, or review tasks to Claude Code or Gemini through Antigravity.",
     "developerName": "nklisch",
     "category": "Productivity",
     "capabilities": [

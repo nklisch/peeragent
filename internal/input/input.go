@@ -111,7 +111,7 @@ type parsedArgs struct {
 }
 
 func parseArgs(args []string) (parsedArgs, error) {
-	parsed := parsedArgs{json: true, agent: "codex", effort: "medium"}
+	parsed := parsedArgs{json: true, agent: "codex"}
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		switch arg {
@@ -156,12 +156,7 @@ func parseArgs(args []string) (parsedArgs, error) {
 			if i >= len(args) {
 				return parsedArgs{}, errors.New("--effort requires a value")
 			}
-			switch args[i] {
-			case "medium", "high":
-				parsed.effort = args[i]
-			default:
-				return parsedArgs{}, errors.New("--effort must be medium or high")
-			}
+			parsed.effort = args[i]
 		case "--model":
 			i++
 			if i >= len(args) {
@@ -198,6 +193,11 @@ func parseArgs(args []string) (parsedArgs, error) {
 			parsed.positionals = append(parsed.positionals, arg)
 		}
 	}
+	effort, err := normalizeEffort(parsed.agent, parsed.effort)
+	if err != nil {
+		return parsedArgs{}, err
+	}
+	parsed.effort = effort
 	model, err := normalizeModel(parsed.agent, parsed.model)
 	if err != nil {
 		return parsedArgs{}, err
@@ -216,6 +216,39 @@ func normalizeAgent(agent string) (string, error) {
 		return "claude", nil
 	default:
 		return "", errors.New("--agent must be codex, gemini, or claude")
+	}
+}
+
+func normalizeEffort(agent string, effort string) (string, error) {
+	effort = strings.ToLower(strings.TrimSpace(effort))
+	switch agent {
+	case "codex":
+		if effort == "" {
+			return "high", nil
+		}
+		switch effort {
+		case "medium", "high", "xhigh":
+			return effort, nil
+		default:
+			return "", errors.New("--effort for codex must be medium, high, or xhigh")
+		}
+	case "claude":
+		if effort == "" {
+			return "medium", nil
+		}
+		switch effort {
+		case "medium", "high":
+			return effort, nil
+		default:
+			return "", errors.New("--effort for claude must be medium or high")
+		}
+	case "gemini":
+		if effort == "" {
+			return "", nil
+		}
+		return "", errors.New("--effort is supported only for codex or claude")
+	default:
+		return "", errors.New("--effort is supported only for codex or claude")
 	}
 }
 

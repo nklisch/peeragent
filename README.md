@@ -1,12 +1,13 @@
 # Alt Subagent
 
 Alt Subagent is a dual Claude Code and Codex plugin that lets one local coding
-assistant delegate implementation work to another local coding assistant.
+assistant delegate implementation, research, or review work to another local
+coding assistant.
 
 Use it when you are working in Claude Code or Codex and want a second agent to
-take an implementation pass. The host assistant keeps the conversation with you;
-the target agent edits the repo, runs verification when it can, and returns a
-small result for the host to summarize.
+take a focused task pass. The host assistant keeps the conversation with you;
+the target agent inspects or edits the repo, runs verification when it can, and
+returns a small result for the host to summarize.
 
 ## What It Can Call
 
@@ -44,8 +45,8 @@ asset is available, it falls back to `go run` when Go is installed.
 
 The Claude Code plugin exposes these skills:
 
-- `/codex-implement`: delegate implementation work to Codex
-- `/gemini-implement`: delegate implementation work to Gemini through Antigravity
+- `/codex-implement`: delegate implementation, research, or review work to Codex
+- `/gemini-implement`: delegate implementation, research, or review work to Gemini through Antigravity
 
 Example prompts:
 
@@ -61,8 +62,8 @@ the outcome to you.
 
 The Codex plugin exposes these skills:
 
-- `claude-implement`: delegate implementation work to Claude Code
-- `gemini-implement`: delegate implementation work to Gemini through Antigravity
+- `claude-implement`: delegate implementation, research, or review work to Claude Code
+- `gemini-implement`: delegate implementation, research, or review work to Gemini through Antigravity
 
 Example requests:
 
@@ -72,7 +73,7 @@ Use gemini-implement to inspect the CLI docs and patch stale usage text.
 ```
 
 Codex remains responsible for the final response. The delegated agent is only
-the implementation worker.
+the focused worker for that task.
 
 ## Agent Equivalence And Harness Overrides
 
@@ -82,11 +83,11 @@ pattern. If you want that behavior, add a project instruction to `CLAUDE.md` or
 
 Use this rough equivalence when choosing a target:
 
-| Desired implementation pass | Codex target | Claude target | Gemini target |
+| Desired delegated pass | Codex target | Claude target | Gemini target |
 | --- | --- | --- | --- |
 | Lightweight or fast pass | `--agent codex --effort medium` | `--agent claude --model haiku --effort medium` | `--agent gemini --model gemini-3.5` |
-| Normal implementation sub-agent | `--agent codex --effort medium` | `--agent claude --model sonnet --effort medium` | `--agent gemini --model gemini-3.5` |
-| Higher-thinking implementation pass | `--agent codex --effort high` | `--agent claude --model opus --effort high` | `--agent gemini --model gemini-3.5` |
+| Normal implementation, research, or review sub-agent | `--agent codex` or `--agent codex --effort high` | `--agent claude --model sonnet --effort medium` | `--agent gemini --model gemini-3.5` |
+| Deeper implementation, research, or review pass | `--agent codex --effort xhigh` | `--agent claude --model opus --effort high` | `--agent gemini --model gemini-3.5` |
 
 Gemini through Antigravity is treated as fixed Gemini 3.5 for this wrapper. The
 `--model gemini-3.5` spelling is accepted when you want to be explicit, but the
@@ -98,16 +99,19 @@ Claude Code project snippet:
 ```markdown
 ## Alt Subagent Delegation
 
-When you would normally use an implementation sub-agent, prefer Alt Subagent for
-concrete code changes, bug fixes, refactors, tests, docs updates, and build
-fixes in this repository.
+When you would normally use an implementation, research, or review sub-agent,
+prefer Alt Subagent for concrete code changes, bug fixes, refactors, tests,
+docs updates, build fixes, research passes, and review passes in this
+repository.
 
-- Use `/codex-implement` for a Codex implementation pass.
-- Use `/gemini-implement` for a Gemini 3.5 implementation pass through
+- Use `/codex-implement` for a Codex task pass.
+- Use `/gemini-implement` for a Gemini 3.5 task pass through
   Antigravity; `--model gemini-3.5` is the only accepted Gemini model value.
-- Use the default medium effort for routine Codex work.
-- Ask the wrapper for `--effort high` when Codex should take the deeper pass.
-- Do not use Alt Subagent for planning-only, research-only, or review-only work.
+- Use the default high effort for routine Codex work.
+- Ask the wrapper for `--effort xhigh` when Codex should take the deeper pass.
+- Research-only and review-only delegation are allowed when a second-agent pass
+  is useful.
+- Do not use Alt Subagent for planning-only orchestration work.
 ```
 
 Codex project snippet:
@@ -115,19 +119,23 @@ Codex project snippet:
 ```markdown
 ## Alt Subagent Delegation
 
-When you would normally use an implementation sub-agent, prefer Alt Subagent for
-concrete code changes, bug fixes, refactors, tests, docs updates, and build
-fixes in this repository.
+When you would normally use an implementation, research, or review sub-agent,
+prefer Alt Subagent for concrete code changes, bug fixes, refactors, tests,
+docs updates, build fixes, research passes, and review passes in this
+repository.
 
-- Use `claude-implement` for a Claude Code implementation pass.
+- Use `claude-implement` for a Claude Code task pass.
 - Use `--model sonnet` for normal Claude work, `--model opus --effort high` for
   the deeper Claude pass, and `--model haiku` for lightweight Claude work.
-- Use `gemini-implement` for a Gemini 3.5 implementation pass through
+- Use `gemini-implement` for a Gemini 3.5 task pass through
   Antigravity; `--model gemini-3.5` is the only accepted Gemini model value.
-- Use the default medium effort for routine Codex or Claude work.
-- Ask the wrapper for `--effort high` when Codex or Claude should take the
-  deeper pass.
-- Do not use Alt Subagent for planning-only, research-only, or review-only work.
+- Use default high effort for routine Codex work and default medium effort for
+  routine Claude work.
+- Ask the wrapper for `--effort xhigh` when Codex should take the deeper pass;
+  use `--model opus --effort high` for the deeper Claude pass.
+- Research-only and review-only delegation are allowed when a second-agent pass
+  is useful.
+- Do not use Alt Subagent for planning-only orchestration work.
 ```
 
 ## Direct CLI Usage
@@ -168,11 +176,13 @@ bin/alt-subagent --text --agent gemini "Fix the failing parser test."
 
 ## Models, Effort, Profiles, And Access
 
-Codex and Claude support `--effort`:
+Codex and Claude support `--effort`. Codex defaults to `high`; use `medium`
+only for lightweight work and `xhigh` for deeper passes:
 
 ```sh
-bin/alt-subagent --agent codex --effort medium "Implement the small change."
-bin/alt-subagent --agent codex --effort high "Implement the cross-module migration."
+bin/alt-subagent --agent codex "Implement the routine change."
+bin/alt-subagent --agent codex --effort medium "Make the localized docs update."
+bin/alt-subagent --agent codex --effort xhigh "Review the cross-module migration for hidden regressions."
 bin/alt-subagent --agent claude --model sonnet --effort medium "Implement the small change."
 bin/alt-subagent --agent claude --model opus --effort high "Untangle the failing integration test."
 bin/alt-subagent --agent claude --model haiku "Make the localized docs update."
@@ -270,23 +280,23 @@ is not available locally.
 Build release archives locally:
 
 ```sh
-make release VERSION=0.1.1
+make release VERSION=0.1.2
 ```
 
 That writes:
 
 ```text
-dist/release/alt-subagent_0.1.1_linux_amd64.tar.gz
-dist/release/alt-subagent_0.1.1_linux_arm64.tar.gz
-dist/release/alt-subagent_0.1.1_darwin_amd64.tar.gz
-dist/release/alt-subagent_0.1.1_darwin_arm64.tar.gz
+dist/release/alt-subagent_0.1.2_linux_amd64.tar.gz
+dist/release/alt-subagent_0.1.2_linux_arm64.tar.gz
+dist/release/alt-subagent_0.1.2_darwin_amd64.tar.gz
+dist/release/alt-subagent_0.1.2_darwin_arm64.tar.gz
 dist/release/checksums.txt
 ```
 
 Publish a GitHub release from a machine with `gh` authenticated:
 
 ```sh
-make publish-release VERSION=0.1.1
+make publish-release VERSION=0.1.2
 ```
 
 The GitHub Actions workflow in `.github/workflows/release.yml` also publishes

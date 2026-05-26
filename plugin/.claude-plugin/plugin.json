@@ -1,7 +1,7 @@
 {
   "name": "alt-subagent",
-  "version": "0.1.1",
-  "description": "Delegate implementation tasks from Claude Code to alternate local coding agents",
+  "version": "0.1.2",
+  "description": "Delegate implementation, research, or review tasks from Claude Code to alternate local coding agents",
   "author": {
     "name": "nklisch"
   },

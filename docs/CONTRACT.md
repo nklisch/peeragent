@@ -18,7 +18,7 @@ claude-implement
 gemini-implement
 ```
 
-The task text is treated as implementation intent, not as shell syntax. The
+The task text is treated as delegated task intent, not as shell syntax. The
 wrapper is responsible for preserving the text safely when invoking the target
 agent.
 
@@ -39,7 +39,9 @@ Options:
 - `--async`: Start the target in the background and return a job id.
 - `--full-access`: Run the target with full local access.
 - `--worktree`: Reserved for future isolated worktree execution.
-- `--effort <medium|high>`: Set Codex or Claude reasoning effort.
+- `--effort <medium|high|xhigh>`: Set target reasoning effort. Codex defaults to
+  `high` and accepts `medium`, `high`, or `xhigh`; Claude defaults to `medium`
+  and accepts `medium` or `high`.
 - `--model <sonnet|opus|haiku|gemini-3.5>`: Select a Claude model alias, or
   explicitly record the fixed Gemini 3.5 target. Gemini model selection is not
   passed to `agy` because `agy --print` does not expose a non-interactive model

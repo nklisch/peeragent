@@ -1,10 +1,10 @@
 ---
 name: gemini-implement
 description: >
-  Delegate implementation work to Gemini through Google Antigravity CLI using
-  the bundled alt-subagent wrapper. Use when Claude Code or Codex should hand
-  arbitrary implementation text to Gemini as an autonomous implementor in the
-  current repository. Treat this wrapper target as fixed Gemini 3.5; only
+  Delegate implementation, research, or review work to Gemini through Google
+  Antigravity CLI using the bundled alt-subagent wrapper. Use when Claude Code
+  or Codex should hand arbitrary task text to Gemini as an autonomous worker in
+  the current repository. Treat this wrapper target as fixed Gemini 3.5; only
   --model gemini-3.5 is accepted for explicit model metadata.
 allowed-tools: Bash
 metadata:
@@ -13,13 +13,13 @@ metadata:
 
 # Gemini Implement
 
-Use this skill when implementation work should be delegated to Gemini through
-the local Antigravity CLI while the current host assistant remains responsible
-for the user conversation.
+Use this skill when implementation, research, or review work should be
+delegated to Gemini through the local Antigravity CLI while the current host
+assistant remains responsible for the user conversation.
 
 ## Default Behavior
 
-Pass the user's implementation request to the bundled wrapper:
+Pass the user's task request to the bundled wrapper:
 
 ```bash
 alt-subagent --agent gemini "$ARGUMENTS"
@@ -30,10 +30,9 @@ that JSON before responding to the user.
 
 ## Delegation Contract
 
-The host delegates implementation intent; Gemini performs the implementation
-pass. The task text is arbitrary natural language, not shell syntax. Do not
-split the request into many wrapper calls unless the user explicitly asked for
-separate implementation passes.
+The host delegates task intent; Gemini performs the focused task pass. The task
+text is arbitrary natural language, not shell syntax. Do not split the request
+into many wrapper calls unless the user explicitly asked for separate passes.
 
 The default call is blocking. Wait for the command to return, then summarize
 the result using the wrapper's status, summary, changed files, verification

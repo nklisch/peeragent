@@ -56,6 +56,7 @@ grep -q "make release VERSION=$VERSION" README.md
 grep -q -- '--agent gemini' README.md
 grep -q -- '--agent claude' README.md
 grep -q -- '--effort high' README.md
+grep -q -- '--effort xhigh' README.md
 grep -q -- '--model opus' README.md
 grep -q -- '--model gemini-3.5' README.md
 grep -q -- '--async' README.md
@@ -74,8 +75,8 @@ if grep -R -F -- '--result [job-id]' README.md docs skills; then
   exit 1
 fi
 
-if grep -R -F -- '--effort xhigh' README.md docs skills; then
-  echo "unsupported xhigh effort example found"
+if grep -R -F -- '--effort low' README.md docs skills; then
+  echo "unsupported low effort example found"
   exit 1
 fi
 

@@ -1,11 +1,11 @@
 ---
 name: claude-implement
 description: >
-  Delegate implementation work from Codex to Claude Code through the bundled
-  alt-subagent wrapper. Use when Codex should hand arbitrary implementation
-  text to Claude as an autonomous implementor in the current repository. Use
-  Claude sonnet for normal implementation, opus plus high effort for deeper
-  implementation, and haiku for lightweight implementation.
+  Delegate implementation, research, or review work from Codex to Claude Code
+  through the bundled alt-subagent wrapper. Use when Codex should hand arbitrary
+  task text to Claude as an autonomous worker in the current repository. Use
+  Claude sonnet for normal work, opus plus high effort for deeper work, and
+  haiku for lightweight work.
 metadata:
   short-description: Delegate to Claude
 allowed-tools: Bash
@@ -13,8 +13,9 @@ allowed-tools: Bash
 
 # Claude Implement
 
-Use this skill when implementation work should be delegated to Claude Code while
-Codex remains responsible for the user conversation.
+Use this skill when implementation, research, or review work should be
+delegated to Claude Code while Codex remains responsible for the user
+conversation.
 
 ## Default Behavior
 
@@ -37,9 +38,10 @@ that JSON before responding to the user.
 ## Options
 
 - `--full-access` for explicit trusted full-access execution.
-- `--model sonnet` for the normal Claude implementation pass.
-- `--model opus --effort high` for a deeper Claude implementation pass.
-- `--model haiku` for lightweight or fast Claude implementation work.
+- `--model sonnet` for the normal Claude task pass.
+- `--model opus --effort high` for a deeper Claude implementation, research, or
+  review pass.
+- `--model haiku` for lightweight or fast Claude work.
 - `--effort high` for harder or more complex tasks.
 - `--async` for long-running work.
 - `--prompt-file <path>` for large prompts.

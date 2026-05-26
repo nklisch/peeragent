@@ -96,8 +96,9 @@ agy --print --dangerously-skip-permissions ...
 claude --print --dangerously-skip-permissions ...
 ```
 
-The default Codex and Claude reasoning effort is `medium`; the wrapper exposes
-`medium` and `high` through `--effort`. Claude also supports `--model sonnet`,
+Codex reasoning effort defaults to `high`; the wrapper exposes `medium`,
+`high`, and `xhigh` for Codex. Claude reasoning effort defaults to `medium` and
+exposes `medium` and `high`. Claude also supports `--model sonnet`,
 `--model opus`, and `--model haiku`, which pass through to Claude Code. Gemini
 is treated as fixed Gemini 3.5; `--model gemini-3.5` is accepted for explicit
 metadata, but the wrapper does not pass a model flag to `agy` because `agy --print` does

@@ -136,12 +136,32 @@ func TestParseProfileRequiresValue(t *testing.T) {
 	}
 }
 
-func TestParseDefaultsEffortMedium(t *testing.T) {
+func TestParseDefaultsEffortHighForCodex(t *testing.T) {
 	req, err := Parse([]string{"task"}, nil, fixedCWD)
 	if err != nil {
 		t.Fatal(err)
 	}
+	if req.Effort != "high" {
+		t.Fatalf("Effort = %q", req.Effort)
+	}
+}
+
+func TestParseDefaultsEffortMediumForClaude(t *testing.T) {
+	req, err := Parse([]string{"--agent", "claude", "task"}, nil, fixedCWD)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if req.Effort != "medium" {
+		t.Fatalf("Effort = %q", req.Effort)
+	}
+}
+
+func TestParseDefaultsNoEffortForGemini(t *testing.T) {
+	req, err := Parse([]string{"--agent", "gemini", "task"}, nil, fixedCWD)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if req.Effort != "" {
 		t.Fatalf("Effort = %q", req.Effort)
 	}
 }
@@ -156,8 +176,42 @@ func TestParseEffortHigh(t *testing.T) {
 	}
 }
 
+func TestParseEffortXHighForCodex(t *testing.T) {
+	req, err := Parse([]string{"--effort", "xhigh", "task"}, nil, fixedCWD)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if req.Effort != "xhigh" {
+		t.Fatalf("Effort = %q", req.Effort)
+	}
+}
+
+func TestParseEffortXHighBeforeAgentForCodex(t *testing.T) {
+	req, err := Parse([]string{"--effort", "xhigh", "--agent", "codex", "task"}, nil, fixedCWD)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if req.Effort != "xhigh" {
+		t.Fatalf("Effort = %q", req.Effort)
+	}
+}
+
 func TestParseRejectsUnsupportedEffort(t *testing.T) {
-	_, err := Parse([]string{"--effort", "xhigh", "task"}, nil, fixedCWD)
+	_, err := Parse([]string{"--effort", "low", "task"}, nil, fixedCWD)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestParseRejectsXHighEffortForClaude(t *testing.T) {
+	_, err := Parse([]string{"--agent", "claude", "--effort", "xhigh", "task"}, nil, fixedCWD)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestParseRejectsEffortForGemini(t *testing.T) {
+	_, err := Parse([]string{"--agent", "gemini", "--effort", "high", "task"}, nil, fixedCWD)
 	if err == nil {
 		t.Fatal("expected error")
 	}
