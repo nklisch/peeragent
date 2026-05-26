@@ -1,7 +1,7 @@
 ---
 id: epic-result-contract-formatters
 kind: feature
-stage: drafting
+stage: implementing
 tags: [infra]
 parent: epic-result-contract
 depends_on: [epic-result-contract-model]
@@ -28,5 +28,49 @@ The feature exists so Claude receives structured output while humans still have 
 
 - `docs/CONTRACT.md` — human-readable and JSON output shapes.
 
-<!-- The design pass on this feature (`/agile-workflow:feature-design`, refactor-design, or perf-design) will fill in interfaces, signatures, and implementation units. -->
+## Architectural Choice
 
+Add formatting functions to `internal/result`: JSON is compact one-line output for Claude, and text is an explicit human-readable mode. The CLI chooses based on `Request.JSON`.
+
+Alternative considered: keep JSON only for now. Rejected because `--text` already exists in input parsing and should have meaningful behavior.
+
+## Implementation Units
+
+### Unit 1: JSON Formatter
+
+**File**: `internal/result/format.go`
+
+```go
+func FormatJSON(Result) ([]byte, error)
+```
+
+### Unit 2: Text Formatter
+
+**File**: `internal/result/format.go`
+
+```go
+func FormatText(Result) string
+```
+
+**Acceptance Criteria**:
+- [ ] JSON formatter emits valid JSON.
+- [ ] Text formatter includes status, summary, metadata, verification, changed files, and details when present.
+- [ ] CLI uses JSON by default and text when `--text` is supplied.
+
+## Implementation Order
+
+1. Add formatter functions and tests.
+2. Replace `main.go` result struct/write function with `internal/result`.
+3. Run tests.
+
+## Testing
+
+### Unit Tests
+
+Test JSON validity and representative text sections.
+
+## Risks
+
+Text output is secondary. Keep it readable but do not over-invest in terminal formatting.
+
+<!-- The design pass on this feature (`/agile-workflow:feature-design`, refactor-design, or perf-design) will fill in interfaces, signatures, and implementation units. -->
