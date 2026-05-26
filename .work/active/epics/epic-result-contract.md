@@ -1,7 +1,7 @@
 ---
 id: epic-result-contract
 kind: epic
-stage: implementing
+stage: done
 tags: [infra, docs]
 parent: null
 depends_on: [epic-wrapper-cli]
@@ -45,5 +45,9 @@ Split by result-surface responsibility. The result model defines the stable fiel
 ### Decomposition risks
 
 The main risk is overfitting the schema before real Codex output patterns are known. Keep the schema stable but conservative: status, summary, cwd/access/profile, exit code, stdout/stderr details, and placeholders for changed files and verification.
+
+## Review
+
+Approved. The result contract now has a shared model, JSON/text formatters, and execution-detail mapping. JSON is the default, text is explicit, errors preserve useful details, and metadata includes access, profile, and effort.
 
 <!-- The design pass on each child feature will fill in real specifics. -->
