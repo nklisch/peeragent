@@ -1,7 +1,7 @@
 ---
 id: epic-async-jobs-launch
 kind: feature
-stage: drafting
+stage: implementing
 tags: [infra]
 parent: epic-async-jobs
 depends_on: [epic-async-jobs-store]
@@ -29,5 +29,47 @@ The feature exists so Claude can intentionally start long-running implementation
 - `docs/SPEC.md` — async invocation mode.
 - `docs/CONTRACT.md` — async launch behavior.
 
-<!-- The design pass on this feature (`/agile-workflow:feature-design`, refactor-design, or perf-design) will fill in interfaces, signatures, and implementation units. -->
+## Architectural Choice
 
+Use a hidden `--job-run <id>` mode for the child process. Parent `--async` creates a job, starts the current executable with `--job-run <id>` plus the original task args, and immediately returns a `running` result. The child executes the normal blocking path and writes the final JSON result to the job's result path.
+
+Alternative considered: shell out through `nohup`. Rejected because starting the current executable directly is more portable and easier to test.
+
+## Implementation Units
+
+### Unit 1: Async Flags
+
+**File**: `internal/input/input.go`
+
+Add `Async bool` and `JobRunID string`.
+
+### Unit 2: Async Launch Flow
+
+**File**: `cmd/codex-implement/main.go`
+
+If `req.Async`, create a job, start a child process with `--job-run <id>`, store pid, and return `running` result.
+
+### Unit 3: Child Job Run
+
+**File**: `cmd/codex-implement/main.go`
+
+If `req.JobRunID` is set, run blocking execution and write the final JSON result to the job result path.
+
+## Implementation Order
+
+1. Parse async flags.
+2. Add launch helper.
+3. Add job-run helper.
+4. Test argument parsing and job result writing where practical.
+
+## Testing
+
+### Unit Tests
+
+Cover async flag parsing. Process spawning is smoke-tested manually or by later integration tests.
+
+## Risks
+
+Detached child behavior varies by OS. The implementation should stay modest and file-backed rather than becoming a daemon.
+
+<!-- The design pass on this feature (`/agile-workflow:feature-design`, refactor-design, or perf-design) will fill in interfaces, signatures, and implementation units. -->
