@@ -34,5 +34,8 @@ This epic does not implement the full Codex execution contract, async job handli
 - Executable wrapper entrypoint.
 - Initial script/runtime skeleton.
 
-<!-- The design pass on each child feature will fill in real specifics. -->
+## Design Decisions
 
+- **Should this be distributable from day one or start as a repo-local skill?** Distributable Claude Code plugin from day one. The plugin shape is part of the product, not a later packaging step.
+
+<!-- The design pass on each child feature will fill in real specifics. -->

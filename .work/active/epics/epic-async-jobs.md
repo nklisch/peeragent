@@ -36,5 +36,8 @@ This epic does not turn Codex Implement into a dashboard or general job-control 
 - Cancellation support.
 - Async log management.
 
-<!-- The design pass on each child feature will fill in real specifics. -->
+## Design Decisions
 
+- **Should async mode ship immediately or be designed now and implemented after blocking works?** Design async now. Implementation follows after the blocking path and result contract exist.
+
+<!-- The design pass on each child feature will fill in real specifics. -->

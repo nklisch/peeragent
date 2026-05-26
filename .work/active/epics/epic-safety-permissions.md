@@ -36,5 +36,8 @@ This epic does not try to make classifier review a security guarantee or replace
 - Codex profile/config pass-through.
 - Access-mode reporting in wrapper output.
 
-<!-- The design pass on each child feature will fill in real specifics. -->
+## Design Decisions
 
+- **Should default Codex invocation pass explicit permission defaults or rely on user config?** Pass explicit defaults. The wrapper should invoke Codex with stable classifier-compatible defaults, conceptually `--sandbox workspace-write --ask-for-approval on-request -c approvals_reviewer=auto_review`, unless the caller explicitly selects another mode.
+
+<!-- The design pass on each child feature will fill in real specifics. -->

@@ -23,7 +23,7 @@ Codex Implement runs on a developer machine with:
 - Claude Code installed with plugin and skill support.
 - Codex CLI installed and authenticated.
 - A repository or working directory open in Claude Code.
-- Node.js available for the wrapper implementation.
+- A platform-compatible `codex-implement` wrapper binary supplied by the plugin.
 
 The plugin uses the local Codex installation and local Codex authentication state. It does not bundle a separate Codex runtime or account system.
 
@@ -34,7 +34,7 @@ The project contains:
 - `.claude-plugin/plugin.json` for Claude Code plugin metadata.
 - `skills/codex-implement/SKILL.md` for Claude's delegation instructions.
 - `bin/codex-implement` as the executable Claude calls.
-- `scripts/` for the wrapper implementation.
+- `cmd/codex-implement/` and internal Go packages for the wrapper implementation.
 - `docs/` for foundation documents.
 
 ## Invocation Modes
@@ -114,4 +114,3 @@ The project does not provide:
 - A required worktree workflow.
 - A multi-agent planning framework.
 - A second-opinion review system as the primary feature.
-

@@ -36,5 +36,8 @@ This epic does not implement async job persistence. Async consumes this result s
 - Changed-file and verification summary capture.
 - Failure detail and log excerpt reporting.
 
-<!-- The design pass on each child feature will fill in real specifics. -->
+## Design Decisions
 
+- **Should the wrapper default output be human-readable text or JSON?** JSON by default. Claude is the primary consumer, so the default output should be structured and easy to parse. Human-readable output remains available through an explicit option.
+
+<!-- The design pass on each child feature will fill in real specifics. -->

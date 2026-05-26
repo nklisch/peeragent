@@ -25,9 +25,10 @@ skills/
     SKILL.md
 bin/
   codex-implement
-scripts/
-  codex-implement.mjs
-  lib/
+cmd/
+  codex-implement/
+internal/
+  ...
 docs/
   VISION.md
   SPEC.md
@@ -52,7 +53,7 @@ The skill is deliberately thin. It does not ask Claude to manually inspect the r
 
 ## Wrapper Role
 
-`bin/codex-implement` is the executable entrypoint. It delegates to the implementation under `scripts/`.
+`bin/codex-implement` is the executable entrypoint. It invokes the platform-compatible Go wrapper binary supplied by the plugin. The Go implementation lives under `cmd/codex-implement/` with shared packages under `internal/`.
 
 The wrapper:
 
@@ -125,4 +126,3 @@ The architecture supports these extensions without changing the user-facing skil
 - Project-specific Codex config profiles.
 
 These are extensions, not separate product surfaces.
-
