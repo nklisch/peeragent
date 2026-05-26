@@ -16,9 +16,30 @@ scripts/build.sh
 test -x dist/alt-subagent
 test -x bin/alt-subagent
 
+step "plugin package"
+scripts/package-plugin.sh
+test -x plugin/bin/alt-subagent
+test -f plugin/.claude-plugin/plugin.json
+test -f plugin/.codex-plugin/plugin.json
+test -f plugin/skills/claude-implement/SKILL.md
+test -f plugin/skills/codex-implement/SKILL.md
+test -f plugin/skills/gemini-implement/SKILL.md
+
+step "release artifacts"
+scripts/release.sh 0.1.0
+test -f dist/release/alt-subagent_0.1.0_linux_amd64.tar.gz
+test -f dist/release/alt-subagent_0.1.0_linux_arm64.tar.gz
+test -f dist/release/alt-subagent_0.1.0_darwin_amd64.tar.gz
+test -f dist/release/alt-subagent_0.1.0_darwin_arm64.tar.gz
+test -f dist/release/checksums.txt
+
 step "plugin metadata"
 grep -q '"name": "alt-subagent"' .claude-plugin/plugin.json
 grep -q '"name": "alt-subagent"' .codex-plugin/plugin.json
+grep -q '"name": "alt-subagent"' .claude-plugin/marketplace.json
+grep -q '"name": "alt-subagent"' .agents/plugins/marketplace.json
+grep -q './plugin' .claude-plugin/marketplace.json
+grep -q './plugin' .agents/plugins/marketplace.json
 grep -q '"skills": "./skills/"' .codex-plugin/plugin.json
 grep -q '"defaultPrompt"' .codex-plugin/plugin.json
 grep -q 'name: codex-implement' skills/codex-implement/SKILL.md
@@ -28,6 +49,9 @@ grep -q 'name: claude-implement' skills/claude-implement/SKILL.md
 
 step "documentation examples"
 grep -q 'make build' README.md
+grep -q 'claude plugin marketplace add nklisch/alt-subagent' README.md
+grep -q 'codex plugin marketplace add nklisch/alt-subagent' README.md
+grep -q 'make release VERSION=0.1.0' README.md
 grep -q -- '--agent gemini' README.md
 grep -q -- '--agent claude' README.md
 grep -q -- '--effort high' README.md

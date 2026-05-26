@@ -1,0 +1,15 @@
+{
+  "name": "alt-subagent",
+  "description": "Marketplace for the Alt Subagent plugin, a local bridge for delegating implementation work between Claude Code, Codex, and Gemini through Antigravity.",
+  "owner": {
+    "name": "nklisch"
+  },
+  "plugins": [
+    {
+      "name": "alt-subagent",
+      "source": "./plugin",
+      "description": "Delegate implementation tasks between local coding agents. Claude Code can call Codex or Gemini, and Codex can call Claude Code or Gemini.",
+      "category": "productivity"
+    }
+  ]
+}

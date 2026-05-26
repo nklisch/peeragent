@@ -1,12 +1,12 @@
 # Alt Subagent
 
-Alt Subagent lets one local coding assistant hand an implementation task to
-another local coding assistant without leaving the current repository.
+Alt Subagent is a dual Claude Code and Codex plugin that lets one local coding
+assistant delegate implementation work to another local coding assistant.
 
 Use it when you are working in Claude Code or Codex and want a second agent to
 take an implementation pass. The host assistant keeps the conversation with you;
-the target agent edits the repo, runs whatever verification it can, and returns a
-small JSON result for the host to summarize.
+the target agent edits the repo, runs verification when it can, and returns a
+small result for the host to summarize.
 
 ## What It Can Call
 
@@ -16,34 +16,29 @@ Alt Subagent wraps local CLIs you already have installed:
 - `gemini`: Gemini through Google Antigravity CLI, `agy --print`
 - `claude`: Claude Code CLI through `claude --print`
 
-It does not include accounts, API keys, or the target agents themselves. Install
-and sign in to the CLIs you want to use before delegating work.
+It does not include accounts, API keys, Codex, Claude Code, or Antigravity.
+Install and sign in to the target CLIs you want to use before delegating work.
 
-## Quick Start
+## Install From The Marketplace
 
-Clone and build the wrapper:
-
-```sh
-git clone https://github.com/nklisch/alt-subagent.git
-cd alt-subagent
-make build
-```
-
-That creates `dist/alt-subagent`. The checked-in shim at `bin/alt-subagent`
-uses the compiled binary when it exists and falls back to `go run` during local
-development.
-
-Try a direct call:
+Claude Code:
 
 ```sh
-bin/alt-subagent --agent gemini --text "Inspect the repo and suggest a small cleanup."
+claude plugin marketplace add nklisch/alt-subagent
+claude plugin install alt-subagent@alt-subagent
 ```
 
-Use JSON output, the default, when another assistant is reading the result:
+Codex:
 
 ```sh
-bin/alt-subagent --agent claude "Implement the requested README update and run tests."
+codex plugin marketplace add nklisch/alt-subagent
+codex plugin add alt-subagent@alt-subagent
 ```
+
+The marketplace installs the plugin source. On first use, `bin/alt-subagent`
+looks for a local compiled binary, then a cached release binary, then downloads
+the matching binary from the GitHub release for the plugin version. If no release
+asset is available, it falls back to `go run` when Go is installed.
 
 ## Using It From Claude Code
 
@@ -80,6 +75,14 @@ Codex remains responsible for the final response. The delegated agent is only
 the implementation worker.
 
 ## Direct CLI Usage
+
+Clone and build for local development:
+
+```sh
+git clone https://github.com/nklisch/alt-subagent.git
+cd alt-subagent
+make build
+```
 
 Blocking mode is the default:
 
@@ -123,8 +126,8 @@ Codex also supports profiles:
 bin/alt-subagent --agent codex --profile alt-subagent "Use this Codex profile."
 ```
 
-Default execution stays inside the current checkout using the safest bounded
-mode each target CLI exposes:
+Default execution stays inside the current checkout using the bounded mode each
+target CLI exposes:
 
 ```text
 codex exec --cd <repo> --sandbox workspace-write --ask-for-approval on-request ...
@@ -170,6 +173,57 @@ bin/alt-subagent --cancel <job-id>
 Async state lives under `.alt-subagent/jobs/` in the target repository. It is
 local runtime state and ignored by git.
 
+## Repository Shape
+
+This repo is shaped as both a Claude Code marketplace and a Codex marketplace.
+The root is the development source; `plugin/` is the committed install package
+that marketplaces point at.
+
+```text
+.claude-plugin/marketplace.json        # Claude marketplace entry, source ./plugin
+.agents/plugins/marketplace.json       # Codex marketplace entry, source ./plugin
+plugin/.claude-plugin/plugin.json      # Claude plugin manifest
+plugin/.codex-plugin/plugin.json       # Codex plugin manifest
+plugin/skills/claude-implement/SKILL.md
+plugin/skills/codex-implement/SKILL.md
+plugin/skills/gemini-implement/SKILL.md
+plugin/bin/alt-subagent
+```
+
+The root also keeps the same manifests, skills, and shim for local development.
+Run `scripts/package-plugin.sh` after changing plugin metadata, skills, or the
+shim so `plugin/` stays in sync.
+
+## Releasing
+
+Release artifacts are the compiled binaries used by marketplace installs when Go
+is not available locally.
+
+Build release archives locally:
+
+```sh
+make release VERSION=0.1.0
+```
+
+That writes:
+
+```text
+dist/release/alt-subagent_0.1.0_linux_amd64.tar.gz
+dist/release/alt-subagent_0.1.0_linux_arm64.tar.gz
+dist/release/alt-subagent_0.1.0_darwin_amd64.tar.gz
+dist/release/alt-subagent_0.1.0_darwin_arm64.tar.gz
+dist/release/checksums.txt
+```
+
+Publish a GitHub release from a machine with `gh` authenticated:
+
+```sh
+make publish-release VERSION=0.1.0
+```
+
+The GitHub Actions workflow in `.github/workflows/release.yml` also publishes
+these assets whenever a `v*` tag is pushed, or when run manually with a version.
+
 ## Development
 
 Run the test suite:
@@ -184,8 +238,9 @@ Run the full validation script:
 scripts/validate.sh
 ```
 
-The validation script builds the binary, checks plugin metadata, verifies README
-examples, and runs a small shim smoke test.
+The validation script runs tests, builds the binary, builds release archives,
+checks plugin and marketplace metadata, verifies README examples, and runs a
+small shim smoke test.
 
 ## Troubleshooting
 
@@ -198,8 +253,8 @@ agy --version
 claude --version
 ```
 
+If the wrapper cannot download a release binary, install Go and run `make build`,
+or set `ALT_SUBAGENT_BIN` to an executable `alt-subagent` binary.
+
 If an async lookup fails, make sure the job id came from the same repository and
 that `.alt-subagent/jobs/<job-id>/job.json` still exists.
-
-If `bin/alt-subagent` falls back to `go run` and you expected a compiled binary,
-run `make build` and confirm `dist/alt-subagent` is executable.
