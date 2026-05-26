@@ -1,7 +1,7 @@
 ---
 id: epic-packaging-docs-user-guide
 kind: feature
-stage: review
+stage: done
 tags: [docs]
 parent: epic-packaging-docs
 depends_on: [epic-packaging-docs-build-artifacts]
@@ -143,5 +143,9 @@ Verification:
 - `make build`
 - `bin/codex-implement --status missing-job`
 - `rg -- "--status \\[|--result \\[|xhigh|extra-high" README.md docs/CONTRACT.md skills/codex-implement/SKILL.md`
+
+## Review
+
+Approved. The README, skill, and contract now describe the implemented defaults and async command shape consistently. Review verification passed with `go test ./...`, `make build`, the missing-job JSON smoke, and a docs scan for stale optional status/result syntax or unsupported effort examples.
 
 <!-- The design pass on this feature (`/agile-workflow:feature-design`, refactor-design, or perf-design) will fill in interfaces, signatures, and implementation units. -->
