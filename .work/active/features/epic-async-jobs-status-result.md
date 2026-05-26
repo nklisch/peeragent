@@ -1,7 +1,7 @@
 ---
 id: epic-async-jobs-status-result
 kind: feature
-stage: drafting
+stage: implementing
 tags: [infra]
 parent: epic-async-jobs
 depends_on: [epic-async-jobs-launch]
@@ -28,5 +28,41 @@ The feature exists so Claude can reconnect to async work without parsing logs ma
 
 - `docs/CONTRACT.md` — `--status` and `--result`.
 
-<!-- The design pass on this feature (`/agile-workflow:feature-design`, refactor-design, or perf-design) will fill in interfaces, signatures, and implementation units. -->
+## Architectural Choice
 
+Implement explicit `--status <job-id>` and `--result <job-id>` commands. Status reads `job.json` and returns a normal result object; result reads `result.json` if present or reports the job as still running.
+
+Alternative considered: allow omitted job ids and infer the latest job. Rejected for the first implementation because explicit ids avoid surprising cross-session behavior.
+
+## Implementation Units
+
+### Unit 1: Status/Result Flags
+
+**File**: `internal/input/input.go`
+
+Add `StatusJobID` and `ResultJobID`.
+
+### Unit 2: Status/Result Handlers
+
+**File**: `cmd/codex-implement/main.go`
+
+Load from `jobs.NewStore(req.CWD)`. `--status` returns the metadata status. `--result` returns the saved result file when available.
+
+## Implementation Order
+
+1. Parse flags.
+2. Add handlers.
+3. Test parsing.
+4. Smoke test against the existing async job store.
+
+## Testing
+
+### Unit Tests
+
+Cover flag parsing. Use smoke tests for local file behavior.
+
+## Risks
+
+The contract allows optional job ids, but this implementation requires explicit ids until a latest-job policy is designed.
+
+<!-- The design pass on this feature (`/agile-workflow:feature-design`, refactor-design, or perf-design) will fill in interfaces, signatures, and implementation units. -->
