@@ -1,7 +1,7 @@
 ---
 id: epic-async-jobs-status-result
 kind: feature
-stage: review
+stage: done
 tags: [infra]
 parent: epic-async-jobs
 depends_on: [epic-async-jobs-launch]
@@ -74,5 +74,9 @@ Verification:
 - `go test ./...`
 - `go run ./cmd/codex-implement --status 20260526T034837Z-2da71b11`
 - `go run ./cmd/codex-implement --result 20260526T034837Z-2da71b11`
+
+## Review
+
+Approved. The implementation keeps status/result lookup local to the job store, preserves the JSON result contract for stored results, and covers the new flag parsing plus lifecycle status mapping. Review verification passed with `go test ./...`.
 
 <!-- The design pass on this feature (`/agile-workflow:feature-design`, refactor-design, or perf-design) will fill in interfaces, signatures, and implementation units. -->
