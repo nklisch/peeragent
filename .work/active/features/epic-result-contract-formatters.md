@@ -1,7 +1,7 @@
 ---
 id: epic-result-contract-formatters
 kind: feature
-stage: review
+stage: done
 tags: [infra]
 parent: epic-result-contract
 depends_on: [epic-result-contract-model]
@@ -79,5 +79,9 @@ Text output is secondary. Keep it readable but do not over-invest in terminal fo
 - Added `result.FormatText`.
 - Replaced ad hoc `main.go` JSON struct with the shared result model and formatters.
 - Added formatter tests.
+
+## Review
+
+Approved. JSON is now backed by the shared result model and remains the default, while `--text` produces a readable secondary format. The CLI no longer owns ad hoc result serialization.
 
 <!-- The design pass on this feature (`/agile-workflow:feature-design`, refactor-design, or perf-design) will fill in interfaces, signatures, and implementation units. -->
