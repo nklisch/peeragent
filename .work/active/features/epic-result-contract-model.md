@@ -1,7 +1,7 @@
 ---
 id: epic-result-contract-model
 kind: feature
-stage: implementing
+stage: review
 tags: [infra, docs]
 parent: epic-result-contract
 depends_on: []
@@ -83,5 +83,10 @@ Marshal a representative result and assert key JSON fields are present.
 ## Risks
 
 The schema should be stable enough for Claude but conservative enough to evolve. Avoid fields that require inference the wrapper cannot reliably provide yet.
+
+## Implementation Notes
+
+- Added `internal/result` with statuses, result, verification, and metadata types.
+- Added JSON field-name coverage for the core schema.
 
 <!-- The design pass on this feature (`/agile-workflow:feature-design`, refactor-design, or perf-design) will fill in interfaces, signatures, and implementation units. -->
