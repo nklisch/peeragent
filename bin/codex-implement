@@ -1,0 +1,11 @@
+#!/usr/bin/env sh
+set -eu
+
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+PLUGIN_ROOT=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)
+
+if [ -x "$PLUGIN_ROOT/dist/codex-implement" ]; then
+  exec "$PLUGIN_ROOT/dist/codex-implement" "$@"
+fi
+
+exec go run "$PLUGIN_ROOT/cmd/codex-implement" "$@"

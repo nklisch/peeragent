@@ -1,7 +1,7 @@
 ---
 id: epic-plugin-foundation-entrypoint
 kind: feature
-stage: implementing
+stage: review
 tags: [infra]
 parent: epic-plugin-foundation
 depends_on: [epic-plugin-foundation-go-skeleton]
@@ -89,5 +89,12 @@ Run `bin/codex-implement hello world` and verify the wrapper still executes.
 ## Risks
 
 The final packaged binary layout may differ by platform. Keeping the shim small and explicit makes that packaging decision easy to revise later.
+
+## Implementation Notes
+
+- Created `bin/codex-implement`.
+- The shim locates the plugin root from its own path.
+- The shim prefers `dist/codex-implement` and falls back to `go run ./cmd/codex-implement`.
+- Verified direct and argument-bearing invocations.
 
 <!-- The design pass on this feature (`/agile-workflow:feature-design`, refactor-design, or perf-design) will fill in interfaces, signatures, and implementation units. -->
