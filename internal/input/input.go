@@ -9,9 +9,11 @@ import (
 )
 
 type Request struct {
-	TaskText string
-	CWD      string
-	JSON     bool
+	TaskText   string
+	CWD        string
+	JSON       bool
+	FullAccess bool
+	Worktree   bool
 }
 
 func Parse(args []string, stdin io.Reader, getwd func() (string, error)) (Request, error) {
@@ -60,9 +62,11 @@ func Parse(args []string, stdin io.Reader, getwd func() (string, error)) (Reques
 	}
 
 	return Request{
-		TaskText: taskText,
-		CWD:      cwd,
-		JSON:     parsed.json,
+		TaskText:   taskText,
+		CWD:        cwd,
+		JSON:       parsed.json,
+		FullAccess: parsed.fullAccess,
+		Worktree:   parsed.worktree,
 	}, nil
 }
 
@@ -70,6 +74,8 @@ type parsedArgs struct {
 	cwd         string
 	promptFile  string
 	json        bool
+	fullAccess  bool
+	worktree    bool
 	positionals []string
 }
 
@@ -94,6 +100,10 @@ func parseArgs(args []string) (parsedArgs, error) {
 			parsed.json = true
 		case "--text":
 			parsed.json = false
+		case "--full-access":
+			parsed.fullAccess = true
+		case "--worktree":
+			parsed.worktree = true
 		default:
 			parsed.positionals = append(parsed.positionals, arg)
 		}

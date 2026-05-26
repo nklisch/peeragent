@@ -1,7 +1,7 @@
 ---
 id: epic-safety-permissions-worktree
 kind: feature
-stage: implementing
+stage: review
 tags: [security, infra]
 parent: epic-safety-permissions
 depends_on: [epic-safety-permissions-defaults]
@@ -72,5 +72,11 @@ Test flag parsing. Main-level behavior can be covered by smoke test or later com
 ## Risks
 
 A recognized-but-unsupported flag is less capable than ideal, but it is safer than silently ignoring isolation requests.
+
+## Implementation Notes
+
+- Added `--worktree` parsing.
+- Added an early JSON failure for worktree mode so isolation requests are not silently run in the raw checkout.
+- Added unit coverage for parsing.
 
 <!-- The design pass on this feature (`/agile-workflow:feature-design`, refactor-design, or perf-design) will fill in interfaces, signatures, and implementation units. -->

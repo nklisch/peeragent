@@ -15,8 +15,9 @@ type Result struct {
 }
 
 type Options struct {
-	CWD    string
-	Prompt string
+	CWD        string
+	Prompt     string
+	FullAccess bool
 }
 
 type runner interface {
@@ -36,6 +37,14 @@ func ExecWithRunner(ctx context.Context, run runner, opts Options) (Result, erro
 }
 
 func buildArgs(opts Options) []string {
+	if opts.FullAccess {
+		return []string{
+			"exec",
+			"--cd", opts.CWD,
+			"--dangerously-bypass-approvals-and-sandbox",
+			opts.Prompt,
+		}
+	}
 	return []string{
 		"exec",
 		"--cd", opts.CWD,

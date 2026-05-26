@@ -35,6 +35,25 @@ func TestExecWithRunnerBuildsArgv(t *testing.T) {
 	}
 }
 
+func TestExecWithRunnerBuildsFullAccessArgv(t *testing.T) {
+	run := &recordingRunner{result: Result{ExitCode: 0}}
+
+	_, err := ExecWithRunner(context.Background(), run, Options{CWD: "/repo", Prompt: "do work", FullAccess: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	wantArgs := []string{
+		"exec",
+		"--cd", "/repo",
+		"--dangerously-bypass-approvals-and-sandbox",
+		"do work",
+	}
+	if !reflect.DeepEqual(run.args, wantArgs) {
+		t.Fatalf("args = %#v, want %#v", run.args, wantArgs)
+	}
+}
+
 type recordingRunner struct {
 	name   string
 	args   []string

@@ -62,6 +62,26 @@ func TestParseCWDOverride(t *testing.T) {
 	}
 }
 
+func TestParseFullAccess(t *testing.T) {
+	req, err := Parse([]string{"--full-access", "task"}, nil, fixedCWD)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !req.FullAccess {
+		t.Fatal("expected FullAccess")
+	}
+}
+
+func TestParseWorktree(t *testing.T) {
+	req, err := Parse([]string{"--worktree", "task"}, nil, fixedCWD)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !req.Worktree {
+		t.Fatal("expected Worktree")
+	}
+}
+
 func TestParseRequiresTaskText(t *testing.T) {
 	_, err := Parse(nil, nil, fixedCWD)
 	if err == nil {

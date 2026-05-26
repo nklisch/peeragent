@@ -28,11 +28,23 @@ func run(args []string) error {
 			ExitCode: 2,
 		})
 	}
+	if req.Worktree {
+		if err := writeResult(result{
+			Status:   "failed",
+			Summary:  "worktree mode is recognized but not implemented yet",
+			CWD:      req.CWD,
+			ExitCode: 2,
+		}); err != nil {
+			return err
+		}
+		os.Exit(1)
+	}
 
 	codexPrompt := prompt.Build(req.TaskText)
 	execResult, execErr := codex.Exec(context.Background(), codex.Options{
-		CWD:    req.CWD,
-		Prompt: codexPrompt,
+		CWD:        req.CWD,
+		Prompt:     codexPrompt,
+		FullAccess: req.FullAccess,
 	})
 
 	status := "success"
