@@ -1,7 +1,7 @@
 ---
 id: epic-wrapper-cli-inputs
 kind: feature
-stage: review
+stage: done
 tags: [infra]
 parent: epic-wrapper-cli
 depends_on: []
@@ -112,5 +112,9 @@ Reading stdin without blocking is subtle. Treat stdin as an explicit reader in t
 - Supports args, stdin, `--prompt-file`, `--cwd`, and default JSON mode.
 - Wired `cmd/codex-implement` to use parsed input and emit placeholder JSON containing cwd and task text.
 - Added unit coverage for all input paths and missing task text.
+
+## Review
+
+Approved. The parser supports interspersed known flags without swallowing arbitrary task text, has focused unit coverage, and gives downstream prompt/execution work a stable request object.
 
 <!-- The design pass on this feature (`/agile-workflow:feature-design`, refactor-design, or perf-design) will fill in interfaces, signatures, and implementation units. -->
