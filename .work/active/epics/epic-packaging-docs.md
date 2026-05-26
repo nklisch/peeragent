@@ -1,7 +1,7 @@
 ---
 id: epic-packaging-docs
 kind: epic
-stage: implementing
+stage: done
 tags: [docs, infra]
 parent: null
 depends_on: [epic-plugin-foundation, epic-wrapper-cli, epic-result-contract]
@@ -46,5 +46,9 @@ Split by user-facing finish: build artifacts make the plugin distributable, user
 ### Decomposition risks
 
 Documentation can easily drift from the actual wrapper flags. The validation feature should prefer runnable command examples and manifest checks over a prose-only checklist.
+
+## Review
+
+Done. The plugin now has a repeatable build path, human and Claude-facing usage docs, contract cleanup, and an executable local validation command. Final validation for this epic passed with `make validate`.
 
 <!-- The design pass on each child feature will fill in real specifics. -->
