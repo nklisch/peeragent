@@ -1,7 +1,7 @@
 ---
 id: epic-async-jobs
 kind: epic
-stage: drafting
+stage: implementing
 tags: [infra]
 parent: null
 depends_on: [epic-result-contract]
@@ -28,16 +28,23 @@ This epic does not turn Codex Implement into a dashboard or general job-control 
 - `docs/ARCHITECTURE.md` — async flow and extension points.
 - `docs/CONTRACT.md` — async job contract and status/result/cancel commands.
 
-## Anticipated Child Features
-
-- `--async` launch behavior.
-- Job id and metadata storage.
-- Status and result lookup commands.
-- Cancellation support.
-- Async log management.
-
 ## Design Decisions
 
 - **Should async mode ship immediately or be designed now and implemented after blocking works?** Design async now. Implementation follows after the blocking path and result contract exist.
+
+## Decomposition
+
+Split by lifecycle. Job storage defines the local state shape, launch creates tracked jobs, status/result reads those jobs through the result contract, and cancellation stops tracked processes when possible.
+
+### Child features
+
+- `epic-async-jobs-store` — local job directory, metadata, and result file shape — depends on: `[]`
+- `epic-async-jobs-launch` — `--async` starts a detached wrapper job and returns running result — depends on: `[epic-async-jobs-store]`
+- `epic-async-jobs-status-result` — `--status` and `--result` read job state/results — depends on: `[epic-async-jobs-launch]`
+- `epic-async-jobs-cancel` — `--cancel <job-id>` best-effort process cancellation — depends on: `[epic-async-jobs-status-result]`
+
+### Decomposition risks
+
+Detached process handling differs across platforms. Keep the first implementation local and simple: metadata, pid, log/result files, and best-effort cancellation without promising robust daemon semantics.
 
 <!-- The design pass on each child feature will fill in real specifics. -->
