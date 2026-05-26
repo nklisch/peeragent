@@ -61,6 +61,10 @@ if [ "$PUBLISH" -eq 1 ]; then
   if [ -n "${GITHUB_SHA:-}" ]; then
     target_args="--target $GITHUB_SHA"
   fi
-  # shellcheck disable=SC2086
-  gh release create "$tag" $target_args "$OUT"/*     --title "alt-subagent $tag"     --notes "Release binaries for alt-subagent $tag. Marketplace installs can fetch these assets on first use."
+  if gh release view "$tag" >/dev/null 2>&1; then
+    gh release upload "$tag" "$OUT"/* --clobber
+  else
+    # shellcheck disable=SC2086
+    gh release create "$tag" $target_args "$OUT"/*       --title "alt-subagent $tag"       --notes "Release binaries for alt-subagent $tag. Marketplace installs can fetch these assets on first use."
+  fi
 fi
