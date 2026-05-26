@@ -1,7 +1,7 @@
 ---
 id: epic-result-contract
 kind: epic
-stage: drafting
+stage: implementing
 tags: [infra, docs]
 parent: null
 depends_on: [epic-wrapper-cli]
@@ -28,16 +28,22 @@ This epic does not implement async job persistence. Async consumes this result s
 - `docs/ARCHITECTURE.md` — wrapper role and blocking flow.
 - `docs/CONTRACT.md` — result shape, exit codes, and failure reporting.
 
-## Anticipated Child Features
-
-- Human-readable result formatter.
-- JSON result formatter.
-- Exit-code mapping.
-- Changed-file and verification summary capture.
-- Failure detail and log excerpt reporting.
-
 ## Design Decisions
 
 - **Should the wrapper default output be human-readable text or JSON?** JSON by default. Claude is the primary consumer, so the default output should be structured and easy to parse. Human-readable output remains available through an explicit option.
+
+## Decomposition
+
+Split by result-surface responsibility. The result model defines the stable fields, the formatter owns JSON/text rendering, and execution detail capture maps Codex process outcomes into that model. Changed-file and verification extraction stays light in this epic because robust extraction needs real Codex behavior and can evolve after the blocking path is exercised.
+
+### Child features
+
+- `epic-result-contract-model` — shared result struct, statuses, metadata shape, and exit-code mapping — depends on: `[]`
+- `epic-result-contract-formatters` — JSON default and explicit text formatter — depends on: `[epic-result-contract-model]`
+- `epic-result-contract-execution-details` — map Codex stdout/stderr/exit/errors into result fields and concise failure details — depends on: `[epic-result-contract-formatters]`
+
+### Decomposition risks
+
+The main risk is overfitting the schema before real Codex output patterns are known. Keep the schema stable but conservative: status, summary, cwd/access/profile, exit code, stdout/stderr details, and placeholders for changed files and verification.
 
 <!-- The design pass on each child feature will fill in real specifics. -->
