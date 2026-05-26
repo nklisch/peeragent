@@ -31,7 +31,7 @@ func TestResultFromExecutionNonZero(t *testing.T) {
 }
 
 func TestResultFromExecutionError(t *testing.T) {
-	res := resultFromExecution(input.Request{FullAccess: true, Profile: "p", Effort: "high"}, executil.Result{ExitCode: 127}, errors.New("missing"))
+	res := resultFromExecution(input.Request{FullAccess: true, Profile: "p", Effort: "high", Model: "opus"}, executil.Result{ExitCode: 127}, errors.New("missing"))
 	if res.Status != result.StatusFailed {
 		t.Fatalf("Status = %q", res.Status)
 	}
@@ -43,6 +43,9 @@ func TestResultFromExecutionError(t *testing.T) {
 	}
 	if res.Metadata.Effort != "high" {
 		t.Fatalf("Effort = %q", res.Metadata.Effort)
+	}
+	if res.Metadata.Model != "opus" {
+		t.Fatalf("Model = %q", res.Metadata.Model)
 	}
 }
 

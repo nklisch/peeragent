@@ -163,6 +163,57 @@ func TestParseRejectsUnsupportedEffort(t *testing.T) {
 	}
 }
 
+func TestParseClaudeModel(t *testing.T) {
+	req, err := Parse([]string{"--agent", "claude", "--model", "opus", "task"}, nil, fixedCWD)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if req.Model != "opus" {
+		t.Fatalf("Model = %q", req.Model)
+	}
+}
+
+func TestParseClaudeModelBeforeAgent(t *testing.T) {
+	req, err := Parse([]string{"--model", "sonnet", "--agent", "claude", "task"}, nil, fixedCWD)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if req.Model != "sonnet" {
+		t.Fatalf("Model = %q", req.Model)
+	}
+}
+
+func TestParseRejectsUnsupportedClaudeModel(t *testing.T) {
+	_, err := Parse([]string{"--agent", "claude", "--model", "llama", "task"}, nil, fixedCWD)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestParseGeminiFixedModel(t *testing.T) {
+	req, err := Parse([]string{"--agent", "gemini", "--model", "3.5", "task"}, nil, fixedCWD)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if req.Model != "gemini-3.5" {
+		t.Fatalf("Model = %q", req.Model)
+	}
+}
+
+func TestParseRejectsUnsupportedGeminiModel(t *testing.T) {
+	_, err := Parse([]string{"--agent", "gemini", "--model", "pro", "task"}, nil, fixedCWD)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestParseRejectsModelForCodex(t *testing.T) {
+	_, err := Parse([]string{"--model", "opus", "task"}, nil, fixedCWD)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
 func TestParseAsync(t *testing.T) {
 	req, err := Parse([]string{"--async", "task"}, nil, fixedCWD)
 	if err != nil {

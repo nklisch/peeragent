@@ -31,6 +31,7 @@ type Metadata struct {
 	Access       string `json:"access,omitempty"`
 	Profile      string `json:"profile,omitempty"`
 	Effort       string `json:"effort,omitempty"`
+	Model        string `json:"model,omitempty"`
 	ExitCode     int    `json:"exit_code"`
 	AgentSession string `json:"agent_session,omitempty"`
 	JobID        string `json:"job_id,omitempty"`

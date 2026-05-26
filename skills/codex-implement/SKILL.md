@@ -3,7 +3,9 @@ name: codex-implement
 description: >
   Delegate implementation work to OpenAI Codex CLI through the bundled
   alt-subagent wrapper. Use when Claude should hand arbitrary implementation
-  text to Codex as an autonomous implementor in the current repository.
+  text to Codex as an autonomous implementor in the current repository. Use
+  medium effort for normal implementation and high effort for deeper Codex
+  implementation.
 allowed-tools: Bash
 ---
 

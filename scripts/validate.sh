@@ -3,6 +3,7 @@ set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$ROOT"
+VERSION=$(awk -F'"' '/"version"[[:space:]]*:/ { print $4; exit }' .claude-plugin/plugin.json)
 
 step() {
   printf '\n==> %s\n' "$1"
@@ -26,11 +27,11 @@ test -f plugin/skills/codex-implement/SKILL.md
 test -f plugin/skills/gemini-implement/SKILL.md
 
 step "release artifacts"
-scripts/release.sh 0.1.0
-test -f dist/release/alt-subagent_0.1.0_linux_amd64.tar.gz
-test -f dist/release/alt-subagent_0.1.0_linux_arm64.tar.gz
-test -f dist/release/alt-subagent_0.1.0_darwin_amd64.tar.gz
-test -f dist/release/alt-subagent_0.1.0_darwin_arm64.tar.gz
+scripts/release.sh "$VERSION"
+test -f "dist/release/alt-subagent_${VERSION}_linux_amd64.tar.gz"
+test -f "dist/release/alt-subagent_${VERSION}_linux_arm64.tar.gz"
+test -f "dist/release/alt-subagent_${VERSION}_darwin_amd64.tar.gz"
+test -f "dist/release/alt-subagent_${VERSION}_darwin_arm64.tar.gz"
 test -f dist/release/checksums.txt
 
 step "plugin metadata"
@@ -51,10 +52,12 @@ step "documentation examples"
 grep -q 'make build' README.md
 grep -q 'claude plugin marketplace add nklisch/alt-subagent' README.md
 grep -q 'codex plugin marketplace add nklisch/alt-subagent' README.md
-grep -q 'make release VERSION=0.1.0' README.md
+grep -q "make release VERSION=$VERSION" README.md
 grep -q -- '--agent gemini' README.md
 grep -q -- '--agent claude' README.md
 grep -q -- '--effort high' README.md
+grep -q -- '--model opus' README.md
+grep -q -- '--model gemini-3.5' README.md
 grep -q -- '--async' README.md
 grep -q -- '--status <job-id>' README.md
 grep -q -- '--result <job-id>' README.md
@@ -73,6 +76,11 @@ fi
 
 if grep -R -F -- '--effort xhigh' README.md docs skills; then
   echo "unsupported xhigh effort example found"
+  exit 1
+fi
+
+if grep -R -F -- '--model pro' README.md docs skills; then
+  echo "unsupported Gemini model example found"
   exit 1
 fi
 

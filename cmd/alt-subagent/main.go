@@ -64,6 +64,7 @@ func run(args []string) error {
 				Access:   accessMode(req),
 				Profile:  req.Profile,
 				Effort:   req.Effort,
+				Model:    req.Model,
 				ExitCode: 2,
 			},
 		}); err != nil {
@@ -130,6 +131,7 @@ func launchAsync(args []string, req input.Request) error {
 			Access:   accessMode(req),
 			Profile:  req.Profile,
 			Effort:   req.Effort,
+			Model:    req.Model,
 			ExitCode: 0,
 			JobID:    job.ID,
 		},
@@ -315,6 +317,7 @@ func runAsyncJob(req input.Request) error {
 				Access:   accessMode(req),
 				Profile:  req.Profile,
 				Effort:   req.Effort,
+				Model:    req.Model,
 				ExitCode: 2,
 				JobID:    job.ID,
 			},
@@ -401,6 +404,7 @@ func executeRequest(ctx context.Context, req input.Request) (executil.Result, er
 			CWD:        req.CWD,
 			Prompt:     agentPrompt,
 			FullAccess: req.FullAccess,
+			Model:      req.Model,
 		})
 	case "claude":
 		return claude.Exec(ctx, claude.Options{
@@ -408,6 +412,7 @@ func executeRequest(ctx context.Context, req input.Request) (executil.Result, er
 			Prompt:     agentPrompt,
 			FullAccess: req.FullAccess,
 			Effort:     req.Effort,
+			Model:      req.Model,
 		})
 	default:
 		return codex.Exec(ctx, codex.Options{
@@ -443,6 +448,7 @@ func resultFromExecution(req input.Request, execResult executil.Result, execErr 
 			Access:   accessMode(req),
 			Profile:  req.Profile,
 			Effort:   req.Effort,
+			Model:    req.Model,
 			ExitCode: execResult.ExitCode,
 		},
 	}

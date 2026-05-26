@@ -4,7 +4,8 @@ description: >
   Delegate implementation work to Gemini through Google Antigravity CLI using
   the bundled alt-subagent wrapper. Use when Claude Code or Codex should hand
   arbitrary implementation text to Gemini as an autonomous implementor in the
-  current repository.
+  current repository. Treat this wrapper target as fixed Gemini 3.5; only
+  --model gemini-3.5 is accepted for explicit model metadata.
 allowed-tools: Bash
 metadata:
   short-description: Delegate to Gemini
@@ -52,6 +53,9 @@ Use advanced modes only when the request calls for them:
 
 - `--full-access` for explicit trusted full-access execution.
 - `--worktree` for explicit isolated worktree execution.
+- `--model gemini-3.5` to explicitly request the fixed Gemini 3.5 target. This
+  is recorded in wrapper metadata; `agy --print` currently exposes no
+  non-interactive model flag for the wrapper to pass through.
 - `--async` for long-running work where the host should not block.
 - `--prompt-file <path>` for large prompts.
 

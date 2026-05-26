@@ -57,6 +57,27 @@ func TestExecWithRunnerBuildsFullAccessArgv(t *testing.T) {
 	}
 }
 
+func TestExecWithRunnerIgnoresFixedModelArgv(t *testing.T) {
+	stubLookPath(t)
+	run := &recordingRunner{result: Result{ExitCode: 0}}
+
+	_, err := ExecWithRunner(context.Background(), run, Options{CWD: "/repo", Prompt: "do work", Model: "gemini-3.5"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	wantArgs := []string{
+		"--print",
+		"--sandbox",
+		"--add-dir", "/repo",
+		"--print-timeout", "15m",
+		"do work",
+	}
+	if !reflect.DeepEqual(run.args, wantArgs) {
+		t.Fatalf("args = %#v, want %#v", run.args, wantArgs)
+	}
+}
+
 type recordingRunner struct {
 	name   string
 	args   []string

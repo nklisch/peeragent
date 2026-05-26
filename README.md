@@ -84,12 +84,14 @@ Use this rough equivalence when choosing a target:
 
 | Desired implementation pass | Codex target | Claude target | Gemini target |
 | --- | --- | --- | --- |
-| Normal implementation sub-agent | `--agent codex --effort medium` | `--agent claude --effort medium` | `--agent gemini` |
-| Higher-thinking implementation pass | `--agent codex --effort high` | `--agent claude --effort high` | `--agent gemini` |
+| Lightweight or fast pass | `--agent codex --effort medium` | `--agent claude --model haiku --effort medium` | `--agent gemini --model gemini-3.5` |
+| Normal implementation sub-agent | `--agent codex --effort medium` | `--agent claude --model sonnet --effort medium` | `--agent gemini --model gemini-3.5` |
+| Higher-thinking implementation pass | `--agent codex --effort high` | `--agent claude --model opus --effort high` | `--agent gemini --model gemini-3.5` |
 
-Gemini through Antigravity is treated as fixed Gemini 3.5 for this wrapper. It
-has no `--effort` mapping here, so use it when you specifically want a Gemini
-implementation pass rather than a tunable thinking level.
+Gemini through Antigravity is treated as fixed Gemini 3.5 for this wrapper. The
+`--model gemini-3.5` spelling is accepted when you want to be explicit, but the
+wrapper does not pass a model flag to `agy` because `agy --print` does not
+expose a non-interactive model option today.
 
 Claude Code project snippet:
 
@@ -102,10 +104,9 @@ fixes in this repository.
 
 - Use `/codex-implement` for a Codex implementation pass.
 - Use `/gemini-implement` for a Gemini 3.5 implementation pass through
-  Antigravity.
-- Use the default medium effort for routine work.
-- Ask the wrapper for `--effort high` when the task would normally need a deeper
-  implementation pass.
+  Antigravity; `--model gemini-3.5` is the only accepted Gemini model value.
+- Use the default medium effort for routine Codex work.
+- Ask the wrapper for `--effort high` when Codex should take the deeper pass.
 - Do not use Alt Subagent for planning-only, research-only, or review-only work.
 ```
 
@@ -119,11 +120,13 @@ concrete code changes, bug fixes, refactors, tests, docs updates, and build
 fixes in this repository.
 
 - Use `claude-implement` for a Claude Code implementation pass.
+- Use `--model sonnet` for normal Claude work, `--model opus --effort high` for
+  the deeper Claude pass, and `--model haiku` for lightweight Claude work.
 - Use `gemini-implement` for a Gemini 3.5 implementation pass through
-  Antigravity.
-- Use the default medium effort for routine work.
-- Ask the wrapper for `--effort high` when the task would normally need a deeper
-  implementation pass.
+  Antigravity; `--model gemini-3.5` is the only accepted Gemini model value.
+- Use the default medium effort for routine Codex or Claude work.
+- Ask the wrapper for `--effort high` when Codex or Claude should take the
+  deeper pass.
 - Do not use Alt Subagent for planning-only, research-only, or review-only work.
 ```
 
@@ -163,14 +166,26 @@ Ask for human-readable output:
 bin/alt-subagent --text --agent gemini "Fix the failing parser test."
 ```
 
-## Effort, Profiles, And Access
+## Models, Effort, Profiles, And Access
 
 Codex and Claude support `--effort`:
 
 ```sh
 bin/alt-subagent --agent codex --effort medium "Implement the small change."
 bin/alt-subagent --agent codex --effort high "Implement the cross-module migration."
-bin/alt-subagent --agent claude --effort high "Untangle the failing integration test."
+bin/alt-subagent --agent claude --model sonnet --effort medium "Implement the small change."
+bin/alt-subagent --agent claude --model opus --effort high "Untangle the failing integration test."
+bin/alt-subagent --agent claude --model haiku "Make the localized docs update."
+```
+
+Claude supports `--model sonnet`, `--model opus`, and `--model haiku`. Gemini
+accepts only `--model gemini-3.5`; this records the fixed Gemini target but does
+not add an `agy` model flag because `agy --print` does not expose a
+non-interactive model option. Use Antigravity's own `/model` flow outside this
+wrapper if you want to change its global default.
+
+```sh
+bin/alt-subagent --agent gemini --model gemini-3.5 "Implement the requested change."
 ```
 
 Codex also supports profiles:
@@ -255,23 +270,23 @@ is not available locally.
 Build release archives locally:
 
 ```sh
-make release VERSION=0.1.0
+make release VERSION=0.1.1
 ```
 
 That writes:
 
 ```text
-dist/release/alt-subagent_0.1.0_linux_amd64.tar.gz
-dist/release/alt-subagent_0.1.0_linux_arm64.tar.gz
-dist/release/alt-subagent_0.1.0_darwin_amd64.tar.gz
-dist/release/alt-subagent_0.1.0_darwin_arm64.tar.gz
+dist/release/alt-subagent_0.1.1_linux_amd64.tar.gz
+dist/release/alt-subagent_0.1.1_linux_arm64.tar.gz
+dist/release/alt-subagent_0.1.1_darwin_amd64.tar.gz
+dist/release/alt-subagent_0.1.1_darwin_arm64.tar.gz
 dist/release/checksums.txt
 ```
 
 Publish a GitHub release from a machine with `gh` authenticated:
 
 ```sh
-make publish-release VERSION=0.1.0
+make publish-release VERSION=0.1.1
 ```
 
 The GitHub Actions workflow in `.github/workflows/release.yml` also publishes

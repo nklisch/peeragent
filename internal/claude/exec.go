@@ -15,6 +15,7 @@ type Options struct {
 	Prompt     string
 	FullAccess bool
 	Effort     string
+	Model      string
 }
 
 var lookPath = exec.LookPath
@@ -41,6 +42,9 @@ func buildArgs(opts Options) []string {
 		args = append(args, "--dangerously-skip-permissions")
 	} else {
 		args = append(args, "--permission-mode", "auto")
+	}
+	if opts.Model != "" {
+		args = append(args, "--model", opts.Model)
 	}
 	if opts.Effort == "" {
 		opts.Effort = "medium"

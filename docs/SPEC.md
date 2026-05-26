@@ -97,7 +97,11 @@ claude --print --dangerously-skip-permissions ...
 ```
 
 The default Codex and Claude reasoning effort is `medium`; the wrapper exposes
-`medium` and `high` through `--effort`.
+`medium` and `high` through `--effort`. Claude also supports `--model sonnet`,
+`--model opus`, and `--model haiku`, which pass through to Claude Code. Gemini
+is treated as fixed Gemini 3.5; `--model gemini-3.5` is accepted for explicit
+metadata, but the wrapper does not pass a model flag to `agy` because `agy --print` does
+not expose a non-interactive model option.
 
 ## Output Requirements
 
@@ -109,7 +113,7 @@ The wrapper returns a concise result to the host. The result includes:
 - Verification commands and outcomes when known.
 - Target-agent final output or useful diagnostics.
 - Failure reason and useful log excerpts when the target fails.
-- Agent, working directory, access, effort, and job metadata when available.
+- Agent, working directory, access, effort, model, and job metadata when available.
 
 The wrapper avoids dumping long raw logs into host context unless the task
 failed and the logs are needed to continue.

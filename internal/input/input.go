@@ -17,6 +17,7 @@ type Request struct {
 	Worktree    bool
 	Profile     string
 	Effort      string
+	Model       string
 	Async       bool
 	JobRunID    string
 	StatusJobID string
@@ -82,6 +83,7 @@ func Parse(args []string, stdin io.Reader, getwd func() (string, error)) (Reques
 		Worktree:    parsed.worktree,
 		Profile:     parsed.profile,
 		Effort:      parsed.effort,
+		Model:       parsed.model,
 		Async:       parsed.async,
 		JobRunID:    parsed.jobRunID,
 		StatusJobID: parsed.statusJobID,
@@ -99,6 +101,7 @@ type parsedArgs struct {
 	worktree    bool
 	profile     string
 	effort      string
+	model       string
 	async       bool
 	jobRunID    string
 	statusJobID string
@@ -159,6 +162,12 @@ func parseArgs(args []string) (parsedArgs, error) {
 			default:
 				return parsedArgs{}, errors.New("--effort must be medium or high")
 			}
+		case "--model":
+			i++
+			if i >= len(args) {
+				return parsedArgs{}, errors.New("--model requires a value")
+			}
+			parsed.model = args[i]
 		case "--async":
 			parsed.async = true
 		case "--job-run":
@@ -189,6 +198,11 @@ func parseArgs(args []string) (parsedArgs, error) {
 			parsed.positionals = append(parsed.positionals, arg)
 		}
 	}
+	model, err := normalizeModel(parsed.agent, parsed.model)
+	if err != nil {
+		return parsedArgs{}, err
+	}
+	parsed.model = model
 	return parsed, nil
 }
 
@@ -202,5 +216,30 @@ func normalizeAgent(agent string) (string, error) {
 		return "claude", nil
 	default:
 		return "", errors.New("--agent must be codex, gemini, or claude")
+	}
+}
+
+func normalizeModel(agent string, model string) (string, error) {
+	model = strings.ToLower(strings.TrimSpace(model))
+	if model == "" {
+		return "", nil
+	}
+	switch agent {
+	case "claude":
+		switch model {
+		case "sonnet", "opus", "haiku":
+			return model, nil
+		default:
+			return "", errors.New("--model for claude must be sonnet, opus, or haiku")
+		}
+	case "gemini":
+		switch model {
+		case "gemini", "gemini-3.5", "3.5":
+			return "gemini-3.5", nil
+		default:
+			return "", errors.New("--model for gemini is fixed to gemini-3.5")
+		}
+	default:
+		return "", errors.New("--model is supported only for claude or gemini")
 	}
 }
