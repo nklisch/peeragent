@@ -1,7 +1,7 @@
 ---
 id: epic-result-contract-formatters
 kind: feature
-stage: implementing
+stage: review
 tags: [infra]
 parent: epic-result-contract
 depends_on: [epic-result-contract-model]
@@ -72,5 +72,12 @@ Test JSON validity and representative text sections.
 ## Risks
 
 Text output is secondary. Keep it readable but do not over-invest in terminal formatting.
+
+## Implementation Notes
+
+- Added `result.FormatJSON`.
+- Added `result.FormatText`.
+- Replaced ad hoc `main.go` JSON struct with the shared result model and formatters.
+- Added formatter tests.
 
 <!-- The design pass on this feature (`/agile-workflow:feature-design`, refactor-design, or perf-design) will fill in interfaces, signatures, and implementation units. -->
