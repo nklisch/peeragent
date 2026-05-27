@@ -1,14 +1,15 @@
 # Peeragent
 
-Peeragent is a dual Claude Code and Codex plugin that lets one local coding
-assistant delegate arbitrary task work to another local coding assistant.
+Peeragent is a Claude Code and Codex plugin that lets a host assistant
+delegate arbitrary task work to a peer local coding agent — Codex, Claude
+Code, or Gemini through Google Antigravity.
 
-Use it when you are working in Claude Code or Codex and want a second agent to
-take a focused task pass — implementation, research, review, debugging,
-refactors, docs, build fixes, anything. The host assistant keeps the
-conversation with you; the peer agent inspects or edits the repo, runs
-verification when it can, and returns a small result for the host to
-summarize.
+Use it when you are working in Claude Code or Codex and want one of the
+other two agents to take a focused task pass — implementation, research,
+review, debugging, refactors, docs, build fixes, anything. The host
+assistant keeps the conversation with you; the peer agent inspects or
+edits the repo, runs verification when it can, and returns a small result
+for the host to summarize.
 
 ## What It Can Call
 
@@ -315,3 +316,43 @@ or set `PEERAGENT_BIN` to an executable `peeragent` binary.
 
 If an async lookup fails, make sure the job id came from the same repository and
 that `.peeragent/jobs/<job-id>/job.json` still exists.
+
+### Gemini auth times out every call
+
+Antigravity (`agy`) stores its OAuth token in the system keyring (Keychain on
+macOS, Credential Manager on Windows, libsecret on Linux). On headless Linux
+without a desktop session, no Secret Service is running by default, so `agy`
+falls through to a one-time browser flow that times out in non-interactive
+mode and never persists a token. Symptoms: the wrapper returns immediately
+with output containing `Authentication required` and `authentication timed
+out` even after a successful interactive login.
+
+Fix on Linux:
+
+1. Install and start a libsecret provider:
+
+   ```sh
+   sudo dnf install gnome-keyring         # or: sudo apt install gnome-keyring
+   eval "$(gnome-keyring-daemon --start --components=secrets,ssh)"
+   ```
+
+2. Use an empty-password default keyring so it auto-unlocks without prompts
+   (Seahorse: delete the default keyring and create a new one with no
+   password, then mark it default).
+
+3. Run `agy` once interactively, complete the browser login, type a prompt
+   to confirm, and exit cleanly. The token lands in libsecret under
+   `service=gemini` and persists across runs.
+
+4. Keep the daemon alive across logins by adding to your shell rc:
+
+   ```bash
+   if ! pgrep -f 'gnome-keyring-daemon.*--components=secrets' >/dev/null 2>&1; then
+     eval "$(gnome-keyring-daemon --start --components=secrets,ssh 2>/dev/null)"
+   fi
+   ```
+
+If the keyring is impractical (CI, locked-down hosts), set
+`ANTIGRAVITY_API_KEY` from <https://aistudio.google.com/apikey> instead —
+that bypasses libsecret entirely but routes through AI Studio's quota
+rather than your Antigravity subscription.
