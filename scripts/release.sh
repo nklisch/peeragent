@@ -11,7 +11,7 @@ fi
 
 VERSION=${1:-}
 if [ -z "$VERSION" ]; then
-  VERSION=$(awk -F'\"' '/\"version\"[[:space:]]*:/ { print $4; exit }' "$ROOT/.claude-plugin/plugin.json")
+  VERSION=$(awk -F'"' '/"version"[[:space:]]*:/ { print $4; exit }' "$ROOT/.claude-plugin/plugin.json")
 fi
 VERSION=${VERSION#v}
 VERSION=${VERSION%%+*}
@@ -33,8 +33,8 @@ build_target() {
   dir="$BUILD/$target"
   mkdir -p "$dir"
   echo "building $target"
-  CGO_ENABLED=0 GOOS=$goos GOARCH=$goarch go build -trimpath -ldflags="-s -w" -o "$dir/alt-subagent" "$ROOT/cmd/alt-subagent"
-  tar -C "$dir" -czf "$OUT/alt-subagent_${VERSION}_${goos}_${goarch}.tar.gz" alt-subagent
+  CGO_ENABLED=0 GOOS=$goos GOARCH=$goarch go build -trimpath -ldflags="-s -w" -o "$dir/peeragent" "$ROOT/cmd/peeragent"
+  tar -C "$dir" -czf "$OUT/peeragent_${VERSION}_${goos}_${goarch}.tar.gz" peeragent
 }
 
 build_target linux amd64
@@ -44,7 +44,7 @@ build_target darwin arm64
 
 (
   cd "$OUT"
-  sha256sum alt-subagent_*.tar.gz > checksums.txt
+  sha256sum peeragent_*.tar.gz > checksums.txt
 )
 
 rm -rf "$BUILD"
@@ -65,6 +65,6 @@ if [ "$PUBLISH" -eq 1 ]; then
     gh release upload "$tag" "$OUT"/* --clobber
   else
     # shellcheck disable=SC2086
-    gh release create "$tag" $target_args "$OUT"/*       --title "alt-subagent $tag"       --notes "Release binaries for alt-subagent $tag. Marketplace installs can fetch these assets on first use."
+    gh release create "$tag" $target_args "$OUT"/*       --title "peeragent $tag"       --notes "Release binaries for peeragent $tag. Marketplace installs can fetch these assets on first use."
   fi
 fi

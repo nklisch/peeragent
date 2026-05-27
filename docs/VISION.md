@@ -39,7 +39,7 @@ becoming a general multi-agent control panel.
 
 Alt Subagent is a plugin-ready repository containing:
 
-- A bundled `alt-subagent` CLI wrapper.
+- A bundled `peeragent` CLI wrapper.
 - Claude-facing skills for delegating to Codex and Gemini.
 - Codex-facing skills for delegating to Claude and Gemini.
 - A shared JSON result contract for host agents.

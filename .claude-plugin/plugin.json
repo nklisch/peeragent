@@ -1,11 +1,11 @@
 {
-  "name": "alt-subagent",
+  "name": "peeragent",
   "version": "0.1.4",
-  "description": "Delegate implementation, research, or review tasks from Claude Code to alternate local coding agents",
+  "description": "Delegate arbitrary task work from Claude Code to a peer local coding agent (Codex, Claude, Gemini)",
   "author": {
     "name": "nklisch"
   },
   "license": "MIT",
-  "repository": "https://github.com/nklisch/alt-subagent",
-  "homepage": "https://github.com/nklisch/alt-subagent"
+  "repository": "https://github.com/nklisch/peeragent",
+  "homepage": "https://github.com/nklisch/peeragent"
 }

@@ -25,7 +25,7 @@ type Store struct {
 }
 
 func NewStore(cwd string) Store {
-	return Store{Root: filepath.Join(cwd, ".alt-subagent", "jobs")}
+	return Store{Root: filepath.Join(cwd, ".peeragent", "jobs")}
 }
 
 func (s Store) Create(taskText string) (Job, error) {

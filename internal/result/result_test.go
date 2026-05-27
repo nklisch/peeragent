@@ -16,7 +16,7 @@ func TestResultJSONFields(t *testing.T) {
 			CWD:      "/repo",
 			Agent:    "codex",
 			Access:   "default",
-			Profile:  "alt-subagent",
+			Profile:  "peeragent",
 			Effort:   "medium",
 			ExitCode: 0,
 		},

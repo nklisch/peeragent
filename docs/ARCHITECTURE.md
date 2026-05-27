@@ -8,8 +8,8 @@ another local coding agent for implementation, research, or review work.
 ```text
 Host assistant session
   -> host skill
-    -> bin/alt-subagent
-      -> dist/alt-subagent or go run cmd/alt-subagent
+    -> bin/peeragent
+      -> dist/peeragent or go run cmd/peeragent
         -> target CLI
           -> current repository working tree
 ```
@@ -40,9 +40,9 @@ skills/
   gemini-implement/
     SKILL.md
 bin/
-  alt-subagent
+  peeragent
 cmd/
-  alt-subagent/
+  peeragent/
 internal/
   claude/
   codex/
@@ -55,7 +55,7 @@ internal/
 docs/
 ```
 
-The plugin-level contract is the skill set and the `alt-subagent` executable.
+The plugin-level contract is the skill set and the `peeragent` executable.
 
 ## Skill Role
 
@@ -75,8 +75,8 @@ large command suite.
 
 ## Wrapper Role
 
-`bin/alt-subagent` is the executable entrypoint. It invokes the compiled Go
-wrapper from `dist/alt-subagent` when present and falls back to `go run` during
+`bin/peeragent` is the executable entrypoint. It invokes the compiled Go
+wrapper from `dist/peeragent` when present and falls back to `go run` during
 development.
 
 The wrapper:
@@ -123,7 +123,7 @@ Worktree execution is recognized but not implemented yet.
 
 ```text
 1. Host invokes a skill with task text.
-2. The skill calls `alt-subagent --agent <target>`.
+2. The skill calls `peeragent --agent <target>`.
 3. The wrapper runs the target CLI in the current working directory.
 4. The target edits, runs commands, and returns a final message.
 5. The wrapper formats the result.
@@ -133,14 +133,14 @@ Worktree execution is recognized but not implemented yet.
 ## Async Flow
 
 ```text
-1. Host invokes `alt-subagent --agent <target> --async <task>`.
+1. Host invokes `peeragent --agent <target> --async <task>`.
 2. The wrapper creates a local job record.
 3. The wrapper starts a detached child wrapper process.
 4. The wrapper returns a job id and log location.
 5. The host checks status or result through `--status` or `--result`.
 ```
 
-Async jobs are local to the repository under `.alt-subagent/jobs/`.
+Async jobs are local to the repository under `.peeragent/jobs/`.
 
 ## Extension Points
 

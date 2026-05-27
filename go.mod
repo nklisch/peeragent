@@ -1,3 +1,3 @@
-module github.com/nklisch/alt-subagent
+module github.com/nklisch/peeragent
 
 go 1.22

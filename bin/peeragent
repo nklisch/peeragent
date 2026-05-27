@@ -4,26 +4,26 @@ set -eu
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 PLUGIN_ROOT=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)
 
-if [ -n "${ALT_SUBAGENT_BIN:-}" ] && [ -x "$ALT_SUBAGENT_BIN" ]; then
-  exec "$ALT_SUBAGENT_BIN" "$@"
+if [ -n "${PEERAGENT_BIN:-}" ] && [ -x "$PEERAGENT_BIN" ]; then
+  exec "$PEERAGENT_BIN" "$@"
 fi
 
-if [ -x "$PLUGIN_ROOT/dist/alt-subagent" ]; then
-  exec "$PLUGIN_ROOT/dist/alt-subagent" "$@"
+if [ -x "$PLUGIN_ROOT/dist/peeragent" ]; then
+  exec "$PLUGIN_ROOT/dist/peeragent" "$@"
 fi
 
 version_from_manifest() {
   for manifest in "$PLUGIN_ROOT/.claude-plugin/plugin.json" "$PLUGIN_ROOT/.codex-plugin/plugin.json"; do
     if [ -f "$manifest" ]; then
-      awk -F'\"' '/\"version\"[[:space:]]*:/ { print $4; exit }' "$manifest"
+      awk -F'"' '/"version"[[:space:]]*:/ { print $4; exit }' "$manifest"
       return 0
     fi
   done
 }
 
 run_from_source() {
-  if command -v go >/dev/null 2>&1 && [ -d "$PLUGIN_ROOT/cmd/alt-subagent" ]; then
-    exec go run "$PLUGIN_ROOT/cmd/alt-subagent" "$@"
+  if command -v go >/dev/null 2>&1 && [ -d "$PLUGIN_ROOT/cmd/peeragent" ]; then
+    exec go run "$PLUGIN_ROOT/cmd/peeragent" "$@"
   fi
 }
 
@@ -33,7 +33,7 @@ if [ -d "$PLUGIN_ROOT/.git" ]; then
   run_from_source "$@"
 fi
 
-VERSION=${ALT_SUBAGENT_VERSION:-$(version_from_manifest || true)}
+VERSION=${PEERAGENT_VERSION:-$(version_from_manifest || true)}
 VERSION=${VERSION%%+*}
 
 UNAME_S=$(uname -s 2>/dev/null || echo unknown)
@@ -49,22 +49,22 @@ case "$UNAME_M" in
   *) GOARCH=unknown ;;
 esac
 
-CACHE_BASE=${ALT_SUBAGENT_CACHE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/alt-subagent}
-CACHE_BIN="$CACHE_BASE/v$VERSION/$GOOS-$GOARCH/alt-subagent"
+CACHE_BASE=${PEERAGENT_CACHE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/peeragent}
+CACHE_BIN="$CACHE_BASE/v$VERSION/$GOOS-$GOARCH/peeragent"
 
 if [ -n "$VERSION" ] && [ -x "$CACHE_BIN" ]; then
   exec "$CACHE_BIN" "$@"
 fi
 
-if [ "${ALT_SUBAGENT_SKIP_DOWNLOAD:-}" != "1" ] && [ -n "$VERSION" ] && [ "$GOOS" != unknown ] && [ "$GOARCH" != unknown ] && command -v curl >/dev/null 2>&1 && command -v tar >/dev/null 2>&1 && command -v mktemp >/dev/null 2>&1; then
-  ASSET="alt-subagent_${VERSION}_${GOOS}_${GOARCH}.tar.gz"
-  BASE_URL=${ALT_SUBAGENT_RELEASE_BASE:-https://github.com/nklisch/alt-subagent/releases/download/v$VERSION}
-  TMPDIR=$(mktemp -d 2>/dev/null || mktemp -d -t alt-subagent)
+if [ "${PEERAGENT_SKIP_DOWNLOAD:-}" != "1" ] && [ -n "$VERSION" ] && [ "$GOOS" != unknown ] && [ "$GOARCH" != unknown ] && command -v curl >/dev/null 2>&1 && command -v tar >/dev/null 2>&1 && command -v mktemp >/dev/null 2>&1; then
+  ASSET="peeragent_${VERSION}_${GOOS}_${GOARCH}.tar.gz"
+  BASE_URL=${PEERAGENT_RELEASE_BASE:-https://github.com/nklisch/peeragent/releases/download/v$VERSION}
+  TMPDIR=$(mktemp -d 2>/dev/null || mktemp -d -t peeragent)
   cleanup() { rm -rf "$TMPDIR"; }
   trap cleanup EXIT INT TERM
   if curl -fsSL "$BASE_URL/$ASSET" -o "$TMPDIR/$ASSET" && tar -xzf "$TMPDIR/$ASSET" -C "$TMPDIR"; then
     mkdir -p "$(dirname "$CACHE_BIN")"
-    cp "$TMPDIR/alt-subagent" "$CACHE_BIN"
+    cp "$TMPDIR/peeragent" "$CACHE_BIN"
     chmod +x "$CACHE_BIN"
     exec "$CACHE_BIN" "$@"
   fi
@@ -73,14 +73,14 @@ fi
 run_from_source "$@"
 
 cat >&2 <<EOF
-alt-subagent executable is not available.
+peeragent executable is not available.
 
 Install Go and run 'make build' from the plugin source, or install a release
 asset for this platform. The wrapper looked for:
 
-  $PLUGIN_ROOT/dist/alt-subagent
+  $PLUGIN_ROOT/dist/peeragent
   $CACHE_BIN
 
-Set ALT_SUBAGENT_BIN to an executable path to override discovery.
+Set PEERAGENT_BIN to an executable path to override discovery.
 EOF
 exit 127

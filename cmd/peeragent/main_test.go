@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/nklisch/alt-subagent/internal/executil"
-	"github.com/nklisch/alt-subagent/internal/input"
-	"github.com/nklisch/alt-subagent/internal/result"
+	"github.com/nklisch/peeragent/internal/executil"
+	"github.com/nklisch/peeragent/internal/input"
+	"github.com/nklisch/peeragent/internal/result"
 )
 
 func TestResultFromExecutionSuccess(t *testing.T) {

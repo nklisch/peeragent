@@ -2,7 +2,7 @@
 
 ## Name
 
-The repository, bundled wrapper, and plugin name are `alt-subagent`.
+The repository, bundled wrapper, and plugin name are `peeragent`.
 
 The Claude-facing skills are:
 
@@ -21,9 +21,9 @@ gemini-implement
 All skills call the same wrapper with an explicit target:
 
 ```text
-alt-subagent --agent codex <task text>
-alt-subagent --agent gemini <task text>
-alt-subagent --agent claude <task text>
+peeragent --agent codex <task text>
+peeragent --agent gemini <task text>
+peeragent --agent claude <task text>
 ```
 
 ## Runtime Context
@@ -31,7 +31,7 @@ alt-subagent --agent claude <task text>
 Alt Subagent runs on a developer machine with:
 
 - A repository or working directory open in the host agent.
-- A platform-compatible `alt-subagent` wrapper binary supplied by the plugin.
+- A platform-compatible `peeragent` wrapper binary supplied by the plugin.
 - At least one target CLI installed and authenticated locally.
 
 Supported target CLIs:
@@ -52,8 +52,8 @@ The project contains:
 - `skills/` for host-facing skills. The Codex plugin manifest points here so
   Codex can target Claude or Gemini, and Claude Code also discovers the same
   directory.
-- `bin/alt-subagent` as the executable host agents call.
-- `cmd/alt-subagent/` and internal Go packages for the wrapper implementation.
+- `bin/peeragent` as the executable host agents call.
+- `cmd/peeragent/` and internal Go packages for the wrapper implementation.
 - `docs/` for foundation documents.
 
 ## Invocation Modes

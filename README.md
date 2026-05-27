@@ -1,17 +1,18 @@
-# Alt Subagent
+# Peeragent
 
-Alt Subagent is a dual Claude Code and Codex plugin that lets one local coding
-assistant delegate implementation, research, or review work to another local
-coding assistant.
+Peeragent is a dual Claude Code and Codex plugin that lets one local coding
+assistant delegate arbitrary task work to another local coding assistant.
 
 Use it when you are working in Claude Code or Codex and want a second agent to
-take a focused task pass. The host assistant keeps the conversation with you;
-the target agent inspects or edits the repo, runs verification when it can, and
-returns a small result for the host to summarize.
+take a focused task pass — implementation, research, review, debugging,
+refactors, docs, build fixes, anything. The host assistant keeps the
+conversation with you; the peer agent inspects or edits the repo, runs
+verification when it can, and returns a small result for the host to
+summarize.
 
 ## What It Can Call
 
-Alt Subagent wraps local CLIs you already have installed:
+Peeragent wraps local CLIs you already have installed:
 
 - `codex`: OpenAI Codex CLI through `codex exec`
 - `gemini`: Gemini through Google Antigravity CLI, `agy --print`
@@ -25,59 +26,44 @@ Install and sign in to the target CLIs you want to use before delegating work.
 Claude Code:
 
 ```sh
-claude plugin marketplace add nklisch/alt-subagent
-claude plugin install alt-subagent@alt-subagent
+claude plugin marketplace add nklisch/peeragent
+claude plugin install peeragent@peeragent
 ```
 
 Codex:
 
 ```sh
-codex plugin marketplace add nklisch/alt-subagent
-codex plugin add alt-subagent@alt-subagent
+codex plugin marketplace add nklisch/peeragent
+codex plugin add peeragent@peeragent
 ```
 
-The marketplace installs the plugin source. On first use, `bin/alt-subagent`
+The marketplace installs the plugin source. On first use, `bin/peeragent`
 looks for a local compiled binary, then a cached release binary, then downloads
 the matching binary from the GitHub release for the plugin version. If no release
 asset is available, it falls back to `go run` when Go is installed.
 
-## Using It From Claude Code
+## Using It
 
-The Claude Code plugin exposes these skills:
+The plugin exposes two skills, available in both Claude Code and Codex:
 
-- `/codex-implement`: delegate implementation, research, or review work to Codex
-- `/gemini-implement`: delegate implementation, research, or review work to Gemini through Antigravity
+- `/peer`: delegate a focused task pass to a peer local coding agent
+- `/peer-review`: iterative cross-model peer review of recent work
 
 Example prompts:
 
 ```text
-/codex-implement Fix the failing parser test and run the relevant test package.
-/gemini-implement Refactor the result formatter and update its tests.
+/peer Fix the failing parser test and run the relevant test package.
+/peer --agent claude --model opus --effort xhigh Refactor the result formatter and update its tests.
+/peer --agent gemini Inspect the CLI docs and patch stale usage text.
+/peer-review
 ```
 
-Claude Code remains responsible for reading the wrapper result and explaining
-the outcome to you.
+The host assistant remains responsible for reading the wrapper result and
+explaining the outcome to you.
 
-## Using It From Codex
+## Agent Equivalence And Defaults
 
-The Codex plugin exposes these skills:
-
-- `claude-implement`: delegate implementation, research, or review work to Claude Code
-- `gemini-implement`: delegate implementation, research, or review work to Gemini through Antigravity
-
-Example requests:
-
-```text
-Use claude-implement to add the missing validation test.
-Use gemini-implement to inspect the CLI docs and patch stale usage text.
-```
-
-Codex remains responsible for the final response. The delegated agent is only
-the focused worker for that task.
-
-## Agent Equivalence And Harness Overrides
-
-Alt Subagent does not automatically replace a host assistant's normal sub-agent
+Peeragent does not automatically replace a host assistant's normal sub-agent
 pattern. If you want that behavior, add a project instruction to `CLAUDE.md` or
 `AGENTS.md` telling the host when to delegate through these skills.
 
@@ -86,7 +72,7 @@ Use this rough equivalence when choosing a target:
 | Desired delegated pass | Codex target | Claude target | Gemini target |
 | --- | --- | --- | --- |
 | Lightweight or fast pass | `--agent codex --effort medium` | `--agent claude --model haiku --effort high` | `--agent gemini --model gemini-3.5` |
-| Normal implementation, research, or review sub-agent | `--agent codex` or `--agent codex --effort high` | `--agent claude --model sonnet` or `--agent claude --model sonnet --effort xhigh` | `--agent gemini --model gemini-3.5` |
+| Normal implementation, research, or review pass | `--agent codex` or `--agent codex --effort high` | `--agent claude --model sonnet` or `--agent claude --model sonnet --effort xhigh` | `--agent gemini --model gemini-3.5` |
 | Deeper implementation, research, or review pass | `--agent codex --effort xhigh` | `--agent claude --model opus --effort xhigh` | `--agent gemini --model gemini-3.5` |
 
 Gemini through Antigravity is treated as fixed Gemini 3.5 for this wrapper. The
@@ -97,46 +83,38 @@ expose a non-interactive model option today.
 Claude Code project snippet:
 
 ```markdown
-## Alt Subagent Delegation
+## Peer Delegation
 
 When you would normally use an implementation, research, or review sub-agent,
-prefer Alt Subagent for concrete code changes, bug fixes, refactors, tests,
-docs updates, build fixes, research passes, and review passes in this
-repository.
+prefer `/peer` for concrete code changes, bug fixes, refactors, tests, docs
+updates, build fixes, research passes, and review passes in this repository.
 
-- Use `/codex-implement` for a Codex task pass.
-- Use `/gemini-implement` for a Gemini 3.5 task pass through
-  Antigravity; `--model gemini-3.5` is the only accepted Gemini model value.
-- Use the default high effort for routine Codex work.
-- Ask the wrapper for `--effort xhigh` when Codex should take the deeper pass.
-- Research-only and review-only delegation are allowed when a second-agent pass
-  is useful.
-- Do not use Alt Subagent for planning-only orchestration work.
+- Use `/peer` with no `--agent` flag for the default Codex pass.
+- Use `/peer --agent claude --model sonnet` for a normal Claude pass.
+- Use `/peer --agent gemini` for a Gemini 3.5 pass through Antigravity.
+- Use `--effort xhigh` when the work is dense or the stakes are high.
+- Research-only and review-only delegation are allowed.
+- Use `/peer-review` for iterative cross-model review of recent work.
+- Do not use peeragent for planning-only orchestration work.
 ```
 
 Codex project snippet:
 
 ```markdown
-## Alt Subagent Delegation
+## Peer Delegation
 
 When you would normally use an implementation, research, or review sub-agent,
-prefer Alt Subagent for concrete code changes, bug fixes, refactors, tests,
-docs updates, build fixes, research passes, and review passes in this
-repository.
+prefer `/peer` for concrete code changes, bug fixes, refactors, tests, docs
+updates, build fixes, research passes, and review passes in this repository.
 
-- Use `claude-implement` for a Claude Code task pass.
-- Use `--model sonnet` for normal Claude work, `--model opus --effort xhigh`
-  for the deeper Claude pass, and `--model haiku --effort high` for lightweight
-  Claude work.
-- Use `gemini-implement` for a Gemini 3.5 task pass through
-  Antigravity; `--model gemini-3.5` is the only accepted Gemini model value.
-- Use default high effort for routine Codex work and default xhigh effort for
-  routine Claude work.
-- Ask the wrapper for `--effort xhigh` when Codex should take the deeper pass;
-  use `--model opus --effort xhigh` for the deeper Claude pass.
-- Research-only and review-only delegation are allowed when a second-agent pass
-  is useful.
-- Do not use Alt Subagent for planning-only orchestration work.
+- Use `/peer --agent claude` (default `--model sonnet`, default `--effort xhigh`)
+  for a normal Claude pass; `--model opus --effort xhigh` for the deeper Claude
+  pass; `--model haiku --effort high` for lightweight Claude work.
+- Use `/peer --agent gemini` for a Gemini 3.5 pass through Antigravity.
+- Use `/peer` with no `--agent` flag for a Codex pass at default high effort;
+  `--effort xhigh` for the deeper Codex pass.
+- Use `/peer-review` for iterative cross-model review of recent work.
+- Do not use peeragent for planning-only orchestration work.
 ```
 
 ## Direct CLI Usage
@@ -144,35 +122,35 @@ repository.
 Clone and build for local development:
 
 ```sh
-git clone https://github.com/nklisch/alt-subagent.git
-cd alt-subagent
+git clone https://github.com/nklisch/peeragent.git
+cd peeragent
 make build
 ```
 
 Blocking mode is the default:
 
 ```sh
-bin/alt-subagent --agent codex "Implement the requested change and run relevant tests."
-bin/alt-subagent --agent gemini "Implement the requested change and run relevant tests."
-bin/alt-subagent --agent claude "Implement the requested change and run relevant tests."
+bin/peeragent --agent codex "Implement the requested change and run relevant tests."
+bin/peeragent --agent gemini "Implement the requested change and run relevant tests."
+bin/peeragent --agent claude "Implement the requested change and run relevant tests."
 ```
 
 Read task text from a file:
 
 ```sh
-bin/alt-subagent --agent codex --prompt-file task.md
+bin/peeragent --agent codex --prompt-file task.md
 ```
 
 Run against another checkout:
 
 ```sh
-bin/alt-subagent --cwd /path/to/repo --agent claude "Update the CLI help text."
+bin/peeragent --cwd /path/to/repo --agent claude "Update the CLI help text."
 ```
 
 Ask for human-readable output:
 
 ```sh
-bin/alt-subagent --text --agent gemini "Fix the failing parser test."
+bin/peeragent --text --agent gemini "Fix the failing parser test."
 ```
 
 ## Models, Effort, Profiles, And Access
@@ -182,12 +160,12 @@ only for lightweight Codex work and `xhigh` for deeper Codex passes. Claude
 defaults to `xhigh` and accepts only `high` or `xhigh`:
 
 ```sh
-bin/alt-subagent --agent codex "Implement the routine change."
-bin/alt-subagent --agent codex --effort medium "Make the localized docs update."
-bin/alt-subagent --agent codex --effort xhigh "Review the cross-module migration for hidden regressions."
-bin/alt-subagent --agent claude --model sonnet "Implement the small change."
-bin/alt-subagent --agent claude --model opus --effort xhigh "Untangle the failing integration test."
-bin/alt-subagent --agent claude --model haiku --effort high "Make the localized docs update."
+bin/peeragent --agent codex "Implement the routine change."
+bin/peeragent --agent codex --effort medium "Make the localized docs update."
+bin/peeragent --agent codex --effort xhigh "Review the cross-module migration for hidden regressions."
+bin/peeragent --agent claude --model sonnet "Implement the small change."
+bin/peeragent --agent claude --model opus --effort xhigh "Untangle the failing integration test."
+bin/peeragent --agent claude --model haiku --effort high "Make the localized docs update."
 ```
 
 Claude supports `--model sonnet`, `--model opus`, and `--model haiku`. Gemini
@@ -197,20 +175,20 @@ non-interactive model option. Use Antigravity's own `/model` flow outside this
 wrapper if you want to change its global default.
 
 ```sh
-bin/alt-subagent --agent gemini --model gemini-3.5 "Implement the requested change."
+bin/peeragent --agent gemini --model gemini-3.5 "Implement the requested change."
 ```
 
 Codex also supports profiles:
 
 ```sh
-bin/alt-subagent --agent codex --profile alt-subagent "Use this Codex profile."
+bin/peeragent --agent codex --profile peeragent "Use this Codex profile."
 ```
 
 Default execution stays inside the current checkout using the bounded mode each
 target CLI exposes:
 
 ```text
-codex exec --cd <repo> --sandbox workspace-write --ask-for-approval on-request ...
+codex exec --cd <repo> --sandbox workspace-write ...
 agy --print --sandbox --add-dir <repo> ...
 claude --print --permission-mode auto --add-dir <repo> ...
 ```
@@ -218,7 +196,7 @@ claude --print --permission-mode auto --add-dir <repo> ...
 Use full access only for a trusted repo and an explicit reason:
 
 ```sh
-bin/alt-subagent --agent claude --full-access "Run the trusted local migration."
+bin/peeragent --agent claude --full-access "Run the trusted local migration."
 ```
 
 `--worktree` is reserved for future isolated worktree execution. Today it
@@ -229,28 +207,28 @@ returns a clear JSON failure instead of silently changing how work is done.
 For longer work, start a background job:
 
 ```sh
-bin/alt-subagent --agent gemini --async "Refactor the result formatter and run tests."
+bin/peeragent --agent gemini --async "Refactor the result formatter and run tests."
 ```
 
 Check status:
 
 ```sh
-bin/alt-subagent --status <job-id>
+bin/peeragent --status <job-id>
 ```
 
 Fetch the result:
 
 ```sh
-bin/alt-subagent --result <job-id>
+bin/peeragent --result <job-id>
 ```
 
 Cancel the job:
 
 ```sh
-bin/alt-subagent --cancel <job-id>
+bin/peeragent --cancel <job-id>
 ```
 
-Async state lives under `.alt-subagent/jobs/` in the target repository. It is
+Async state lives under `.peeragent/jobs/` in the target repository. It is
 local runtime state and ignored by git.
 
 ## Repository Shape
@@ -264,10 +242,9 @@ that marketplaces point at.
 .agents/plugins/marketplace.json       # Codex marketplace entry, source ./plugin
 plugin/.claude-plugin/plugin.json      # Claude plugin manifest
 plugin/.codex-plugin/plugin.json       # Codex plugin manifest
-plugin/skills/claude-implement/SKILL.md
-plugin/skills/codex-implement/SKILL.md
-plugin/skills/gemini-implement/SKILL.md
-plugin/bin/alt-subagent
+plugin/skills/peer/SKILL.md
+plugin/skills/peer-review/SKILL.md
+plugin/bin/peeragent
 ```
 
 The root also keeps the same manifests, skills, and shim for local development.
@@ -288,10 +265,10 @@ make release VERSION=0.1.4
 That writes:
 
 ```text
-dist/release/alt-subagent_0.1.4_linux_amd64.tar.gz
-dist/release/alt-subagent_0.1.4_linux_arm64.tar.gz
-dist/release/alt-subagent_0.1.4_darwin_amd64.tar.gz
-dist/release/alt-subagent_0.1.4_darwin_arm64.tar.gz
+dist/release/peeragent_0.1.4_linux_amd64.tar.gz
+dist/release/peeragent_0.1.4_linux_arm64.tar.gz
+dist/release/peeragent_0.1.4_darwin_amd64.tar.gz
+dist/release/peeragent_0.1.4_darwin_arm64.tar.gz
 dist/release/checksums.txt
 ```
 
@@ -334,7 +311,7 @@ claude --version
 ```
 
 If the wrapper cannot download a release binary, install Go and run `make build`,
-or set `ALT_SUBAGENT_BIN` to an executable `alt-subagent` binary.
+or set `PEERAGENT_BIN` to an executable `peeragent` binary.
 
 If an async lookup fails, make sure the job id came from the same repository and
-that `.alt-subagent/jobs/<job-id>/job.json` still exists.
+that `.peeragent/jobs/<job-id>/job.json` still exists.

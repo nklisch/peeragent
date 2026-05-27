@@ -1,14 +1,14 @@
 {
-  "name": "alt-subagent",
-  "description": "Marketplace for the Alt Subagent plugin, a local bridge for delegating implementation, research, or review work between Claude Code, Codex, and Gemini through Antigravity.",
+  "name": "peeragent",
+  "description": "Marketplace for the Peeragent plugin, a local bridge for delegating arbitrary task work between Claude Code, Codex, and Gemini through Antigravity.",
   "owner": {
     "name": "nklisch"
   },
   "plugins": [
     {
-      "name": "alt-subagent",
+      "name": "peeragent",
       "source": "./plugin",
-      "description": "Delegate implementation, research, or review tasks between local coding agents. Claude Code can call Codex or Gemini, and Codex can call Claude Code or Gemini.",
+      "description": "Delegate arbitrary task work between local coding agents. Any host (Claude Code, Codex) can call any peer (Codex, Claude Code, or Gemini through Antigravity).",
       "category": "productivity"
     }
   ]

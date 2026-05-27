@@ -5,7 +5,7 @@ import (
 	"errors"
 	"os/exec"
 
-	"github.com/nklisch/alt-subagent/internal/executil"
+	"github.com/nklisch/peeragent/internal/executil"
 )
 
 type Result = executil.Result

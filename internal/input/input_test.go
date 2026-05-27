@@ -120,11 +120,11 @@ func TestParseWorktree(t *testing.T) {
 }
 
 func TestParseProfile(t *testing.T) {
-	req, err := Parse([]string{"--profile", "alt-subagent", "task"}, nil, fixedCWD)
+	req, err := Parse([]string{"--profile", "peeragent", "task"}, nil, fixedCWD)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if req.Profile != "alt-subagent" {
+	if req.Profile != "peeragent" {
 		t.Fatalf("Profile = %q", req.Profile)
 	}
 }

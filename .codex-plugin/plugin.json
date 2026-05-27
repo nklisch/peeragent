@@ -1,26 +1,27 @@
 {
-  "name": "alt-subagent",
+  "name": "peeragent",
   "version": "0.1.4",
-  "description": "Delegate implementation, research, or review tasks from Codex to alternate local coding agents",
+  "description": "Delegate arbitrary task work from Codex to a peer local coding agent (Claude, Codex, Gemini)",
   "author": {
     "name": "nklisch"
   },
   "license": "MIT",
   "skills": "./skills/",
   "interface": {
-    "displayName": "Alt Subagent",
-    "shortDescription": "Delegate Codex tasks to Claude or Gemini",
-    "longDescription": "Alt Subagent wraps local coding agent CLIs so Codex can hand implementation, research, or review tasks to Claude Code or Gemini through Antigravity.",
+    "displayName": "Peeragent",
+    "shortDescription": "Delegate work to a peer coding agent",
+    "longDescription": "Peeragent wraps local coding agent CLIs so any host (Claude Code, Codex) can hand a focused task to a peer agent (Claude, Codex, or Gemini through Antigravity).",
     "developerName": "nklisch",
     "category": "Productivity",
     "capabilities": [
       "Write"
     ],
     "defaultPrompt": [
-      "Delegate this task to Claude.",
-      "Delegate this task to Gemini."
+      "Delegate this task to a peer agent.",
+      "Hand this to Claude.",
+      "Hand this to Gemini."
     ]
   },
-  "repository": "https://github.com/nklisch/alt-subagent",
-  "homepage": "https://github.com/nklisch/alt-subagent"
+  "repository": "https://github.com/nklisch/peeragent",
+  "homepage": "https://github.com/nklisch/peeragent"
 }

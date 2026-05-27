@@ -9,8 +9,8 @@ mkdir -p "$PLUGIN/.claude-plugin" "$PLUGIN/.codex-plugin" "$PLUGIN/bin" "$PLUGIN
 
 cp "$ROOT/.claude-plugin/plugin.json" "$PLUGIN/.claude-plugin/plugin.json"
 cp "$ROOT/.codex-plugin/plugin.json" "$PLUGIN/.codex-plugin/plugin.json"
-cp "$ROOT/bin/alt-subagent" "$PLUGIN/bin/alt-subagent"
-chmod +x "$PLUGIN/bin/alt-subagent"
+cp "$ROOT/bin/peeragent" "$PLUGIN/bin/peeragent"
+chmod +x "$PLUGIN/bin/peeragent"
 
 for skill in "$ROOT"/skills/*; do
   if [ -d "$skill" ]; then

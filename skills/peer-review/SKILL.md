@@ -3,18 +3,18 @@ name: peer-review
 description: >
   Run an honest, iterative cross-model peer review on recent work — designs,
   code, plans, refactors, architecture, docs, or any artifact in the repo — by
-  delegating review to the OTHER local coding agent through alt-subagent
-  (Claude asks Codex, Codex asks Claude). Then loop: weigh the feedback
-  honestly, accept what's valid, push back on what isn't, refine the work,
-  and ask again. Run at least 3 substantive passes; continue until only nits
-  remain. Use this proactively after any nontrivial design or implementation
-  pass, before declaring work done, when you suspect a blind spot, or when the
-  user asks for "peer review", "second opinion", "cross-review", "have the
-  other agent look at this", "what does Codex/Claude think", "/peer-review",
-  or any phrasing that asks for feedback from the alternate agent. Free-form
-  scope — invoke with a description of what to review, or with no args to
-  review the most recent work in the conversation. Safe to invoke without
-  explicit user request when shipping unreviewed feels risky.
+  delegating review to the OTHER local coding agent through peeragent (Claude
+  asks Codex, Codex asks Claude). Then loop: weigh the feedback honestly,
+  accept what's valid, push back on what isn't, refine the work, and ask
+  again. Run at least 3 substantive passes; continue until only nits remain.
+  Use this proactively after any nontrivial design or implementation pass,
+  before declaring work done, when you suspect a blind spot, or when the user
+  asks for "peer review", "second opinion", "cross-review", "have the other
+  agent look at this", "what does Codex/Claude think", "/peer-review", or any
+  phrasing that asks for feedback from the alternate agent. Free-form scope —
+  invoke with a description of what to review, or with no args to review the
+  most recent work in the conversation. Safe to invoke without explicit user
+  request when shipping unreviewed feels risky.
 allowed-tools: Bash
 metadata:
   short-description: Iterative cross-model peer review
@@ -47,9 +47,9 @@ loop is overhead; reserve it for work where the loop pays for itself.
 The peer reviewer is the agent you are not.
 
 - If you are Claude Code, delegate review to Codex with
-  `alt-subagent --agent codex ...`.
+  `peeragent --agent codex ...`.
 - If you are Codex, delegate review to Claude with
-  `alt-subagent --agent claude ...`.
+  `peeragent --agent claude ...`.
 - Gemini is also available (`--agent gemini`) when the user asks for it or
   when the natural pair is unavailable.
 
@@ -90,8 +90,8 @@ A blocking call. Default model/effort is fine for most passes; bump effort
 only when the work is dense or the stakes are high.
 
 ```bash
-alt-subagent --agent <other-agent> "Review the following <work type> and
-give me the good, the bad, and the ugly. Focus on <task-specific concerns>.
+peeragent --agent <other-agent> "Review the following <work type> and give
+me the good, the bad, and the ugly. Focus on <task-specific concerns>.
 Artifact: <paths or inline description>. Context: <what changed, what
 success looks like>."
 ```
@@ -99,8 +99,8 @@ success looks like>."
 For a deeper review pass:
 
 ```bash
-alt-subagent --agent codex --effort xhigh "..."
-alt-subagent --agent claude --model opus --effort xhigh "..."
+peeragent --agent codex --effort xhigh "..."
+peeragent --agent claude --model opus --effort xhigh "..."
 ```
 
 For very large prompts, write to a file and use `--prompt-file <path>`.

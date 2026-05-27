@@ -23,12 +23,17 @@ type Request struct {
 	StatusJobID string
 	ResultJobID string
 	CancelJobID string
+	Help        bool
 }
 
 func Parse(args []string, stdin io.Reader, getwd func() (string, error)) (Request, error) {
 	parsed, err := parseArgs(args)
 	if err != nil {
 		return Request{}, err
+	}
+
+	if parsed.help {
+		return Request{Help: true, JSON: parsed.json}, nil
 	}
 
 	cwd := strings.TrimSpace(parsed.cwd)
@@ -107,6 +112,7 @@ type parsedArgs struct {
 	statusJobID string
 	resultJobID string
 	cancelJobID string
+	help        bool
 	positionals []string
 }
 
@@ -189,9 +195,14 @@ func parseArgs(args []string) (parsedArgs, error) {
 				return parsedArgs{}, errors.New("--cancel requires a job id")
 			}
 			parsed.cancelJobID = args[i]
+		case "--help", "-h":
+			parsed.help = true
 		default:
 			parsed.positionals = append(parsed.positionals, arg)
 		}
+	}
+	if parsed.help {
+		return parsed, nil
 	}
 	effort, err := normalizeEffort(parsed.agent, parsed.effort)
 	if err != nil {

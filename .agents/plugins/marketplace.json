@@ -1,11 +1,11 @@
 {
-  "name": "alt-subagent",
+  "name": "peeragent",
   "interface": {
-    "displayName": "Alt Subagent"
+    "displayName": "Peeragent"
   },
   "plugins": [
     {
-      "name": "alt-subagent",
+      "name": "peeragent",
       "source": {
         "source": "local",
         "path": "./plugin"

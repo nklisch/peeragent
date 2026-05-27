@@ -7,14 +7,14 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/nklisch/alt-subagent/internal/claude"
-	"github.com/nklisch/alt-subagent/internal/codex"
-	"github.com/nklisch/alt-subagent/internal/executil"
-	"github.com/nklisch/alt-subagent/internal/gemini"
-	"github.com/nklisch/alt-subagent/internal/input"
-	"github.com/nklisch/alt-subagent/internal/jobs"
-	"github.com/nklisch/alt-subagent/internal/prompt"
-	"github.com/nklisch/alt-subagent/internal/result"
+	"github.com/nklisch/peeragent/internal/claude"
+	"github.com/nklisch/peeragent/internal/codex"
+	"github.com/nklisch/peeragent/internal/executil"
+	"github.com/nklisch/peeragent/internal/gemini"
+	"github.com/nklisch/peeragent/internal/input"
+	"github.com/nklisch/peeragent/internal/jobs"
+	"github.com/nklisch/peeragent/internal/prompt"
+	"github.com/nklisch/peeragent/internal/result"
 )
 
 func main() {
@@ -23,6 +23,33 @@ func main() {
 		os.Exit(1)
 	}
 }
+
+const usageText = `peeragent — delegate a task pass to another local coding assistant.
+
+Usage:
+  peeragent [flags] <task text>
+  peeragent --prompt-file <path> [flags]
+  peeragent --status|--result|--cancel <job-id> [flags]
+
+Flags:
+  --agent <codex|claude|gemini>   Target assistant (default codex).
+  --model <name>                  Model override (claude: sonnet|opus|haiku;
+                                  gemini: gemini-3.5; not used by codex).
+  --effort <medium|high|xhigh>    Reasoning effort (codex default high;
+                                  claude default xhigh, accepts high|xhigh;
+                                  unused by gemini).
+  --profile <name>                Codex profile override.
+  --full-access                   Run the target CLI without sandboxing.
+  --worktree                      Reserved; returns a clear failure today.
+  --cwd <path>                    Repo directory the target runs in.
+  --prompt-file <path>            Read task text from a file.
+  --async                         Start a background job and return its id.
+  --status <job-id>               Show status of a background job.
+  --result <job-id>               Print a background job's final result.
+  --cancel <job-id>               Best-effort cancel a background job.
+  --json | --text                 Output format (default --json).
+  -h, --help                      Show this help.
+`
 
 func run(args []string) error {
 	req, err := input.Parse(args, os.Stdin, os.Getwd)
@@ -36,6 +63,10 @@ func run(args []string) error {
 				ExitCode: 2,
 			},
 		})
+	}
+	if req.Help {
+		fmt.Print(usageText)
+		return nil
 	}
 	if req.JobRunID != "" {
 		return runAsyncJob(req)

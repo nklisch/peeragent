@@ -25,11 +25,11 @@ agent.
 ## Wrapper Interface
 
 ```text
-alt-subagent [options] <task text>
-alt-subagent [options] --prompt-file <path>
-alt-subagent --status <job-id>
-alt-subagent --result <job-id>
-alt-subagent --cancel <job-id>
+peeragent [options] <task text>
+peeragent [options] --prompt-file <path>
+peeragent --status <job-id>
+peeragent --result <job-id>
+peeragent --cancel <job-id>
 ```
 
 Options:
@@ -143,7 +143,7 @@ Full access maps to each target's explicit bypass flag.
 Async state is stored under:
 
 ```text
-.alt-subagent/jobs/<job-id>/
+.peeragent/jobs/<job-id>/
   job.json
   agent.log
   result.json

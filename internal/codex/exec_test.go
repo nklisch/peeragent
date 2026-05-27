@@ -62,7 +62,7 @@ func TestExecWithRunnerBuildsProfileArgv(t *testing.T) {
 	stubLookPath(t)
 	run := &recordingRunner{result: Result{ExitCode: 0}}
 
-	_, err := ExecWithRunner(context.Background(), run, Options{CWD: "/repo", Prompt: "do work", Profile: "alt-subagent"})
+	_, err := ExecWithRunner(context.Background(), run, Options{CWD: "/repo", Prompt: "do work", Profile: "peeragent"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -73,7 +73,7 @@ func TestExecWithRunnerBuildsProfileArgv(t *testing.T) {
 		"--sandbox", "workspace-write",
 		"--ask-for-approval", "on-request",
 		"-c", "approvals_reviewer=auto_review",
-		"--profile", "alt-subagent",
+		"--profile", "peeragent",
 		"-c", `model_reasoning_effort="high"`,
 		"do work",
 	}

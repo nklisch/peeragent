@@ -14,44 +14,42 @@ go test ./...
 
 step "build"
 scripts/build.sh
-test -x dist/alt-subagent
-test -x bin/alt-subagent
+test -x dist/peeragent
+test -x bin/peeragent
 
 step "plugin package"
 scripts/package-plugin.sh
-test -x plugin/bin/alt-subagent
+test -x plugin/bin/peeragent
 test -f plugin/.claude-plugin/plugin.json
 test -f plugin/.codex-plugin/plugin.json
-test -f plugin/skills/claude-implement/SKILL.md
-test -f plugin/skills/codex-implement/SKILL.md
-test -f plugin/skills/gemini-implement/SKILL.md
+test -f plugin/skills/peer/SKILL.md
+test -f plugin/skills/peer-review/SKILL.md
 
 step "release artifacts"
 scripts/release.sh "$VERSION"
-test -f "dist/release/alt-subagent_${VERSION}_linux_amd64.tar.gz"
-test -f "dist/release/alt-subagent_${VERSION}_linux_arm64.tar.gz"
-test -f "dist/release/alt-subagent_${VERSION}_darwin_amd64.tar.gz"
-test -f "dist/release/alt-subagent_${VERSION}_darwin_arm64.tar.gz"
+test -f "dist/release/peeragent_${VERSION}_linux_amd64.tar.gz"
+test -f "dist/release/peeragent_${VERSION}_linux_arm64.tar.gz"
+test -f "dist/release/peeragent_${VERSION}_darwin_amd64.tar.gz"
+test -f "dist/release/peeragent_${VERSION}_darwin_arm64.tar.gz"
 test -f dist/release/checksums.txt
 
 step "plugin metadata"
-grep -q '"name": "alt-subagent"' .claude-plugin/plugin.json
-grep -q '"name": "alt-subagent"' .codex-plugin/plugin.json
-grep -q '"name": "alt-subagent"' .claude-plugin/marketplace.json
-grep -q '"name": "alt-subagent"' .agents/plugins/marketplace.json
+grep -q '"name": "peeragent"' .claude-plugin/plugin.json
+grep -q '"name": "peeragent"' .codex-plugin/plugin.json
+grep -q '"name": "peeragent"' .claude-plugin/marketplace.json
+grep -q '"name": "peeragent"' .agents/plugins/marketplace.json
 grep -q './plugin' .claude-plugin/marketplace.json
 grep -q './plugin' .agents/plugins/marketplace.json
 grep -q '"skills": "./skills/"' .codex-plugin/plugin.json
 grep -q '"defaultPrompt"' .codex-plugin/plugin.json
-grep -q 'name: codex-implement' skills/codex-implement/SKILL.md
-grep -q 'allowed-tools: Bash' skills/codex-implement/SKILL.md
-grep -q 'name: gemini-implement' skills/gemini-implement/SKILL.md
-grep -q 'name: claude-implement' skills/claude-implement/SKILL.md
+grep -q 'name: peer' skills/peer/SKILL.md
+grep -q 'allowed-tools: Bash' skills/peer/SKILL.md
+grep -q 'name: peer-review' skills/peer-review/SKILL.md
 
 step "documentation examples"
 grep -q 'make build' README.md
-grep -q 'claude plugin marketplace add nklisch/alt-subagent' README.md
-grep -q 'codex plugin marketplace add nklisch/alt-subagent' README.md
+grep -q 'claude plugin marketplace add nklisch/peeragent' README.md
+grep -q 'codex plugin marketplace add nklisch/peeragent' README.md
 grep -q "make release VERSION=$VERSION" README.md
 grep -q -- '--agent gemini' README.md
 grep -q -- '--agent claude' README.md
@@ -92,7 +90,7 @@ fi
 
 step "shim smoke"
 set +e
-status_output=$(bin/alt-subagent --status missing-job 2>&1)
+status_output=$(bin/peeragent --status missing-job 2>&1)
 status_code=$?
 set -e
 
