@@ -134,13 +134,23 @@ Worktree execution is recognized but not implemented yet.
 
 ```text
 1. Host invokes `peeragent --agent <target> --async <task>`.
-2. The wrapper creates a local job record.
-3. The wrapper starts a detached child wrapper process.
-4. The wrapper returns a job id and log location.
-5. The host checks status or result through `--status` or `--result`.
+2. The wrapper resolves the request, writes `job.json` and `prompt.txt`, and
+   starts a detached child wrapper as `peeragent --job-run <id> --cwd <cwd>`.
+3. On unix, the child starts in a new session so its PID is also the process
+   group id recorded in the `pid` sidecar.
+4. The child loads the execution spec and prompt from the job directory, runs
+   the target CLI, writes `result.json`, updates `job.json`, and removes `pid`.
+5. The wrapper returns a job id and log location.
+6. The host checks status or result through `--status` or `--result`.
 ```
 
 Async jobs are local to the repository under `.peeragent/jobs/`.
+
+Cancellation writes cancelled `job.json` and `result.json` state before
+signalling. On unix, it sends SIGTERM to the recorded process group, waits up
+to 5 seconds, then sends SIGKILL if the group is still present. Child finish
+reloads current state before writing and leaves cancelled terminal state
+untouched.
 
 ## Extension Points
 

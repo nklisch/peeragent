@@ -2,7 +2,9 @@ package jobs
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -89,6 +91,66 @@ func TestPromptRoundTripPreservesRawBytes(t *testing.T) {
 	}
 	if got != prompt {
 		t.Fatalf("prompt bytes = %v, want %v", []byte(got), []byte(prompt))
+	}
+}
+
+func TestPIDRoundTrip(t *testing.T) {
+	store := NewStore(t.TempDir())
+	job, err := store.Create("/repo", ExecSpec{Agent: "codex", Access: "default", JSON: true}, "do work")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.WritePID(job.ID, 12345); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(store.jobDir(job.ID), "pid"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(raw) != "12345\n" {
+		t.Fatalf("pid file = %q, want newline-terminated decimal", raw)
+	}
+	got, err := store.ReadPID(job.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != 12345 {
+		t.Fatalf("pid = %d, want 12345", got)
+	}
+	if err := store.RemovePID(job.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.ReadPID(job.ID); !os.IsNotExist(err) {
+		t.Fatalf("ReadPID after RemovePID err = %v, want not exist", err)
+	}
+}
+
+func TestReadPIDRejectsInvalidContent(t *testing.T) {
+	store := NewStore(t.TempDir())
+	job, err := store.Create("/repo", ExecSpec{Agent: "codex", Access: "default", JSON: true}, "do work")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := AtomicWriteFile(filepath.Join(store.jobDir(job.ID), "pid"), []byte("not-a-pid\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.ReadPID(job.ID); err == nil {
+		t.Fatal("expected invalid pid parse error")
+	}
+}
+
+func TestApplyDetachAttrsSetsidOnUnix(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("unix-only detach attribute")
+	}
+	cmd := exec.Command("true")
+	ApplyDetachAttrs(cmd)
+	if cmd.SysProcAttr == nil {
+		t.Fatal("SysProcAttr is nil")
+	}
+	attr := cmd.SysProcAttr
+	if !attr.Setsid {
+		t.Fatalf("Setsid = false in %#v", attr)
 	}
 }
 

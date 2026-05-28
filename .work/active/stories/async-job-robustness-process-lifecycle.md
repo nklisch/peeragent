@@ -1,7 +1,7 @@
 ---
 id: async-job-robustness-process-lifecycle
 kind: story
-stage: implementing
+stage: review
 tags: [infra]
 parent: async-job-robustness
 depends_on: [async-job-robustness-job-source-of-truth]
@@ -65,36 +65,41 @@ full design.
 
 ## Acceptance Criteria
 
-- [ ] `Store.WritePID` / `ReadPID` / `RemovePID` round-trip with a
+- [x] `Store.WritePID` / `ReadPID` / `RemovePID` round-trip with a
       newline-terminated decimal integer.
-- [ ] On unix builds, async children run with `Setsid` (verified by
+- [x] On unix builds, async children run with `Setsid` (verified by
       reading `/proc/<pid>/status` — `NSpid` / `PGid` differ from parent).
-- [ ] `cancelJob` writes `job.json:cancelled` and `result.json:cancelled`
+- [x] `cancelJob` writes `job.json:cancelled` and `result.json:cancelled`
       atomically BEFORE signalling.
-- [ ] Cancel reaches both the wrapper child AND its descendants. Test
+- [x] Cancel reaches both the wrapper child AND its descendants. Test
       target: a `bash -c 'trap "" TERM; sleep 100'` subtree under the
       peeragent binary; cancel must terminate the whole tree within
       `5s + 500ms` (SIGTERM grace + SIGKILL latency).
-- [ ] If pid sidecar is missing during cancel (race or upgrade
+- [x] If pid sidecar is missing during cancel (race or upgrade
       collateral), terminal status still lands; signalling is skipped
       with no error.
-- [ ] `finishAsyncJob` does not overwrite `cancelled` status in
+- [x] `finishAsyncJob` does not overwrite `cancelled` status in
       `job.json`.
-- [ ] `finishAsyncJob` does not overwrite a `cancelled` result.json
+- [x] `finishAsyncJob` does not overwrite a `cancelled` result.json
       written by `cancelJob`.
-- [ ] After natural finish, pid sidecar is removed.
-- [ ] After cancel, pid sidecar is removed.
-- [ ] Windows build compiles: `GOOS=windows go build ./...` succeeds.
-- [ ] CONTRACT.md Async State section lists `prompt.txt` and `pid`;
+- [x] After natural finish, pid sidecar is removed.
+- [x] After cancel, pid sidecar is removed.
+- [x] Windows build compiles: `GOOS=windows go build ./...` succeeds.
+- [x] CONTRACT.md Async State section lists `prompt.txt` and `pid`;
       `--cancel` description tightened.
-- [ ] ARCHITECTURE.md async flow describes spec-via-job + Setsid +
+- [x] ARCHITECTURE.md async flow describes spec-via-job + Setsid +
       group-kill.
-- [ ] No "previously" / "in v0.2.x" / migration prose in foundation
+- [x] No "previously" / "in v0.2.x" / migration prose in foundation
       docs.
 
 ## Verification
 
-- `go test ./...` passes.
+- `env GOCACHE=/tmp/peeragent-go-build go test ./internal/jobs ./cmd/peeragent`
+  passes.
+- `env GOCACHE=/tmp/peeragent-go-build go test ./...` passes.
+- `env GOCACHE=/tmp/peeragent-go-build GOOS=windows go build ./...`
+  passes. Go emitted a non-fatal stat-cache warning for the read-only
+  module cache path, but the command exited 0.
 - Manual repro:
   ```
   ( sleep 30 | bin/peeragent --async --agent codex "long task" )
@@ -112,3 +117,34 @@ full design.
 - Windows cancel semantics beyond "compiles."
 - Claude 90s timeout.
 - Bidirectional streaming / MCP / A2A transport.
+
+## Implementation Notes
+
+- Exported `jobs.AtomicWriteFile` and routed job, prompt, result, and pid
+  sidecar writes that this story owns through atomic replacement.
+- Added `pid` sidecar helpers on `jobs.Store`; the format is decimal PID plus
+  newline, read with trimmed `strconv.Atoi`, and missing pid removal is
+  idempotent.
+- Added unix/windows launch helpers. Unix async children get
+  `SysProcAttr.Setsid = true`, and cancellation signals the negative pid as
+  the process group. Windows helpers compile and return a clear
+  not-implemented error for process-group signalling; Windows cancellation
+  behavior remains out of scope for this story.
+- `launchAsync` writes the pid sidecar immediately after `cmd.Start()` and
+  before releasing the child. If the sidecar write fails, it attempts
+  process-group and direct child cleanup before returning the error to avoid a
+  loose child.
+- `cancelJob` writes the cancelled result and guarded cancelled job status
+  before signalling. Missing pid sidecars are treated as successful terminal
+  state writes with signalling skipped. Present pid sidecars receive SIGTERM,
+  a 5-second group-exit wait, then SIGKILL and a short final wait before the
+  sidecar is removed.
+- `finishAsyncJob` reloads the job before writing. If the current job status
+  is terminal and different from the target status, or if an existing
+  terminal result differs from the result being written, finish removes the
+  pid sidecar and leaves both terminal artifacts untouched.
+- Rationale for the Setsid test: the integration test asserts
+  `syscall.Getpgid(wrapperPID) == wrapperPID`, which directly proves the
+  child is a process-group leader after Setsid. This replaces the original
+  `/proc` parsing suggestion and avoids a Linux-specific file-format
+  dependency while still running only on unix-like test hosts.

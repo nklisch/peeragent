@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -92,7 +94,7 @@ func (s Store) Save(job Job) error {
 	if err := os.MkdirAll(s.jobDir(job.ID), 0o755); err != nil {
 		return err
 	}
-	return atomicWriteFile(filepath.Join(s.jobDir(job.ID), "job.json"), append(content, '\n'), 0o644)
+	return AtomicWriteFile(filepath.Join(s.jobDir(job.ID), "job.json"), append(content, '\n'), 0o644)
 }
 
 func (s Store) SaveGuarded(job Job) (string, error) {
@@ -110,7 +112,7 @@ func (s Store) WritePrompt(id string, prompt string) error {
 	if err := os.MkdirAll(s.jobDir(id), 0o755); err != nil {
 		return err
 	}
-	return atomicWriteFile(filepath.Join(s.jobDir(id), "prompt.txt"), []byte(prompt), 0o644)
+	return AtomicWriteFile(filepath.Join(s.jobDir(id), "prompt.txt"), []byte(prompt), 0o644)
 }
 
 func (s Store) ReadPrompt(id string) (string, error) {
@@ -119,6 +121,29 @@ func (s Store) ReadPrompt(id string) (string, error) {
 		return "", err
 	}
 	return string(content), nil
+}
+
+func (s Store) WritePID(id string, pid int) error {
+	if err := os.MkdirAll(s.jobDir(id), 0o755); err != nil {
+		return err
+	}
+	return AtomicWriteFile(filepath.Join(s.jobDir(id), "pid"), []byte(strconv.Itoa(pid)+"\n"), 0o644)
+}
+
+func (s Store) ReadPID(id string) (int, error) {
+	content, err := os.ReadFile(filepath.Join(s.jobDir(id), "pid"))
+	if err != nil {
+		return 0, err
+	}
+	return strconv.Atoi(strings.TrimSpace(string(content)))
+}
+
+func (s Store) RemovePID(id string) error {
+	err := os.Remove(filepath.Join(s.jobDir(id), "pid"))
+	if os.IsNotExist(err) {
+		return nil
+	}
+	return err
 }
 
 func (s Store) jobDir(id string) string {
@@ -133,7 +158,7 @@ func newID() (string, error) {
 	return time.Now().UTC().Format("20060102T150405Z") + "-" + hex.EncodeToString(suffix[:]), nil
 }
 
-func atomicWriteFile(path string, content []byte, perm os.FileMode) error {
+func AtomicWriteFile(path string, content []byte, perm os.FileMode) error {
 	tmp := path + ".tmp"
 	if err := os.WriteFile(tmp, content, perm); err != nil {
 		_ = os.Remove(tmp)

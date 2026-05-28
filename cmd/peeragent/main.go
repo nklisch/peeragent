@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"time"
 
 	"github.com/nklisch/peeragent/internal/claude"
 	"github.com/nklisch/peeragent/internal/codex"
@@ -139,11 +140,18 @@ func launchAsync(req input.Request) error {
 	defer logFile.Close()
 	cmd.Stdout = logFile
 	cmd.Stderr = logFile
+	jobs.ApplyDetachAttrs(cmd)
 
 	if err := cmd.Start(); err != nil {
 		return err
 	}
+	if err := store.WritePID(job.ID, cmd.Process.Pid); err != nil {
+		cleanupStartedAsyncProcess(cmd)
+		return err
+	}
 	if err := cmd.Process.Release(); err != nil {
+		_ = store.RemovePID(job.ID)
+		cleanupStartedAsyncProcess(cmd)
 		return err
 	}
 
@@ -164,6 +172,12 @@ func launchAsync(req input.Request) error {
 			JobID:        job.ID,
 		},
 	})
+}
+
+func cleanupStartedAsyncProcess(cmd *exec.Cmd) {
+	_ = jobs.SignalProcessGroup(cmd.Process.Pid, jobs.KillSignal())
+	_ = cmd.Process.Kill()
+	_ = cmd.Wait()
 }
 
 func showJobStatus(req input.Request) error {
@@ -281,7 +295,36 @@ func cancelJob(req input.Request) error {
 		})
 	}
 
-	res := result.Result{
+	res := cancelledJobResult(req, job)
+	if err := writeJobResult(job.ResultPath, res); err != nil {
+		return err
+	}
+	job.Status = "cancelled"
+	if _, err := store.SaveGuarded(job); err != nil {
+		return err
+	}
+	pid, err := store.ReadPID(job.ID)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return writeResult(req, res)
+		}
+		return err
+	}
+	if pid > 0 {
+		_ = jobs.SignalProcessGroup(pid, jobs.TerminateSignal())
+		if !waitForProcessGroupExit(pid, 5*time.Second) {
+			_ = jobs.SignalProcessGroup(pid, jobs.KillSignal())
+			_ = waitForProcessGroupExit(pid, 500*time.Millisecond)
+		}
+	}
+	if err := store.RemovePID(job.ID); err != nil {
+		return err
+	}
+	return writeResult(req, res)
+}
+
+func cancelledJobResult(req input.Request, job jobs.Job) result.Result {
+	return result.Result{
 		Status:       result.StatusCancelled,
 		Summary:      fmt.Sprintf("Async job %s cancelled", job.ID),
 		ChangedFiles: []string{},
@@ -292,18 +335,17 @@ func cancelJob(req input.Request) error {
 			JobID:    job.ID,
 		},
 	}
-	encoded, err := result.FormatJSON(res)
-	if err != nil {
-		return err
+}
+
+func waitForProcessGroupExit(pid int, timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if !jobs.ProcessGroupExists(pid) {
+			return true
+		}
+		time.Sleep(50 * time.Millisecond)
 	}
-	if err := os.WriteFile(job.ResultPath, append(encoded, '\n'), 0o644); err != nil {
-		return err
-	}
-	job.Status = "cancelled"
-	if _, err := store.SaveGuarded(job); err != nil {
-		return err
-	}
-	return writeResult(req, res)
+	return !jobs.ProcessGroupExists(pid)
 }
 
 func writeJobLookupFailure(req input.Request, jobID string, err error) error {
@@ -398,20 +440,67 @@ func requestFromJob(job jobs.Job, prompt string) input.Request {
 }
 
 func finishAsyncJob(store jobs.Store, job jobs.Job, res result.Result) error {
+	targetStatus := jobStatusFromResult(res.Status)
+	current, err := store.Load(job.ID)
+	if err != nil {
+		return err
+	}
+	if isTerminalJobStatus(current.Status) && current.Status != targetStatus {
+		_ = store.RemovePID(job.ID)
+		return nil
+	}
+	if hasConflictingTerminalResult(job.ResultPath, res.Status) {
+		_ = store.RemovePID(job.ID)
+		return nil
+	}
+	if err := writeJobResult(job.ResultPath, res); err != nil {
+		return err
+	}
+	current.Status = targetStatus
+	if _, err := store.SaveGuarded(current); err != nil {
+		return err
+	}
+	return store.RemovePID(job.ID)
+}
+
+func jobStatusFromResult(status result.Status) string {
+	switch status {
+	case result.StatusSuccess:
+		return "complete"
+	case result.StatusCancelled:
+		return "cancelled"
+	default:
+		return "failed"
+	}
+}
+
+func hasConflictingTerminalResult(path string, status result.Status) bool {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return false
+	}
+	var prior result.Result
+	if err := json.Unmarshal(content, &prior); err != nil {
+		return false
+	}
+	return isTerminalResultStatus(prior.Status) && prior.Status != status
+}
+
+func isTerminalResultStatus(status result.Status) bool {
+	switch status {
+	case result.StatusSuccess, result.StatusFailed, result.StatusCancelled:
+		return true
+	default:
+		return false
+	}
+}
+
+func writeJobResult(path string, res result.Result) error {
 	encoded, err := result.FormatJSON(res)
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(job.ResultPath, append(encoded, '\n'), 0o644); err != nil {
-		return err
-	}
-	if res.Status == result.StatusSuccess {
-		job.Status = "complete"
-	} else {
-		job.Status = "failed"
-	}
-	_, err = store.SaveGuarded(job)
-	return err
+	return jobs.AtomicWriteFile(path, append(encoded, '\n'), 0o644)
 }
 
 func accessMode(req input.Request) string {

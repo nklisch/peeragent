@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"os"
 	"strings"
 	"testing"
@@ -214,4 +215,195 @@ func TestRunAsyncJobWorktreeFailureUsesPersistedJobRequest(t *testing.T) {
 	if res.Metadata.Agent != "claude" || res.Metadata.Access != "worktree" || res.Metadata.AgentSession != "session-1" {
 		t.Fatalf("metadata = %#v", res.Metadata)
 	}
+}
+
+func TestFinishAsyncJobDoesNotOverwriteCancelledJobOrResult(t *testing.T) {
+	cwd := t.TempDir()
+	store := jobs.NewStore(cwd)
+	job, err := store.Create(cwd, jobs.ExecSpec{Agent: "codex", Access: "default", JSON: true}, "do work")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cancelled := result.Result{
+		Status:       result.StatusCancelled,
+		Summary:      "cancel won",
+		ChangedFiles: []string{},
+		Verification: []result.Verification{},
+		Metadata:     result.Metadata{CWD: cwd, JobID: job.ID},
+	}
+	if err := writeJobResult(job.ResultPath, cancelled); err != nil {
+		t.Fatal(err)
+	}
+	job.Status = "cancelled"
+	if err := store.Save(job); err != nil {
+		t.Fatal(err)
+	}
+
+	err = finishAsyncJob(store, job, result.Result{
+		Status:       result.StatusSuccess,
+		Summary:      "natural finish",
+		ChangedFiles: []string{},
+		Verification: []result.Verification{},
+		Metadata:     result.Metadata{CWD: cwd, JobID: job.ID},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	loaded, err := store.Load(job.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.Status != "cancelled" {
+		t.Fatalf("Status = %q, want cancelled", loaded.Status)
+	}
+	got := readStoredResult(t, job.ResultPath)
+	if got.Status != result.StatusCancelled || got.Summary != "cancel won" {
+		t.Fatalf("result = %#v, want cancelled result untouched", got)
+	}
+}
+
+func TestFinishAsyncJobDoesNotOverwriteCancelledResult(t *testing.T) {
+	cwd := t.TempDir()
+	store := jobs.NewStore(cwd)
+	job, err := store.Create(cwd, jobs.ExecSpec{Agent: "codex", Access: "default", JSON: true}, "do work")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.WritePID(job.ID, 99999); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeJobResult(job.ResultPath, result.Result{
+		Status:       result.StatusCancelled,
+		Summary:      "cancel result",
+		ChangedFiles: []string{},
+		Verification: []result.Verification{},
+		Metadata:     result.Metadata{CWD: cwd, JobID: job.ID},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := finishAsyncJob(store, job, result.Result{
+		Status:       result.StatusFailed,
+		Summary:      "late failure",
+		ChangedFiles: []string{},
+		Verification: []result.Verification{},
+		Metadata:     result.Metadata{CWD: cwd, JobID: job.ID},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	loaded, err := store.Load(job.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.Status != "running" {
+		t.Fatalf("Status = %q, want running", loaded.Status)
+	}
+	got := readStoredResult(t, job.ResultPath)
+	if got.Status != result.StatusCancelled || got.Summary != "cancel result" {
+		t.Fatalf("result = %#v, want cancelled result untouched", got)
+	}
+	if _, err := store.ReadPID(job.ID); !os.IsNotExist(err) {
+		t.Fatalf("ReadPID err = %v, want removed pid", err)
+	}
+}
+
+func TestFinishAsyncJobRemovesPIDAfterNaturalFinish(t *testing.T) {
+	cwd := t.TempDir()
+	store := jobs.NewStore(cwd)
+	job, err := store.Create(cwd, jobs.ExecSpec{Agent: "codex", Access: "default", JSON: true}, "do work")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.WritePID(job.ID, 99999); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := finishAsyncJob(store, job, result.Result{
+		Status:       result.StatusSuccess,
+		Summary:      "done",
+		ChangedFiles: []string{},
+		Verification: []result.Verification{},
+		Metadata:     result.Metadata{CWD: cwd, JobID: job.ID},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	loaded, err := store.Load(job.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.Status != "complete" {
+		t.Fatalf("Status = %q, want complete", loaded.Status)
+	}
+	if _, err := store.ReadPID(job.ID); !os.IsNotExist(err) {
+		t.Fatalf("ReadPID err = %v, want removed pid", err)
+	}
+}
+
+func TestCancelJobWithoutPIDSidecarWritesTerminalState(t *testing.T) {
+	cwd := t.TempDir()
+	store := jobs.NewStore(cwd)
+	job, err := store.Create(cwd, jobs.ExecSpec{Agent: "codex", Access: "default", JSON: true}, "do work")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := captureStdout(func() error {
+		return cancelJob(input.Request{CWD: cwd, CancelJobID: job.ID, JSON: true})
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	loaded, err := store.Load(job.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.Status != "cancelled" {
+		t.Fatalf("Status = %q, want cancelled", loaded.Status)
+	}
+	got := readStoredResult(t, job.ResultPath)
+	if got.Status != result.StatusCancelled {
+		t.Fatalf("result status = %q, want cancelled", got.Status)
+	}
+	if _, err := store.ReadPID(job.ID); !os.IsNotExist(err) {
+		t.Fatalf("ReadPID err = %v, want missing pid", err)
+	}
+}
+
+func readStoredResult(t *testing.T, path string) result.Result {
+	t.Helper()
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var res result.Result
+	if err := json.Unmarshal(content, &res); err != nil {
+		t.Fatal(err)
+	}
+	return res
+}
+
+func captureStdout(fn func() error) error {
+	orig := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		return err
+	}
+	os.Stdout = w
+	defer func() {
+		os.Stdout = orig
+	}()
+	err = fn()
+	closeErr := w.Close()
+	_, _ = io.ReadAll(r)
+	readCloseErr := r.Close()
+	if err != nil {
+		return err
+	}
+	if closeErr != nil {
+		return closeErr
+	}
+	return readCloseErr
 }
