@@ -14,7 +14,8 @@ description: >
   phrasing that asks for feedback from the alternate agent. Free-form scope —
   invoke with a description of what to review, or with no args to review the
   most recent work in the conversation. Safe to invoke without explicit user
-  request when shipping unreviewed feels risky.
+  request when shipping unreviewed feels risky. Resolve the wrapper from the
+  plugin location before invoking; do not assume `peeragent` is on PATH.
 allowed-tools: Bash
 metadata:
   short-description: Iterative cross-model peer review
@@ -47,9 +48,9 @@ loop is overhead; reserve it for work where the loop pays for itself.
 The peer reviewer is the agent you are not.
 
 - If you are Claude Code, delegate review to Codex with
-  `peeragent --agent codex ...`.
+  `<resolved-peeragent-bin> --agent codex ...`.
 - If you are Codex, delegate review to Claude with
-  `peeragent --agent claude ...`.
+  `<resolved-peeragent-bin> --agent claude ...`.
 - Gemini is also available (`--agent gemini`) when the user asks for it or
   when the natural pair is unavailable.
 
@@ -89,8 +90,21 @@ same repo, so file paths work directly.
 A blocking call. Default model/effort is fine for most passes; bump effort
 only when the work is dense or the stakes are high.
 
+Do not assume `peeragent` is on `PATH`. Resolve the bundled wrapper before
+the first call and use that path for every invocation:
+
+- If `PEERAGENT_BIN` names an executable, use it.
+- Otherwise resolve from this skill file: go two directories up from the
+  skill directory, then use `bin/peeragent`.
+- In a development checkout, the same wrapper is `bin/peeragent`.
+- Use bare `peeragent` only if the bundled path cannot be found and
+  `command -v peeragent` succeeds.
+
+If a bare `peeragent` call fails with `command not found`, retry once with
+the bundled plugin path before reporting failure.
+
 ```bash
-peeragent --agent <other-agent> "Review the following <work type> and give
+<resolved-peeragent-bin> --agent <other-agent> "Review the following <work type> and give
 me the good, the bad, and the ugly. Focus on <task-specific concerns>.
 Artifact: <paths or inline description>. Context: <what changed, what
 success looks like>."
@@ -99,8 +113,8 @@ success looks like>."
 For a deeper review pass:
 
 ```bash
-peeragent --agent codex --effort xhigh "..."
-peeragent --agent claude --model opus --effort xhigh "..."
+<resolved-peeragent-bin> --agent codex --effort xhigh "..."
+<resolved-peeragent-bin> --agent claude --model opus --effort xhigh "..."
 ```
 
 For very large prompts, write to a file and use `--prompt-file <path>`.

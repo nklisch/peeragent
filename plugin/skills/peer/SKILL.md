@@ -7,6 +7,8 @@ description: >
   to take a focused pass on a task in the current repository. Targets: Codex
   (default), Claude Code, Gemini through Antigravity. Free-form task text;
   the wrapper returns a JSON result the host summarizes for the user.
+  Resolve the wrapper from the plugin location before invoking; do not
+  assume `peeragent` is on PATH.
 allowed-tools: Bash
 metadata:
   short-description: Delegate a task to a peer coding agent
@@ -23,10 +25,23 @@ name.
 
 ## Default Behavior
 
+Do not assume `peeragent` is on `PATH`. Resolve the bundled wrapper before
+the first call and use that path for every invocation:
+
+- If `PEERAGENT_BIN` names an executable, use it.
+- Otherwise resolve from this skill file: go two directories up from the
+  skill directory, then use `bin/peeragent`.
+- In a development checkout, the same wrapper is `bin/peeragent`.
+- Use bare `peeragent` only if the bundled path cannot be found and
+  `command -v peeragent` succeeds.
+
+If a bare `peeragent` call fails with `command not found`, retry once with
+the bundled plugin path before reporting failure.
+
 Pass the user's task text to the wrapper:
 
 ```bash
-peeragent --agent <codex|claude|gemini> "$ARGUMENTS"
+<resolved-peeragent-bin> --agent <codex|claude|gemini> "$ARGUMENTS"
 ```
 
 `--agent` defaults to `codex` if omitted. The wrapper runs in the current
