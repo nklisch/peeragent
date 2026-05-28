@@ -1,7 +1,7 @@
 ---
 id: async-job-robustness
 kind: feature
-stage: review
+stage: done
 tags: [infra]
 parent: null
 depends_on: []
@@ -769,3 +769,16 @@ compile-only as scoped.
 Verification passed with uncached Go tests for the process-sensitive packages,
 full Go tests, Windows build, diff whitespace check, and foundation-doc legacy
 prose scan.
+
+## Review (2026-05-28)
+
+**Verdict**: Approve
+
+**Blockers**: none
+**Important**: none
+**Nits**: none
+
+**Notes**: The feature delivered the scoped remediation arc: stdin gating,
+job-backed async child execution, pid sidecar lifecycle, Unix process-group
+cancel, terminal-result guards, and foundation-doc updates. Child stories are
+done and reviewed; no aggregate doc drift or capability gap found.
