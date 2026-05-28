@@ -38,6 +38,15 @@ the first call and use that path for every invocation:
 If a bare `peeragent` call fails with `command not found`, retry once with
 the bundled plugin path before reporting failure.
 
+For invocations that launch or control a peer CLI (`--agent ...`, `--async`,
+or `--cancel`), run the wrapper with the host harness's outside-sandbox command
+mode so it inherits the developer machine's normal network, auth, hook, and
+process environment. In Codex, use the command tool's escalated/outside-sandbox
+execution mode for that wrapper invocation. Pure local `--status` and
+`--result` reads may stay sandboxed when the job directory is readable. This is
+separate from peeragent's `--full-access` flag: do not pass `--full-access`
+unless the user explicitly asked for that target permission mode.
+
 Pass the user's task text to the wrapper:
 
 ```bash

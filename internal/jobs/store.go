@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -38,6 +39,8 @@ type ExecSpec struct {
 type Store struct {
 	Root string
 }
+
+const jobLockTimeout = 5 * time.Second
 
 func NewStore(cwd string) Store {
 	return Store{Root: filepath.Join(cwd, ".peeragent", "jobs")}
@@ -144,6 +147,41 @@ func (s Store) RemovePID(id string) error {
 		return nil
 	}
 	return err
+}
+
+// WithJobLock serializes short updates that must keep job.json and result.json
+// consistent. It relies on local filesystem O_EXCL semantics, writes the
+// holder PID for diagnostics, and times out after jobLockTimeout rather than
+// stealing an existing lock.
+func (s Store) WithJobLock(id string, fn func() error) error {
+	if err := os.MkdirAll(s.jobDir(id), 0o755); err != nil {
+		return err
+	}
+	lockPath := filepath.Join(s.jobDir(id), "lock")
+	deadline := time.Now().Add(jobLockTimeout)
+	for {
+		file, err := os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+		if err == nil {
+			if _, err := fmt.Fprintf(file, "%d\n", os.Getpid()); err != nil {
+				_ = file.Close()
+				_ = os.Remove(lockPath)
+				return err
+			}
+			if err := file.Close(); err != nil {
+				_ = os.Remove(lockPath)
+				return err
+			}
+			defer os.Remove(lockPath)
+			return fn()
+		}
+		if !os.IsExist(err) {
+			return err
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("acquire job lock %s: timed out after %s", id, jobLockTimeout)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
 }
 
 func (s Store) jobDir(id string) string {

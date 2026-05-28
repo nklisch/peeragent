@@ -32,6 +32,13 @@ peeragent --result <job-id>
 peeragent --cancel <job-id>
 ```
 
+Task text is resolved from positional arguments, then `--prompt-file`, then
+non-interactive stdin. When the wrapper is reading actual process stdin, it
+reads stdin only when no positional task text, prompt file, or job-control flag
+is present; this avoids accidentally blocking on host-provided stdin when the
+task is already explicit. In-memory stdin readers used by tests or embedders
+are always read when present.
+
 Options:
 
 - `--agent <codex|gemini|claude>`: Select the target agent. Defaults to
@@ -166,7 +173,7 @@ Async state is stored under:
 
 ```text
 .peeragent/jobs/<job-id>/
-  job.json       lifecycle + ExecSpec, child-owned after launch
+  job.json       lifecycle + ExecSpec; written on child finish or by --cancel
   prompt.txt     resolved task text, parent-written, child-read
   pid            child PID/PGID for cancel, present while running
   agent.log      combined stdout+stderr from the child

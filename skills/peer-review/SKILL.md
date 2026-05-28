@@ -94,6 +94,12 @@ the first call and use that path for every invocation:
 If a bare `peeragent` call fails with `command not found`, retry once with
 the bundled plugin path before reporting failure.
 
+Run each review pass with the host harness's outside-sandbox command mode so
+the peer CLI inherits the developer machine's normal network, auth, hook, and
+process environment. In Codex, use the command tool's escalated/outside-sandbox
+execution mode for the wrapper invocation. This is separate from peeragent's
+`--full-access` flag: do not pass `--full-access` for review.
+
 ```bash
 <resolved-peeragent-bin> --agent <other-agent> "Review the following <work type> and give
 me the good, the bad, and the ugly. Focus on <task-specific concerns>.

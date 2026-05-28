@@ -166,6 +166,21 @@ func TestRequestFromJobPreservesCompatibilityBooleans(t *testing.T) {
 	}
 }
 
+func TestRequestFromJobUsesCanonicalAccess(t *testing.T) {
+	job := jobs.Job{
+		CWD: "/repo",
+		Spec: jobs.ExecSpec{
+			Agent:    "codex",
+			Access:   "full-access",
+			Worktree: true,
+		},
+	}
+	req := requestFromJob(job, "task")
+	if !req.FullAccess || req.Worktree {
+		t.Fatalf("request = %#v", req)
+	}
+}
+
 func TestAsyncJobRunArgsAreExact(t *testing.T) {
 	got := asyncJobRunArgs("job-1", "/repo")
 	want := []string{"--job-run", "job-1", "--cwd", "/repo"}
@@ -297,8 +312,8 @@ func TestFinishAsyncJobDoesNotOverwriteCancelledResult(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if loaded.Status != "running" {
-		t.Fatalf("Status = %q, want running", loaded.Status)
+	if loaded.Status != "cancelled" {
+		t.Fatalf("Status = %q, want cancelled", loaded.Status)
 	}
 	got := readStoredResult(t, job.ResultPath)
 	if got.Status != result.StatusCancelled || got.Summary != "cancel result" {
@@ -369,6 +384,48 @@ func TestCancelJobWithoutPIDSidecarWritesTerminalState(t *testing.T) {
 	}
 	if _, err := store.ReadPID(job.ID); !os.IsNotExist(err) {
 		t.Fatalf("ReadPID err = %v, want missing pid", err)
+	}
+}
+
+func TestCancelJobRepairsExistingTerminalResultWithoutOverwrite(t *testing.T) {
+	cwd := t.TempDir()
+	store := jobs.NewStore(cwd)
+	job, err := store.Create(cwd, jobs.ExecSpec{Agent: "codex", Access: "default", JSON: true}, "do work")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.WritePID(job.ID, 99999); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeJobResult(job.ResultPath, result.Result{
+		Status:       result.StatusSuccess,
+		Summary:      "finish won",
+		ChangedFiles: []string{},
+		Verification: []result.Verification{},
+		Metadata:     result.Metadata{CWD: cwd, JobID: job.ID},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := captureStdout(func() error {
+		return cancelJob(input.Request{CWD: cwd, CancelJobID: job.ID, JSON: true})
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	loaded, err := store.Load(job.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.Status != "complete" {
+		t.Fatalf("Status = %q, want complete", loaded.Status)
+	}
+	got := readStoredResult(t, job.ResultPath)
+	if got.Status != result.StatusSuccess || got.Summary != "finish won" {
+		t.Fatalf("result = %#v, want success result untouched", got)
+	}
+	if _, err := store.ReadPID(job.ID); !os.IsNotExist(err) {
+		t.Fatalf("ReadPID err = %v, want removed pid", err)
 	}
 }
 

@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"syscall"
 	"testing"
+	"time"
 )
 
 func TestCreateAndLoadJob(t *testing.T) {
@@ -193,6 +194,83 @@ func TestSaveGuardedRefusesTerminalStatusOverwrite(t *testing.T) {
 		if loaded.Status != status {
 			t.Fatalf("Status = %q, want %q", loaded.Status, status)
 		}
+	}
+}
+
+func TestWithJobLockSerializesConcurrentAccess(t *testing.T) {
+	store := NewStore(t.TempDir())
+	job, err := store.Create("/repo", ExecSpec{Agent: "codex", Access: "default", JSON: true}, "do work")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	enteredFirst := make(chan struct{})
+	releaseFirst := make(chan struct{})
+	firstDone := make(chan error, 1)
+	go func() {
+		firstDone <- store.WithJobLock(job.ID, func() error {
+			close(enteredFirst)
+			<-releaseFirst
+			return nil
+		})
+	}()
+	<-enteredFirst
+
+	enteredSecond := make(chan struct{})
+	secondDone := make(chan error, 1)
+	go func() {
+		secondDone <- store.WithJobLock(job.ID, func() error {
+			close(enteredSecond)
+			return nil
+		})
+	}()
+
+	select {
+	case <-enteredSecond:
+		close(releaseFirst)
+		<-firstDone
+		<-secondDone
+		t.Fatal("second lock holder entered while first lock was held")
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	close(releaseFirst)
+	if err := <-firstDone; err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case err := <-secondDone:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("second lock holder did not acquire after first released")
+	}
+}
+
+func TestWithJobLockRemovesLockFile(t *testing.T) {
+	store := NewStore(t.TempDir())
+	job, err := store.Create("/repo", ExecSpec{Agent: "codex", Access: "default", JSON: true}, "do work")
+	if err != nil {
+		t.Fatal(err)
+	}
+	lockPath := filepath.Join(store.jobDir(job.ID), "lock")
+
+	called := false
+	if err := store.WithJobLock(job.ID, func() error {
+		called = true
+		if _, err := os.Stat(lockPath); err != nil {
+			t.Fatalf("lock file while held: %v", err)
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if !called {
+		t.Fatal("lock callback was not called")
+	}
+	if _, err := os.Stat(lockPath); !os.IsNotExist(err) {
+		t.Fatalf("lock file after release err = %v, want not exist", err)
 	}
 }
 
