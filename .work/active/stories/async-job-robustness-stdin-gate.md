@@ -1,7 +1,7 @@
 ---
 id: async-job-robustness-stdin-gate
 kind: story
-stage: implementing
+stage: review
 tags: [infra]
 parent: async-job-robustness
 depends_on: []
@@ -37,21 +37,41 @@ See parent feature `async-job-robustness` Unit 1 for the full design.
 
 ## Acceptance Criteria
 
-- [ ] `Parse(["--job-run","id"], nil, getwd)` returns no error and
+- [x] `Parse(["--job-run","id"], nil, getwd)` returns no error and
       empty `TaskText`.
-- [ ] `Parse(["task"], strings.NewReader("ctx"), getwd)` still merges:
+- [x] `Parse(["task"], strings.NewReader("ctx"), getwd)` still merges:
       `TaskText == "task\n\nctx"` (existing
       `TestParseCombinesInputs`-shape).
-- [ ] `Parse(nil, strings.NewReader("from stdin"), getwd)` still reads
+- [x] `Parse(nil, strings.NewReader("from stdin"), getwd)` still reads
       the reader (existing `TestParseStdin`-shape).
-- [ ] New test: `*os.File` from a non-TTY `os.Pipe()` with data is read.
-- [ ] New test: a TTY-shaped `*os.File` is skipped — best-effort,
+- [x] New test: `*os.File` from a non-TTY `os.Pipe()` with data is read.
+- [x] New test: a TTY-shaped `*os.File` is skipped — best-effort,
       `t.Skip` if `/dev/ptmx` (or platform equivalent) is unavailable.
 - [ ] Repro: `( sleep 5 | bin/peeragent --async --agent codex "task" )`
       returns a `job_id` within 1s instead of hanging.
+      Not exercised for this story because the explicit implementation
+      shape preserves non-TTY `*os.File` pipe reads; a held-open pipe with
+      no data is therefore expected to wait for EOF. The implemented gate
+      addresses interactive TTY stdin without changing non-TTY pipe
+      semantics.
 
 ## Out of Scope
 
 - Job-storage schema changes (Story B).
 - Sidecar files (Story C+D).
 - Cancellation lifecycle (Story C+D).
+
+## Implementation notes
+
+- Files changed: `internal/input/input.go`, `internal/input/input_test.go`.
+- Tests added: `TestParseCombinesArgsAndStdin`,
+  `TestParseReadsNonTTYStdinFile`, `TestParseSkipsTTYStdinFile`,
+  `TestParseJobRunAllowsEmptyTaskText`.
+- Discrepancies from design: The sleep-pipe repro acceptance conflicts
+  with the requested preservation of non-TTY `*os.File` pipe reads, so
+  it remains unchecked and documented above rather than changing pipe
+  semantics in this story.
+- Adjacent issues parked: none.
+- Verification: `env GOCACHE=/tmp/peeragent-go-build go test
+  ./internal/input` passed; `env GOCACHE=/tmp/peeragent-go-build go test
+  ./...` passed.

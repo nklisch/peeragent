@@ -40,6 +40,17 @@ func TestParseStdin(t *testing.T) {
 	}
 }
 
+func TestParseCombinesArgsAndStdin(t *testing.T) {
+	req, err := Parse([]string{"task"}, strings.NewReader("ctx"), fixedCWD)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "task\n\nctx"
+	if req.TaskText != want {
+		t.Fatalf("TaskText = %q, want %q", req.TaskText, want)
+	}
+}
+
 func TestParseCombinesInputs(t *testing.T) {
 	file := writeTempPrompt(t, "from file")
 	req, err := Parse([]string{"prefix", "--prompt-file", file}, strings.NewReader("from stdin"), fixedCWD)
@@ -49,6 +60,43 @@ func TestParseCombinesInputs(t *testing.T) {
 	want := "prefix\n\nfrom file\n\nfrom stdin"
 	if req.TaskText != want {
 		t.Fatalf("TaskText = %q, want %q", req.TaskText, want)
+	}
+}
+
+func TestParseReadsNonTTYStdinFile(t *testing.T) {
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reader.Close()
+
+	if _, err := writer.WriteString("from pipe\n"); err != nil {
+		writer.Close()
+		t.Fatal(err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	req, err := Parse(nil, reader, fixedCWD)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if req.TaskText != "from pipe" {
+		t.Fatalf("TaskText = %q", req.TaskText)
+	}
+}
+
+func TestParseSkipsTTYStdinFile(t *testing.T) {
+	tty := openTestTTY(t)
+	defer tty.Close()
+
+	req, err := Parse([]string{"task"}, tty, fixedCWD)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if req.TaskText != "task" {
+		t.Fatalf("TaskText = %q", req.TaskText)
 	}
 }
 
@@ -325,6 +373,19 @@ func TestParseJobRun(t *testing.T) {
 	}
 }
 
+func TestParseJobRunAllowsEmptyTaskText(t *testing.T) {
+	req, err := Parse([]string{"--job-run", "job-1"}, nil, fixedCWD)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if req.TaskText != "" {
+		t.Fatalf("TaskText = %q", req.TaskText)
+	}
+	if req.JobRunID != "job-1" {
+		t.Fatalf("JobRunID = %q", req.JobRunID)
+	}
+}
+
 func TestParseStatus(t *testing.T) {
 	req, err := Parse([]string{"--status", "job-1", "ignored"}, nil, fixedCWD)
 	if err != nil {
@@ -379,4 +440,28 @@ func writeTempPrompt(t *testing.T, content string) string {
 		t.Fatal(err)
 	}
 	return file.Name()
+}
+
+func openTestTTY(t *testing.T) *os.File {
+	t.Helper()
+
+	for _, path := range []string{"/dev/ptmx", "/dev/tty"} {
+		file, err := os.OpenFile(path, os.O_RDWR, 0)
+		if err != nil {
+			continue
+		}
+		info, err := file.Stat()
+		if err != nil {
+			file.Close()
+			continue
+		}
+		if info.Mode()&os.ModeCharDevice == 0 {
+			file.Close()
+			continue
+		}
+		return file
+	}
+
+	t.Skip("no TTY-like test device available")
+	return nil
 }

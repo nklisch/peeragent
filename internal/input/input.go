@@ -61,7 +61,7 @@ func Parse(args []string, stdin io.Reader, getwd func() (string, error)) (Reques
 		}
 	}
 
-	if stdin != nil {
+	if stdin != nil && !isInteractiveTTY(stdin) {
 		content, err := io.ReadAll(stdin)
 		if err != nil {
 			return Request{}, fmt.Errorf("read stdin: %w", err)
@@ -73,7 +73,8 @@ func Parse(args []string, stdin io.Reader, getwd func() (string, error)) (Reques
 
 	taskText := strings.Join(parts, "\n\n")
 	if taskText == "" {
-		if parsed.statusJobID != "" || parsed.resultJobID != "" || parsed.cancelJobID != "" {
+		if parsed.statusJobID != "" || parsed.resultJobID != "" ||
+			parsed.cancelJobID != "" || parsed.jobRunID != "" {
 			taskText = ""
 		} else {
 			return Request{}, errors.New("no task text supplied")
@@ -97,6 +98,18 @@ func Parse(args []string, stdin io.Reader, getwd func() (string, error)) (Reques
 		ResultJobID: parsed.resultJobID,
 		CancelJobID: parsed.cancelJobID,
 	}, nil
+}
+
+func isInteractiveTTY(stdin io.Reader) bool {
+	file, ok := stdin.(*os.File)
+	if !ok {
+		return false
+	}
+	info, err := file.Stat()
+	if err != nil {
+		return false
+	}
+	return info.Mode()&os.ModeCharDevice != 0
 }
 
 type parsedArgs struct {
