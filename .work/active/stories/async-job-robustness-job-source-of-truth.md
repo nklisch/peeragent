@@ -1,7 +1,7 @@
 ---
 id: async-job-robustness-job-source-of-truth
 kind: story
-stage: review
+stage: done
 tags: [infra]
 parent: async-job-robustness
 depends_on: [async-job-robustness-stdin-gate]
@@ -105,3 +105,15 @@ stdin into `req.TaskText`, `launchAsync` writes that prompt into `prompt.txt`,
 the child argv helper permits only `--job-run <id> --cwd <cwd>`, and
 `runAsyncJob` reconstructs the target request from persisted spec plus prompt.
 No real Codex/Claude/Gemini CLI was invoked during verification.
+
+## Review (2026-05-28)
+
+**Verdict**: Approve
+
+**Blockers**: none
+**Important**: none
+**Nits**: none
+
+**Notes**: Implementation matches the story contract. The remaining
+terminal-result guard and process signalling concerns are intentionally
+deferred to `async-job-robustness-process-lifecycle`.
