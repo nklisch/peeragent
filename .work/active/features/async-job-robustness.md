@@ -1,7 +1,7 @@
 ---
 id: async-job-robustness
 kind: feature
-stage: implementing
+stage: review
 tags: [infra]
 parent: null
 depends_on: []
@@ -746,3 +746,26 @@ peeragent --result <job-id>                # status: cancelled
 - Windows cancel semantics beyond "compiles."
 
 <!-- Stories live at .work/active/stories/async-job-robustness-*.md -->
+
+## Implementation Summary (2026-05-28)
+
+All child stories are implemented and reviewed:
+
+- `async-job-robustness-stdin-gate` — done. Parser stdin reads are gated so
+  task text and job-control invocations do not block on held-open real file
+  stdin; `--job-run` is allowed without task text.
+- `async-job-robustness-job-source-of-truth` — done. Async jobs persist a typed
+  `ExecSpec` in `job.json`, store the resolved prompt in `prompt.txt`, and run
+  children from `--job-run <id> --cwd <cwd>`.
+- `async-job-robustness-process-lifecycle` — done. Async launch writes a `pid`
+  sidecar after detached start, Unix cancellation signals the process group
+  with SIGTERM then SIGKILL after 5 seconds, and finish/cancel paths guard
+  terminal state.
+
+Cross-cutting deviations: Setsid verification uses `syscall.Getpgid(pid) ==
+pid` instead of parsing `/proc`; Windows process-group cancellation remains
+compile-only as scoped.
+
+Verification passed with uncached Go tests for the process-sensitive packages,
+full Go tests, Windows build, diff whitespace check, and foundation-doc legacy
+prose scan.
