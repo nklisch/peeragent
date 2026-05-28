@@ -12,12 +12,25 @@ import (
 type Job struct {
 	ID         string    `json:"id"`
 	Status     string    `json:"status"`
-	PID        int       `json:"pid,omitempty"`
-	TaskText   string    `json:"task_text,omitempty"`
+	CWD        string    `json:"cwd"`
+	Spec       ExecSpec  `json:"spec"`
 	CreatedAt  time.Time `json:"created_at"`
 	UpdatedAt  time.Time `json:"updated_at"`
 	LogPath    string    `json:"log_path"`
 	ResultPath string    `json:"result_path"`
+	PromptPath string    `json:"prompt_path"`
+}
+
+type ExecSpec struct {
+	Agent      string `json:"agent"`
+	Access     string `json:"access"`
+	Profile    string `json:"profile,omitempty"`
+	Effort     string `json:"effort,omitempty"`
+	Model      string `json:"model,omitempty"`
+	Resume     string `json:"resume,omitempty"`
+	JSON       bool   `json:"json"`
+	FullAccess bool   `json:"full_access,omitempty"`
+	Worktree   bool   `json:"worktree,omitempty"`
 }
 
 type Store struct {
@@ -28,7 +41,7 @@ func NewStore(cwd string) Store {
 	return Store{Root: filepath.Join(cwd, ".peeragent", "jobs")}
 }
 
-func (s Store) Create(taskText string) (Job, error) {
+func (s Store) Create(cwd string, spec ExecSpec, prompt string) (Job, error) {
 	id, err := newID()
 	if err != nil {
 		return Job{}, err
@@ -38,16 +51,21 @@ func (s Store) Create(taskText string) (Job, error) {
 	job := Job{
 		ID:         id,
 		Status:     "running",
-		TaskText:   taskText,
+		CWD:        cwd,
+		Spec:       spec,
 		CreatedAt:  now,
 		UpdatedAt:  now,
 		LogPath:    filepath.Join(dir, "agent.log"),
 		ResultPath: filepath.Join(dir, "result.json"),
+		PromptPath: filepath.Join(dir, "prompt.txt"),
 	}
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return Job{}, err
 	}
 	if err := s.Save(job); err != nil {
+		return Job{}, err
+	}
+	if err := s.WritePrompt(job.ID, prompt); err != nil {
 		return Job{}, err
 	}
 	return job, nil
@@ -74,7 +92,33 @@ func (s Store) Save(job Job) error {
 	if err := os.MkdirAll(s.jobDir(job.ID), 0o755); err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(s.jobDir(job.ID), "job.json"), append(content, '\n'), 0o644)
+	return atomicWriteFile(filepath.Join(s.jobDir(job.ID), "job.json"), append(content, '\n'), 0o644)
+}
+
+func (s Store) SaveGuarded(job Job) (string, error) {
+	prior, err := s.Load(job.ID)
+	if err != nil {
+		return "", err
+	}
+	if isTerminalStatus(prior.Status) && prior.Status != job.Status {
+		return prior.Status, nil
+	}
+	return prior.Status, s.Save(job)
+}
+
+func (s Store) WritePrompt(id string, prompt string) error {
+	if err := os.MkdirAll(s.jobDir(id), 0o755); err != nil {
+		return err
+	}
+	return atomicWriteFile(filepath.Join(s.jobDir(id), "prompt.txt"), []byte(prompt), 0o644)
+}
+
+func (s Store) ReadPrompt(id string) (string, error) {
+	content, err := os.ReadFile(filepath.Join(s.jobDir(id), "prompt.txt"))
+	if err != nil {
+		return "", err
+	}
+	return string(content), nil
 }
 
 func (s Store) jobDir(id string) string {
@@ -87,4 +131,26 @@ func newID() (string, error) {
 		return "", err
 	}
 	return time.Now().UTC().Format("20060102T150405Z") + "-" + hex.EncodeToString(suffix[:]), nil
+}
+
+func atomicWriteFile(path string, content []byte, perm os.FileMode) error {
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, content, perm); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	return nil
+}
+
+func isTerminalStatus(status string) bool {
+	switch status {
+	case "complete", "failed", "cancelled":
+		return true
+	default:
+		return false
+	}
 }

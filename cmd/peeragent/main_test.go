@@ -1,12 +1,15 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
+	"os"
 	"strings"
 	"testing"
 
 	"github.com/nklisch/peeragent/internal/executil"
 	"github.com/nklisch/peeragent/internal/input"
+	"github.com/nklisch/peeragent/internal/jobs"
 	"github.com/nklisch/peeragent/internal/result"
 )
 
@@ -108,5 +111,107 @@ func TestJobLookupFailureResult(t *testing.T) {
 	}
 	if !strings.Contains(res.Summary, "missing") {
 		t.Fatalf("Summary = %q", res.Summary)
+	}
+}
+
+func TestRequestFromJobReconstructsRequest(t *testing.T) {
+	job := jobs.Job{
+		ID:  "job-1",
+		CWD: "/repo",
+		Spec: jobs.ExecSpec{
+			Agent:   "claude",
+			Access:  "worktree",
+			Profile: "profile-a",
+			Effort:  "xhigh",
+			Model:   "opus",
+			Resume:  "session-1",
+			JSON:    true,
+		},
+	}
+	req := requestFromJob(job, "do work")
+	if req.TaskText != "do work" {
+		t.Fatalf("TaskText = %q", req.TaskText)
+	}
+	if req.CWD != "/repo" {
+		t.Fatalf("CWD = %q", req.CWD)
+	}
+	if req.Agent != "claude" || req.Profile != "profile-a" || req.Effort != "xhigh" || req.Model != "opus" || req.Resume != "session-1" {
+		t.Fatalf("request = %#v", req)
+	}
+	if !req.JSON {
+		t.Fatal("JSON = false")
+	}
+	if !req.Worktree {
+		t.Fatal("Worktree = false")
+	}
+	if req.FullAccess {
+		t.Fatal("FullAccess = true")
+	}
+}
+
+func TestRequestFromJobPreservesCompatibilityBooleans(t *testing.T) {
+	job := jobs.Job{
+		CWD: "/repo",
+		Spec: jobs.ExecSpec{
+			Agent:      "codex",
+			Access:     "default",
+			FullAccess: true,
+			Worktree:   true,
+		},
+	}
+	req := requestFromJob(job, "task")
+	if !req.FullAccess || !req.Worktree {
+		t.Fatalf("request = %#v", req)
+	}
+}
+
+func TestAsyncJobRunArgsAreExact(t *testing.T) {
+	got := asyncJobRunArgs("job-1", "/repo")
+	want := []string{"--job-run", "job-1", "--cwd", "/repo"}
+	if strings.Join(got, "\x00") != strings.Join(want, "\x00") {
+		t.Fatalf("args = %#v, want %#v", got, want)
+	}
+}
+
+func TestRunAsyncJobWorktreeFailureUsesPersistedJobRequest(t *testing.T) {
+	cwd := t.TempDir()
+	store := jobs.NewStore(cwd)
+	job, err := store.Create(cwd, jobs.ExecSpec{
+		Agent:    "claude",
+		Access:   "worktree",
+		Effort:   "xhigh",
+		Model:    "opus",
+		Resume:   "session-1",
+		JSON:     true,
+		Worktree: true,
+	}, "do work")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := runAsyncJob(input.Request{CWD: cwd, JobRunID: job.ID}); err != nil {
+		t.Fatal(err)
+	}
+
+	loaded, err := store.Load(job.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.Status != "failed" {
+		t.Fatalf("Status = %q", loaded.Status)
+	}
+	content, err := os.ReadFile(job.ResultPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var res result.Result
+	if err := json.Unmarshal(content, &res); err != nil {
+		t.Fatal(err)
+	}
+	if res.Status != result.StatusFailed {
+		t.Fatalf("result status = %q", res.Status)
+	}
+	if res.Metadata.Agent != "claude" || res.Metadata.Access != "worktree" || res.Metadata.AgentSession != "session-1" {
+		t.Fatalf("metadata = %#v", res.Metadata)
 	}
 }

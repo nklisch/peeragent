@@ -1,7 +1,7 @@
 ---
 id: async-job-robustness-job-source-of-truth
 kind: story
-stage: implementing
+stage: review
 tags: [infra]
 parent: async-job-robustness
 depends_on: [async-job-robustness-stdin-gate]
@@ -44,22 +44,22 @@ design.
 
 ## Acceptance Criteria
 
-- [ ] `Job.TaskText` and `Job.PID` removed.
-- [ ] `ExecSpec` populated and round-trips through `job.json`.
-- [ ] `Store.Create(cwd, spec, prompt)` writes `job.json` + `prompt.txt`
+- [x] `Job.TaskText` and `Job.PID` removed.
+- [x] `ExecSpec` populated and round-trips through `job.json`.
+- [x] `Store.Create(cwd, spec, prompt)` writes `job.json` + `prompt.txt`
       atomically.
-- [ ] `Store.WritePrompt` / `ReadPrompt` round-trip preserves raw bytes.
-- [ ] `SaveGuarded` refuses to overwrite `cancelled`, `failed`, or
+- [x] `Store.WritePrompt` / `ReadPrompt` round-trip preserves raw bytes.
+- [x] `SaveGuarded` refuses to overwrite `cancelled`, `failed`, or
       `complete` with a non-matching status.
-- [ ] `launchAsync` spawns child with argv exactly
+- [x] `launchAsync` spawns child with argv exactly
       `--job-run <id> --cwd <cwd>` — no other flags.
-- [ ] `runAsyncJob` loads spec+prompt from the job directory; child's
+- [x] `runAsyncJob` loads spec+prompt from the job directory; child's
       `os.Stdin` is never read.
-- [ ] Worktree-mode async job writes its `failed` result through
+- [x] Worktree-mode async job writes its `failed` result through
       `finishAsyncJob` (not bypassing the terminal-state path).
-- [ ] Atomic write proof: no `.tmp` files remain after a successful
+- [x] Atomic write proof: no `.tmp` files remain after a successful
       sequence; partial writes do not leave a half-written `job.json`.
-- [ ] Async run with original prompt-via-stdin now works end-to-end:
+- [x] Async run with original prompt-via-stdin now works end-to-end:
       `echo "task" | bin/peeragent --async --agent codex` runs codex
       against the piped prompt.
 
@@ -70,3 +70,38 @@ design.
 - Setsid / process-group cancel (Story C+D).
 - Foundation-doc roll-forward (Story C+D — lands with the visible
   behavior change in cancel + child detachment).
+
+## Implementation Notes
+
+- Replaced the async job schema with `Job{ID, Status, CWD, Spec, CreatedAt,
+  UpdatedAt, LogPath, ResultPath, PromptPath}` and a typed `ExecSpec`. Prompt
+  text is persisted only in `<jobdir>/prompt.txt`; `job.json` no longer carries
+  prompt text or PID.
+- `Store.Create(cwd, spec, prompt)` creates the job directory, atomically writes
+  `job.json`, then atomically writes `prompt.txt` using `<path>.tmp` plus
+  `os.Rename`. `Save` and `WritePrompt` share the same atomic writer.
+- Added `SaveGuarded`, which reloads the prior job and returns the prior status
+  without overwriting when an existing terminal `cancelled`, `failed`, or
+  `complete` status would be replaced by a different status.
+- `launchAsync` now persists `ExecSpec` and the resolved prompt, then spawns the
+  child with exactly `--job-run <id> --cwd <cwd>`. The old argv carry-forward
+  path was removed.
+- `runAsyncJob` loads the job and prompt sidecar, reconstructs
+  `input.Request` with `requestFromJob`, and routes worktree-mode failure
+  through `finishAsyncJob`.
+- Cancellation no longer attempts PID signalling in this story. It still writes
+  a cancelled result and guarded cancelled status; PID sidecar and signalling
+  remain in Story C+D.
+
+## Verification
+
+- `gofmt -w internal/jobs/store.go internal/jobs/store_test.go cmd/peeragent/main.go cmd/peeragent/main_test.go`
+- `env GOCACHE=/tmp/peeragent-go-build go test ./internal/jobs ./cmd/peeragent` — passed.
+- `env GOCACHE=/tmp/peeragent-go-build go test ./...` — passed.
+
+Prompt-via-stdin end-to-end behavior is covered through the unit-test contract
+rather than by spawning a real target CLI: input parsing already resolves piped
+stdin into `req.TaskText`, `launchAsync` writes that prompt into `prompt.txt`,
+the child argv helper permits only `--job-run <id> --cwd <cwd>`, and
+`runAsyncJob` reconstructs the target request from persisted spec plus prompt.
+No real Codex/Claude/Gemini CLI was invoked during verification.

@@ -82,7 +82,7 @@ func run(args []string) error {
 		return cancelJob(req)
 	}
 	if req.Async {
-		return launchAsync(args, req)
+		return launchAsync(req)
 	}
 	if req.Worktree {
 		if err := writeResult(req, result.Result{
@@ -117,9 +117,9 @@ func run(args []string) error {
 	return nil
 }
 
-func launchAsync(args []string, req input.Request) error {
+func launchAsync(req input.Request) error {
 	store := jobs.NewStore(req.CWD)
-	job, err := store.Create(req.TaskText)
+	job, err := store.Create(req.CWD, execSpecFromRequest(req), req.TaskText)
 	if err != nil {
 		return err
 	}
@@ -129,9 +129,7 @@ func launchAsync(args []string, req input.Request) error {
 		return err
 	}
 
-	childArgs := []string{"--job-run", job.ID, "--cwd", req.CWD}
-	childArgs = append(childArgs, stripAsync(args)...)
-	cmd := exec.Command(executable, childArgs...)
+	cmd := exec.Command(executable, asyncJobRunArgs(job.ID, req.CWD)...)
 	cmd.Dir = req.CWD
 
 	logFile, err := os.OpenFile(job.LogPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
@@ -143,10 +141,6 @@ func launchAsync(args []string, req input.Request) error {
 	cmd.Stderr = logFile
 
 	if err := cmd.Start(); err != nil {
-		return err
-	}
-	job.PID = cmd.Process.Pid
-	if err := store.Save(job); err != nil {
 		return err
 	}
 	if err := cmd.Process.Release(); err != nil {
@@ -235,6 +229,24 @@ func showJobResult(req input.Request) error {
 	return writeResult(req, res)
 }
 
+func execSpecFromRequest(req input.Request) jobs.ExecSpec {
+	return jobs.ExecSpec{
+		Agent:      agentID(req),
+		Access:     accessMode(req),
+		Profile:    req.Profile,
+		Effort:     req.Effort,
+		Model:      req.Model,
+		Resume:     req.Resume,
+		JSON:       req.JSON,
+		FullAccess: req.FullAccess,
+		Worktree:   req.Worktree,
+	}
+}
+
+func asyncJobRunArgs(jobID string, cwd string) []string {
+	return []string{"--job-run", jobID, "--cwd", cwd}
+}
+
 func resultStatusFromJob(status string) result.Status {
 	switch status {
 	case "complete":
@@ -269,13 +281,6 @@ func cancelJob(req input.Request) error {
 		})
 	}
 
-	if job.PID > 0 {
-		process, err := os.FindProcess(job.PID)
-		if err == nil {
-			_ = process.Kill()
-		}
-	}
-
 	res := result.Result{
 		Status:       result.StatusCancelled,
 		Summary:      fmt.Sprintf("Async job %s cancelled", job.ID),
@@ -295,8 +300,7 @@ func cancelJob(req input.Request) error {
 		return err
 	}
 	job.Status = "cancelled"
-	job.PID = 0
-	if err := store.Save(job); err != nil {
+	if _, err := store.SaveGuarded(job); err != nil {
 		return err
 	}
 	return writeResult(req, res)
@@ -339,20 +343,25 @@ func runAsyncJob(req input.Request) error {
 	if err != nil {
 		return err
 	}
-	if req.Worktree {
+	prompt, err := store.ReadPrompt(job.ID)
+	if err != nil {
+		return err
+	}
+	jobReq := requestFromJob(job, prompt)
+	if jobReq.Worktree {
 		res := result.Result{
 			Status:       result.StatusFailed,
 			Summary:      "worktree mode is recognized but not implemented yet",
 			ChangedFiles: []string{},
 			Verification: []result.Verification{},
 			Metadata: result.Metadata{
-				CWD:          req.CWD,
-				Agent:        agentID(req),
-				Access:       accessMode(req),
-				Profile:      req.Profile,
-				Effort:       req.Effort,
-				Model:        req.Model,
-				AgentSession: req.Resume,
+				CWD:          jobReq.CWD,
+				Agent:        agentID(jobReq),
+				Access:       accessMode(jobReq),
+				Profile:      jobReq.Profile,
+				Effort:       jobReq.Effort,
+				Model:        jobReq.Model,
+				AgentSession: jobReq.Resume,
 				ExitCode:     2,
 				JobID:        job.ID,
 			},
@@ -360,10 +369,32 @@ func runAsyncJob(req input.Request) error {
 		return finishAsyncJob(store, job, res)
 	}
 
-	execResult, execErr := executeRequest(context.Background(), req)
-	res := resultFromExecution(req, execResult, execErr)
+	execResult, execErr := executeRequest(context.Background(), jobReq)
+	res := resultFromExecution(jobReq, execResult, execErr)
 	res.Metadata.JobID = job.ID
 	return finishAsyncJob(store, job, res)
+}
+
+func requestFromJob(job jobs.Job, prompt string) input.Request {
+	req := input.Request{
+		TaskText:   prompt,
+		CWD:        job.CWD,
+		JSON:       job.Spec.JSON,
+		Agent:      job.Spec.Agent,
+		Profile:    job.Spec.Profile,
+		Effort:     job.Spec.Effort,
+		Model:      job.Spec.Model,
+		Resume:     job.Spec.Resume,
+		FullAccess: job.Spec.FullAccess,
+		Worktree:   job.Spec.Worktree,
+	}
+	switch job.Spec.Access {
+	case "worktree":
+		req.Worktree = true
+	case "full-access":
+		req.FullAccess = true
+	}
+	return req
 }
 
 func finishAsyncJob(store jobs.Store, job jobs.Job, res result.Result) error {
@@ -379,19 +410,8 @@ func finishAsyncJob(store jobs.Store, job jobs.Job, res result.Result) error {
 	} else {
 		job.Status = "failed"
 	}
-	job.PID = 0
-	return store.Save(job)
-}
-
-func stripAsync(args []string) []string {
-	out := make([]string, 0, len(args))
-	for _, arg := range args {
-		if arg == "--async" {
-			continue
-		}
-		out = append(out, arg)
-	}
-	return out
+	_, err = store.SaveGuarded(job)
+	return err
 }
 
 func accessMode(req input.Request) string {
