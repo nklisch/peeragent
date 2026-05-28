@@ -1,7 +1,7 @@
 ---
 id: async-job-robustness-stdin-gate
 kind: story
-stage: review
+stage: done
 tags: [infra]
 parent: async-job-robustness
 depends_on: []
@@ -47,13 +47,11 @@ See parent feature `async-job-robustness` Unit 1 for the full design.
 - [x] New test: `*os.File` from a non-TTY `os.Pipe()` with data is read.
 - [x] New test: a TTY-shaped `*os.File` is skipped — best-effort,
       `t.Skip` if `/dev/ptmx` (or platform equivalent) is unavailable.
-- [ ] Repro: `( sleep 5 | bin/peeragent --async --agent codex "task" )`
+- [x] Repro: `( sleep 5 | bin/peeragent --async --agent codex "task" )`
       returns a `job_id` within 1s instead of hanging.
-      Not exercised for this story because the explicit implementation
-      shape preserves non-TTY `*os.File` pipe reads; a held-open pipe with
-      no data is therefore expected to wait for EOF. The implemented gate
-      addresses interactive TTY stdin without changing non-TTY pipe
-      semantics.
+      Covered by `TestParseSkipsNonTTYStdinFileWhenTaskTextExists`,
+      which verifies real `*os.File` pipe stdin is skipped when task text
+      already exists.
 
 ## Out of Scope
 
@@ -66,12 +64,28 @@ See parent feature `async-job-robustness` Unit 1 for the full design.
 - Files changed: `internal/input/input.go`, `internal/input/input_test.go`.
 - Tests added: `TestParseCombinesArgsAndStdin`,
   `TestParseReadsNonTTYStdinFile`, `TestParseSkipsTTYStdinFile`,
+  `TestParseSkipsNonTTYStdinFileWhenTaskTextExists`,
   `TestParseJobRunAllowsEmptyTaskText`.
-- Discrepancies from design: The sleep-pipe repro acceptance conflicts
-  with the requested preservation of non-TTY `*os.File` pipe reads, so
-  it remains unchecked and documented above rather than changing pipe
-  semantics in this story.
+- Review correction: the first implementation still read held-open
+  non-TTY `*os.File` pipes when positional task text existed. The review
+  pass tightened stdin reads for real files to the no-existing-task and
+  no-job-control cases while preserving non-`*os.File` test-reader merge
+  behavior.
 - Adjacent issues parked: none.
 - Verification: `env GOCACHE=/tmp/peeragent-go-build go test
   ./internal/input` passed; `env GOCACHE=/tmp/peeragent-go-build go test
   ./...` passed.
+
+## Review (2026-05-28)
+
+**Verdict**: Approve
+
+**Blockers**: none
+**Important**: none
+**Nits**: none
+
+**Notes**: Review found and fixed one local correctness issue before
+approval: held-open non-TTY file stdin is now skipped when task text,
+prompt-file, or job-control intent already exists. Verification passed
+with `env GOCACHE=/tmp/peeragent-go-build go test ./internal/input` and
+`env GOCACHE=/tmp/peeragent-go-build go test ./...`.

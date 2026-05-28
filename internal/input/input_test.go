@@ -87,6 +87,23 @@ func TestParseReadsNonTTYStdinFile(t *testing.T) {
 	}
 }
 
+func TestParseSkipsNonTTYStdinFileWhenTaskTextExists(t *testing.T) {
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reader.Close()
+	defer writer.Close()
+
+	req, err := Parse([]string{"task"}, reader, fixedCWD)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if req.TaskText != "task" {
+		t.Fatalf("TaskText = %q", req.TaskText)
+	}
+}
+
 func TestParseSkipsTTYStdinFile(t *testing.T) {
 	tty := openTestTTY(t)
 	defer tty.Close()

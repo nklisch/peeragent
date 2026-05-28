@@ -61,7 +61,7 @@ func Parse(args []string, stdin io.Reader, getwd func() (string, error)) (Reques
 		}
 	}
 
-	if stdin != nil && !isInteractiveTTY(stdin) {
+	if shouldReadStdin(stdin, parsed) {
 		content, err := io.ReadAll(stdin)
 		if err != nil {
 			return Request{}, fmt.Errorf("read stdin: %w", err)
@@ -98,6 +98,21 @@ func Parse(args []string, stdin io.Reader, getwd func() (string, error)) (Reques
 		ResultJobID: parsed.resultJobID,
 		CancelJobID: parsed.cancelJobID,
 	}, nil
+}
+
+func shouldReadStdin(stdin io.Reader, parsed parsedArgs) bool {
+	if stdin == nil || isInteractiveTTY(stdin) {
+		return false
+	}
+	if _, ok := stdin.(*os.File); !ok {
+		return true
+	}
+	return len(parsed.positionals) == 0 &&
+		parsed.promptFile == "" &&
+		parsed.jobRunID == "" &&
+		parsed.statusJobID == "" &&
+		parsed.resultJobID == "" &&
+		parsed.cancelJobID == ""
 }
 
 func isInteractiveTTY(stdin io.Reader) bool {
