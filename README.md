@@ -154,6 +154,16 @@ Ask for human-readable output:
 bin/peeragent --text --agent gemini "Fix the failing parser test."
 ```
 
+Continue a prior target-agent session:
+
+```sh
+bin/peeragent --agent claude --resume <agent-session> "Check whether the revision addressed your prior concerns."
+```
+
+When available, JSON output includes `metadata.agent_session`. Use that value
+for continuity inside one review loop. Start a fresh call without `--resume`
+when you want an independent second opinion.
+
 ## Models, Effort, Profiles, And Access
 
 Codex and Claude support `--effort`. Codex defaults to `high`; use `medium`
@@ -189,9 +199,9 @@ Default execution stays inside the current checkout using the bounded mode each
 target CLI exposes:
 
 ```text
-codex exec --cd <repo> --sandbox workspace-write ...
+codex exec --json --cd <repo> --sandbox workspace-write ...
 agy --print --sandbox --add-dir <repo> ...
-claude --print --permission-mode auto --add-dir <repo> ...
+claude --print --output-format json --permission-mode auto --add-dir <repo> ...
 ```
 
 Use full access only for a trusted repo and an explicit reason:
@@ -260,23 +270,23 @@ is not available locally.
 Build release archives locally:
 
 ```sh
-make release VERSION=0.2.1
+make release VERSION=0.2.2
 ```
 
 That writes:
 
 ```text
-dist/release/peeragent_0.2.1_linux_amd64.tar.gz
-dist/release/peeragent_0.2.1_linux_arm64.tar.gz
-dist/release/peeragent_0.2.1_darwin_amd64.tar.gz
-dist/release/peeragent_0.2.1_darwin_arm64.tar.gz
+dist/release/peeragent_0.2.2_linux_amd64.tar.gz
+dist/release/peeragent_0.2.2_linux_arm64.tar.gz
+dist/release/peeragent_0.2.2_darwin_amd64.tar.gz
+dist/release/peeragent_0.2.2_darwin_arm64.tar.gz
 dist/release/checksums.txt
 ```
 
 Publish a GitHub release from a machine with `gh` authenticated:
 
 ```sh
-make publish-release VERSION=0.2.1
+make publish-release VERSION=0.2.2
 ```
 
 The GitHub Actions workflow in `.github/workflows/release.yml` also publishes

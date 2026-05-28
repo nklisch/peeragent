@@ -247,6 +247,23 @@ func TestParseClaudeModel(t *testing.T) {
 	}
 }
 
+func TestParseResume(t *testing.T) {
+	req, err := Parse([]string{"--resume", "session-1", "task"}, nil, fixedCWD)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if req.Resume != "session-1" {
+		t.Fatalf("Resume = %q", req.Resume)
+	}
+}
+
+func TestParseResumeRequiresValue(t *testing.T) {
+	_, err := Parse([]string{"--resume"}, nil, fixedCWD)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
 func TestParseClaudeModelBeforeAgent(t *testing.T) {
 	req, err := Parse([]string{"--model", "sonnet", "--agent", "claude", "task"}, nil, fixedCWD)
 	if err != nil {

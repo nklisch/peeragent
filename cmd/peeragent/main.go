@@ -39,6 +39,7 @@ Flags:
                                   claude default xhigh, accepts high|xhigh;
                                   unused by gemini).
   --profile <name>                Codex profile override.
+  --resume <agent-session>        Resume a prior target-agent session when supported.
   --full-access                   Run the target CLI without sandboxing.
   --worktree                      Reserved; returns a clear failure today.
   --cwd <path>                    Repo directory the target runs in.
@@ -90,13 +91,14 @@ func run(args []string) error {
 			ChangedFiles: []string{},
 			Verification: []result.Verification{},
 			Metadata: result.Metadata{
-				CWD:      req.CWD,
-				Agent:    agentID(req),
-				Access:   accessMode(req),
-				Profile:  req.Profile,
-				Effort:   req.Effort,
-				Model:    req.Model,
-				ExitCode: 2,
+				CWD:          req.CWD,
+				Agent:        agentID(req),
+				Access:       accessMode(req),
+				Profile:      req.Profile,
+				Effort:       req.Effort,
+				Model:        req.Model,
+				AgentSession: req.Resume,
+				ExitCode:     2,
 			},
 		}); err != nil {
 			return err
@@ -157,14 +159,15 @@ func launchAsync(args []string, req input.Request) error {
 		ChangedFiles: []string{},
 		Verification: []result.Verification{},
 		Metadata: result.Metadata{
-			CWD:      req.CWD,
-			Agent:    agentID(req),
-			Access:   accessMode(req),
-			Profile:  req.Profile,
-			Effort:   req.Effort,
-			Model:    req.Model,
-			ExitCode: 0,
-			JobID:    job.ID,
+			CWD:          req.CWD,
+			Agent:        agentID(req),
+			Access:       accessMode(req),
+			Profile:      req.Profile,
+			Effort:       req.Effort,
+			Model:        req.Model,
+			AgentSession: req.Resume,
+			ExitCode:     0,
+			JobID:        job.ID,
 		},
 	})
 }
@@ -343,14 +346,15 @@ func runAsyncJob(req input.Request) error {
 			ChangedFiles: []string{},
 			Verification: []result.Verification{},
 			Metadata: result.Metadata{
-				CWD:      req.CWD,
-				Agent:    agentID(req),
-				Access:   accessMode(req),
-				Profile:  req.Profile,
-				Effort:   req.Effort,
-				Model:    req.Model,
-				ExitCode: 2,
-				JobID:    job.ID,
+				CWD:          req.CWD,
+				Agent:        agentID(req),
+				Access:       accessMode(req),
+				Profile:      req.Profile,
+				Effort:       req.Effort,
+				Model:        req.Model,
+				AgentSession: req.Resume,
+				ExitCode:     2,
+				JobID:        job.ID,
 			},
 		}
 		return finishAsyncJob(store, job, res)
@@ -436,6 +440,7 @@ func executeRequest(ctx context.Context, req input.Request) (executil.Result, er
 			Prompt:     agentPrompt,
 			FullAccess: req.FullAccess,
 			Model:      req.Model,
+			Resume:     req.Resume,
 		})
 	case "claude":
 		return claude.Exec(ctx, claude.Options{
@@ -444,6 +449,7 @@ func executeRequest(ctx context.Context, req input.Request) (executil.Result, er
 			FullAccess: req.FullAccess,
 			Effort:     req.Effort,
 			Model:      req.Model,
+			Resume:     req.Resume,
 		})
 	default:
 		return codex.Exec(ctx, codex.Options{
@@ -452,6 +458,7 @@ func executeRequest(ctx context.Context, req input.Request) (executil.Result, er
 			FullAccess: req.FullAccess,
 			Profile:    req.Profile,
 			Effort:     req.Effort,
+			Resume:     req.Resume,
 		})
 	}
 }
@@ -474,15 +481,23 @@ func resultFromExecution(req input.Request, execResult executil.Result, execErr 
 		Verification: []result.Verification{},
 		Details:      details(execResult.Stdout, execResult.Stderr),
 		Metadata: result.Metadata{
-			CWD:      req.CWD,
-			Agent:    agentID(req),
-			Access:   accessMode(req),
-			Profile:  req.Profile,
-			Effort:   req.Effort,
-			Model:    req.Model,
-			ExitCode: execResult.ExitCode,
+			CWD:          req.CWD,
+			Agent:        agentID(req),
+			Access:       accessMode(req),
+			Profile:      req.Profile,
+			Effort:       req.Effort,
+			Model:        req.Model,
+			AgentSession: agentSession(req, execResult),
+			ExitCode:     execResult.ExitCode,
 		},
 	}
+}
+
+func agentSession(req input.Request, execResult executil.Result) string {
+	if execResult.AgentSession != "" {
+		return execResult.AgentSession
+	}
+	return req.Resume
 }
 
 func agentID(req input.Request) string {

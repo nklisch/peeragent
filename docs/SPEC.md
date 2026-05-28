@@ -83,15 +83,16 @@ does not create a git worktree or sandboxed copy.
 Default target invocations:
 
 ```text
-codex exec --cd <repo> --sandbox workspace-write --ask-for-approval on-request ...
+codex exec --json --cd <repo> --sandbox workspace-write \
+  -c approval_policy="on-request" -c approvals_reviewer="auto_review" ...
 agy --print --sandbox --add-dir <repo> ...
-claude --print --permission-mode auto --add-dir <repo> ...
+claude --print --output-format json --permission-mode auto --add-dir <repo> ...
 ```
 
 Full-access target invocations:
 
 ```text
-codex exec --dangerously-bypass-approvals-and-sandbox ...
+codex exec --json --dangerously-bypass-approvals-and-sandbox ...
 agy --print --dangerously-skip-permissions ...
 claude --print --dangerously-skip-permissions ...
 ```
@@ -104,6 +105,23 @@ is treated as fixed Gemini 3.5; `--model gemini-3.5` is accepted for explicit
 metadata, but the wrapper does not pass a model flag to `agy` because `agy --print` does
 not expose a non-interactive model option.
 
+## Session Continuity
+
+Blocking and async results include `metadata.agent_session` when the target
+exposes a reliable session id. Hosts may pass that value back with
+`--resume <agent-session>` to continue the same target-agent conversation.
+
+Session resume is intended for continuity inside a single multi-pass workflow
+such as peer review. It should not be used when the user wants an independent
+second opinion, because resumed sessions carry forward the prior critique and
+can anchor later passes.
+
+Codex exposes session ids through JSONL output and resumes with
+`codex exec resume`. Claude exposes session ids through JSON output and resumes
+with `--resume`. Antigravity exposes `--conversation` for a known conversation
+id, but the wrapper does not scrape logs to capture a new Gemini conversation
+id.
+
 ## Output Requirements
 
 The wrapper returns a concise result to the host. The result includes:
@@ -114,7 +132,8 @@ The wrapper returns a concise result to the host. The result includes:
 - Verification commands and outcomes when known.
 - Target-agent final output or useful diagnostics.
 - Failure reason and useful log excerpts when the target fails.
-- Agent, working directory, access, effort, model, and job metadata when available.
+- Agent, working directory, access, effort, model, target session, and job
+  metadata when available.
 
 The wrapper avoids dumping long raw logs into host context unless the task
 failed and the logs are needed to continue.

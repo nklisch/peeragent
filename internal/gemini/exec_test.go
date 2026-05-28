@@ -78,6 +78,31 @@ func TestExecWithRunnerIgnoresFixedModelArgv(t *testing.T) {
 	}
 }
 
+func TestExecWithRunnerBuildsResumeArgv(t *testing.T) {
+	stubLookPath(t)
+	run := &recordingRunner{result: Result{ExitCode: 0}}
+
+	result, err := ExecWithRunner(context.Background(), run, Options{CWD: "/repo", Prompt: "continue work", Resume: "conversation-1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	wantArgs := []string{
+		"--print",
+		"--sandbox",
+		"--add-dir", "/repo",
+		"--print-timeout", "15m",
+		"--conversation", "conversation-1",
+		"continue work",
+	}
+	if !reflect.DeepEqual(run.args, wantArgs) {
+		t.Fatalf("args = %#v, want %#v", run.args, wantArgs)
+	}
+	if result.AgentSession != "conversation-1" {
+		t.Fatalf("AgentSession = %q", result.AgentSession)
+	}
+}
+
 type recordingRunner struct {
 	name   string
 	args   []string

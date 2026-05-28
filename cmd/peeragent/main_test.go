@@ -11,12 +11,15 @@ import (
 )
 
 func TestResultFromExecutionSuccess(t *testing.T) {
-	res := resultFromExecution(input.Request{CWD: "/repo"}, executil.Result{ExitCode: 0}, nil)
+	res := resultFromExecution(input.Request{CWD: "/repo"}, executil.Result{ExitCode: 0, AgentSession: "session-1"}, nil)
 	if res.Status != result.StatusSuccess {
 		t.Fatalf("Status = %q", res.Status)
 	}
 	if res.Metadata.Access != "default" {
 		t.Fatalf("Access = %q", res.Metadata.Access)
+	}
+	if res.Metadata.AgentSession != "session-1" {
+		t.Fatalf("AgentSession = %q", res.Metadata.AgentSession)
 	}
 }
 
@@ -27,6 +30,13 @@ func TestResultFromExecutionNonZero(t *testing.T) {
 	}
 	if res.Summary == "" || res.Details == "" {
 		t.Fatalf("expected summary and details: %#v", res)
+	}
+}
+
+func TestResultFromExecutionUsesResumeSessionFallback(t *testing.T) {
+	res := resultFromExecution(input.Request{CWD: "/repo", Resume: "session-1"}, executil.Result{ExitCode: 1}, nil)
+	if res.Metadata.AgentSession != "session-1" {
+		t.Fatalf("AgentSession = %q", res.Metadata.AgentSession)
 	}
 }
 

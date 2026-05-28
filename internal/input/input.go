@@ -18,6 +18,7 @@ type Request struct {
 	Profile     string
 	Effort      string
 	Model       string
+	Resume      string
 	Async       bool
 	JobRunID    string
 	StatusJobID string
@@ -89,6 +90,7 @@ func Parse(args []string, stdin io.Reader, getwd func() (string, error)) (Reques
 		Profile:     parsed.profile,
 		Effort:      parsed.effort,
 		Model:       parsed.model,
+		Resume:      parsed.resume,
 		Async:       parsed.async,
 		JobRunID:    parsed.jobRunID,
 		StatusJobID: parsed.statusJobID,
@@ -107,6 +109,7 @@ type parsedArgs struct {
 	profile     string
 	effort      string
 	model       string
+	resume      string
 	async       bool
 	jobRunID    string
 	statusJobID string
@@ -169,6 +172,12 @@ func parseArgs(args []string) (parsedArgs, error) {
 				return parsedArgs{}, errors.New("--model requires a value")
 			}
 			parsed.model = args[i]
+		case "--resume":
+			i++
+			if i >= len(args) {
+				return parsedArgs{}, errors.New("--resume requires a session id")
+			}
+			parsed.resume = strings.TrimSpace(args[i])
 		case "--async":
 			parsed.async = true
 		case "--job-run":

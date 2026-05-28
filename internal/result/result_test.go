@@ -13,12 +13,13 @@ func TestResultJSONFields(t *testing.T) {
 		ChangedFiles: []string{"main.go"},
 		Verification: []Verification{{Command: "go test ./...", Status: "passed"}},
 		Metadata: Metadata{
-			CWD:      "/repo",
-			Agent:    "codex",
-			Access:   "default",
-			Profile:  "peeragent",
-			Effort:   "medium",
-			ExitCode: 0,
+			CWD:          "/repo",
+			Agent:        "codex",
+			Access:       "default",
+			Profile:      "peeragent",
+			Effort:       "medium",
+			AgentSession: "session-1",
+			ExitCode:     0,
 		},
 	}
 
@@ -36,6 +37,7 @@ func TestResultJSONFields(t *testing.T) {
 		`"agent"`,
 		`"exit_code"`,
 		`"effort"`,
+		`"agent_session"`,
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("encoded result missing %s: %s", want, got)

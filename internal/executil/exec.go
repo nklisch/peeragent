@@ -9,9 +9,10 @@ import (
 )
 
 type Result struct {
-	ExitCode int
-	Stdout   string
-	Stderr   string
+	ExitCode     int
+	Stdout       string
+	Stderr       string
+	AgentSession string
 }
 
 type Runner interface {

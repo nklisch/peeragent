@@ -2,8 +2,10 @@ package claude
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os/exec"
+	"strings"
 
 	"github.com/nklisch/peeragent/internal/executil"
 )
@@ -16,6 +18,7 @@ type Options struct {
 	FullAccess bool
 	Effort     string
 	Model      string
+	Resume     string
 }
 
 var lookPath = exec.LookPath
@@ -29,13 +32,15 @@ func ExecWithRunner(ctx context.Context, run executil.Runner, opts Options) (Res
 	if err != nil {
 		return Result{ExitCode: 127}, errors.New("Claude CLI not found in PATH")
 	}
-	return run.Run(ctx, path, buildArgs(opts), opts.CWD)
+	result, err := run.Run(ctx, path, buildArgs(opts), opts.CWD)
+	normalizeJSONResult(&result)
+	return result, err
 }
 
 func buildArgs(opts Options) []string {
 	args := []string{
 		"--print",
-		"--output-format", "text",
+		"--output-format", "json",
 		"--add-dir", opts.CWD,
 	}
 	if opts.FullAccess {
@@ -46,9 +51,34 @@ func buildArgs(opts Options) []string {
 	if opts.Model != "" {
 		args = append(args, "--model", opts.Model)
 	}
+	if opts.Resume != "" {
+		args = append(args, "--resume", opts.Resume)
+	}
 	if opts.Effort == "" {
 		opts.Effort = "xhigh"
 	}
 	args = append(args, "--effort", opts.Effort)
 	return append(args, opts.Prompt)
+}
+
+type claudeJSONResult struct {
+	Result    string `json:"result"`
+	SessionID string `json:"session_id"`
+}
+
+func normalizeJSONResult(result *Result) {
+	trimmed := strings.TrimSpace(result.Stdout)
+	if trimmed == "" || !strings.HasPrefix(trimmed, "{") {
+		return
+	}
+	var parsed claudeJSONResult
+	if err := json.Unmarshal([]byte(trimmed), &parsed); err != nil {
+		return
+	}
+	if parsed.SessionID != "" {
+		result.AgentSession = parsed.SessionID
+	}
+	if parsed.Result != "" {
+		result.Stdout = parsed.Result
+	}
 }

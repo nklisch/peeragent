@@ -108,6 +108,9 @@ Use advanced modes only when the request calls for them:
   ask the user first if the wrapper reports full access is needed.
 - `--worktree` — reserved; returns a clear failure today.
 - `--profile <name>` — Codex profile override.
+- `--resume <agent-session>` — continue a prior target-agent session when
+  the previous result included `metadata.agent_session`. Use it for continuity
+  inside one multi-pass workflow; omit it for an independent second opinion.
 - `--cwd <path>` — repo directory the peer runs in.
 - `--prompt-file <path>` — read large prompts from a file.
 - `--async` — start the peer as a background job; the wrapper returns a

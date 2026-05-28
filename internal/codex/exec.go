@@ -2,8 +2,10 @@ package codex
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os/exec"
+	"strings"
 
 	"github.com/nklisch/peeragent/internal/executil"
 )
@@ -16,6 +18,7 @@ type Options struct {
 	FullAccess bool
 	Profile    string
 	Effort     string
+	Resume     string
 }
 
 var lookPath = exec.LookPath
@@ -29,14 +32,21 @@ func ExecWithRunner(ctx context.Context, run executil.Runner, opts Options) (Res
 	if err != nil {
 		return Result{ExitCode: 127}, errors.New("codex CLI not found in PATH")
 	}
-	return run.Run(ctx, path, buildArgs(opts), opts.CWD)
+	result, err := run.Run(ctx, path, buildArgs(opts), opts.CWD)
+	normalizeJSONResult(&result)
+	return result, err
 }
 
 func buildArgs(opts Options) []string {
+	if opts.Resume != "" {
+		return buildResumeArgs(opts)
+	}
+
 	profileArgs := profileArgs(opts.Profile)
 	if opts.FullAccess {
 		args := []string{
 			"exec",
+			"--json",
 			"--cd", opts.CWD,
 			"--dangerously-bypass-approvals-and-sandbox",
 		}
@@ -46,14 +56,29 @@ func buildArgs(opts Options) []string {
 	}
 	args := []string{
 		"exec",
+		"--json",
 		"--cd", opts.CWD,
 		"--sandbox", "workspace-write",
-		"--ask-for-approval", "on-request",
-		"-c", "approvals_reviewer=auto_review",
 	}
 	args = append(args, profileArgs...)
+	args = append(args, approvalArgs()...)
 	args = append(args, effortArgs(opts.Effort)...)
 	return append(args, opts.Prompt)
+}
+
+func buildResumeArgs(opts Options) []string {
+	args := []string{
+		"exec",
+		"resume",
+		"--json",
+	}
+	if opts.FullAccess {
+		args = append(args, "--dangerously-bypass-approvals-and-sandbox")
+	} else {
+		args = append(args, approvalArgs()...)
+	}
+	args = append(args, effortArgs(opts.Effort)...)
+	return append(args, opts.Resume, opts.Prompt)
 }
 
 func profileArgs(profile string) []string {
@@ -68,4 +93,52 @@ func effortArgs(effort string) []string {
 		effort = "high"
 	}
 	return []string{"-c", `model_reasoning_effort="` + effort + `"`}
+}
+
+func approvalArgs() []string {
+	return []string{
+		"-c", `approval_policy="on-request"`,
+		"-c", `approvals_reviewer="auto_review"`,
+	}
+}
+
+type codexEvent struct {
+	Type     string `json:"type"`
+	ThreadID string `json:"thread_id"`
+	Item     struct {
+		Type string `json:"type"`
+		Text string `json:"text"`
+	} `json:"item"`
+}
+
+func normalizeJSONResult(result *Result) {
+	session, text := parseJSONL(result.Stdout)
+	if session != "" {
+		result.AgentSession = session
+	}
+	if text != "" {
+		result.Stdout = text
+	}
+}
+
+func parseJSONL(output string) (string, string) {
+	var session string
+	var messages []string
+	for _, raw := range strings.Split(output, "\n") {
+		line := strings.TrimSpace(raw)
+		if line == "" || !strings.HasPrefix(line, "{") {
+			continue
+		}
+		var event codexEvent
+		if err := json.Unmarshal([]byte(line), &event); err != nil {
+			continue
+		}
+		if event.Type == "thread.started" && event.ThreadID != "" {
+			session = event.ThreadID
+		}
+		if event.Type == "item.completed" && event.Item.Type == "agent_message" && event.Item.Text != "" {
+			messages = append(messages, event.Item.Text)
+		}
+	}
+	return session, strings.Join(messages, "\n\n")
 }

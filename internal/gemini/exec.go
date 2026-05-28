@@ -15,6 +15,7 @@ type Options struct {
 	Prompt       string
 	FullAccess   bool
 	Model        string
+	Resume       string
 	PrintTimeout string
 }
 
@@ -29,7 +30,9 @@ func ExecWithRunner(ctx context.Context, run executil.Runner, opts Options) (Res
 	if err != nil {
 		return Result{ExitCode: 127}, errors.New("Antigravity CLI not found in PATH")
 	}
-	return run.Run(ctx, path, buildArgs(opts), opts.CWD)
+	result, err := run.Run(ctx, path, buildArgs(opts), opts.CWD)
+	result.AgentSession = opts.Resume
+	return result, err
 }
 
 func buildArgs(opts Options) []string {
@@ -44,5 +47,8 @@ func buildArgs(opts Options) []string {
 		opts.PrintTimeout = "15m"
 	}
 	args = append(args, "--print-timeout", opts.PrintTimeout)
+	if opts.Resume != "" {
+		args = append(args, "--conversation", opts.Resume)
+	}
 	return append(args, opts.Prompt)
 }

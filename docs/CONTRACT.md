@@ -47,6 +47,9 @@ Options:
   passed to `agy` because `agy --print` does not expose a non-interactive model
   flag.
 - `--profile <name>`: Pass a Codex configuration profile.
+- `--resume <agent-session>`: Resume a prior target-agent session when the
+  target supports it. Use this for continuity inside one review loop; omit it
+  for an independent second opinion.
 - `--cwd <path>`: Set the repository root.
 - `--prompt-file <path>`: Read task text from a file.
 - `--json`: Emit JSON output. This is the default.
@@ -73,11 +76,15 @@ The default result is JSON:
     "profile": "",
     "effort": "xhigh",
     "model": "sonnet",
+    "agent_session": "session-id",
     "exit_code": 0,
     "job_id": ""
   }
 }
 ```
+
+When available, `metadata.agent_session` contains the target-agent session id
+that can be passed back with `--resume`.
 
 `status` values:
 
@@ -109,7 +116,8 @@ clone, or sandbox copy unless explicitly requested.
 Default Codex:
 
 ```text
-codex exec --cd <repo> --sandbox workspace-write --ask-for-approval on-request ...
+codex exec --json --cd <repo> --sandbox workspace-write \
+  -c approval_policy="on-request" -c approvals_reviewer="auto_review" ...
 ```
 
 Default Gemini:
@@ -121,7 +129,7 @@ agy --print --sandbox --add-dir <repo> --print-timeout 15m ...
 Default Claude:
 
 ```text
-claude --print --output-format text --add-dir <repo> --permission-mode auto ...
+claude --print --output-format json --add-dir <repo> --permission-mode auto ...
 ```
 
 When `--model` is provided for Claude, the wrapper passes `--model <alias>` to
@@ -130,6 +138,18 @@ Claude Code. Accepted aliases are `sonnet`, `opus`, and `haiku`. When
 metadata but leaves the `agy` argv unchanged.
 
 Full access maps to each target's explicit bypass flag.
+
+Resume maps to each target's native resume surface:
+
+```text
+codex exec resume <session-id> ...
+agy --print --conversation <conversation-id> ...
+claude --print --resume <session-id> ...
+```
+
+Codex and Claude sessions are captured from machine-readable target output.
+Gemini/Antigravity can resume a caller-supplied conversation id, but the wrapper
+does not scrape logs to infer a new Gemini conversation id.
 
 ## Exit Codes
 

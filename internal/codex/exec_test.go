@@ -22,10 +22,11 @@ func TestExecWithRunnerBuildsArgv(t *testing.T) {
 	}
 	wantArgs := []string{
 		"exec",
+		"--json",
 		"--cd", "/repo",
 		"--sandbox", "workspace-write",
-		"--ask-for-approval", "on-request",
-		"-c", "approvals_reviewer=auto_review",
+		"-c", `approval_policy="on-request"`,
+		"-c", `approvals_reviewer="auto_review"`,
 		"-c", `model_reasoning_effort="high"`,
 		"do work",
 	}
@@ -48,6 +49,7 @@ func TestExecWithRunnerBuildsFullAccessArgv(t *testing.T) {
 
 	wantArgs := []string{
 		"exec",
+		"--json",
 		"--cd", "/repo",
 		"--dangerously-bypass-approvals-and-sandbox",
 		"-c", `model_reasoning_effort="high"`,
@@ -69,11 +71,12 @@ func TestExecWithRunnerBuildsProfileArgv(t *testing.T) {
 
 	wantArgs := []string{
 		"exec",
+		"--json",
 		"--cd", "/repo",
 		"--sandbox", "workspace-write",
-		"--ask-for-approval", "on-request",
-		"-c", "approvals_reviewer=auto_review",
 		"--profile", "peeragent",
+		"-c", `approval_policy="on-request"`,
+		"-c", `approvals_reviewer="auto_review"`,
 		"-c", `model_reasoning_effort="high"`,
 		"do work",
 	}
@@ -93,10 +96,11 @@ func TestExecWithRunnerBuildsHighEffortArgv(t *testing.T) {
 
 	wantArgs := []string{
 		"exec",
+		"--json",
 		"--cd", "/repo",
 		"--sandbox", "workspace-write",
-		"--ask-for-approval", "on-request",
-		"-c", "approvals_reviewer=auto_review",
+		"-c", `approval_policy="on-request"`,
+		"-c", `approvals_reviewer="auto_review"`,
 		"-c", `model_reasoning_effort="high"`,
 		"do work",
 	}
@@ -116,15 +120,58 @@ func TestExecWithRunnerBuildsXHighEffortArgv(t *testing.T) {
 
 	wantArgs := []string{
 		"exec",
+		"--json",
 		"--cd", "/repo",
 		"--sandbox", "workspace-write",
-		"--ask-for-approval", "on-request",
-		"-c", "approvals_reviewer=auto_review",
+		"-c", `approval_policy="on-request"`,
+		"-c", `approvals_reviewer="auto_review"`,
 		"-c", `model_reasoning_effort="xhigh"`,
 		"do work",
 	}
 	if !reflect.DeepEqual(run.args, wantArgs) {
 		t.Fatalf("args = %#v, want %#v", run.args, wantArgs)
+	}
+}
+
+func TestExecWithRunnerBuildsResumeArgv(t *testing.T) {
+	stubLookPath(t)
+	run := &recordingRunner{result: Result{ExitCode: 0}}
+
+	_, err := ExecWithRunner(context.Background(), run, Options{CWD: "/repo", Prompt: "continue work", Resume: "019e6be9-b530-7ef3-96aa-989712db6ebb"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	wantArgs := []string{
+		"exec",
+		"resume",
+		"--json",
+		"-c", `approval_policy="on-request"`,
+		"-c", `approvals_reviewer="auto_review"`,
+		"-c", `model_reasoning_effort="high"`,
+		"019e6be9-b530-7ef3-96aa-989712db6ebb",
+		"continue work",
+	}
+	if !reflect.DeepEqual(run.args, wantArgs) {
+		t.Fatalf("args = %#v, want %#v", run.args, wantArgs)
+	}
+}
+
+func TestExecWithRunnerNormalizesJSONL(t *testing.T) {
+	stubLookPath(t)
+	run := &recordingRunner{result: Result{ExitCode: 0, Stdout: `{"type":"thread.started","thread_id":"thread-1"}
+{"type":"item.completed","item":{"type":"agent_message","text":"done"}}
+`}}
+
+	result, err := ExecWithRunner(context.Background(), run, Options{CWD: "/repo", Prompt: "do work"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.AgentSession != "thread-1" {
+		t.Fatalf("AgentSession = %q", result.AgentSession)
+	}
+	if result.Stdout != "done" {
+		t.Fatalf("Stdout = %q", result.Stdout)
 	}
 }
 

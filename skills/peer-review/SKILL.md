@@ -1,21 +1,12 @@
 ---
 name: peer-review
 description: >
-  Run an honest, iterative cross-model peer review on recent work — designs,
-  code, plans, refactors, architecture, docs, or any artifact in the repo — by
-  delegating review to the OTHER local coding agent through peeragent (Claude
-  asks Codex, Codex asks Claude). Then loop: weigh the feedback honestly,
-  accept what's valid, push back on what isn't, refine the work, and ask
-  again. Run at least 3 substantive passes; continue until only nits remain.
-  Use this proactively after any nontrivial design or implementation pass,
-  before declaring work done, when you suspect a blind spot, or when the user
-  asks for "peer review", "second opinion", "cross-review", "have the other
-  agent look at this", "what does Codex/Claude think", "/peer-review", or any
-  phrasing that asks for feedback from the alternate agent. Free-form scope —
-  invoke with a description of what to review, or with no args to review the
-  most recent work in the conversation. Safe to invoke without explicit user
-  request when shipping unreviewed feels risky. Resolve the wrapper from the
-  plugin location before invoking; do not assume `peeragent` is on PATH.
+  Run iterative cross-model peer review on substantive designs, code, plans,
+  refactors, architecture, docs, or repo artifacts by delegating to the other
+  local coding agent through peeragent. Use when the user asks for peer review,
+  a second opinion, cross-review, feedback from Codex/Claude, or when recent
+  work is risky enough to deserve an independent review loop. Resolve the
+  bundled wrapper from the plugin location; do not assume peeragent is on PATH.
 allowed-tools: Bash
 metadata:
   short-description: Iterative cross-model peer review
@@ -119,6 +110,12 @@ For a deeper review pass:
 
 For very large prompts, write to a file and use `--prompt-file <path>`.
 Never request `--full-access` for review — review shouldn't need it.
+
+If the wrapper result includes `metadata.agent_session`, keep it for the
+current review loop. Use `--resume <agent-session>` on the next pass when you
+want the reviewer to evaluate whether its prior substantive concerns were
+addressed. Do not use `--resume` when the point is an independent second
+opinion or when the review scope materially changes.
 
 ### 3. Read the response honestly
 
