@@ -1,7 +1,7 @@
 ---
 id: async-job-robustness-process-lifecycle
 kind: story
-stage: review
+stage: done
 tags: [infra]
 parent: async-job-robustness
 depends_on: [async-job-robustness-job-source-of-truth]
@@ -148,3 +148,16 @@ full design.
   child is a process-group leader after Setsid. This replaces the original
   `/proc` parsing suggestion and avoids a Linux-specific file-format
   dependency while still running only on unix-like test hosts.
+
+## Review (2026-05-28)
+
+**Verdict**: Approve
+
+**Blockers**: none
+**Important**: none
+**Nits**: none
+
+**Notes**: Review added two small hardening corrections before approval:
+Unix process-group helpers reject unsafe `pid <= 1` values, and the contract
+now states that process-group signalling is Unix-specific while terminal state
+recording is cross-platform. Uncached process integration tests passed.

@@ -17,6 +17,9 @@ func ApplyDetachAttrs(cmd *exec.Cmd) {
 }
 
 func SignalProcessGroup(pid int, sig os.Signal) error {
+	if pid <= 1 {
+		return fmt.Errorf("refusing to signal unsafe process group %d", pid)
+	}
 	signal, ok := sig.(syscall.Signal)
 	if !ok {
 		return fmt.Errorf("unsupported process-group signal %T", sig)
@@ -25,6 +28,9 @@ func SignalProcessGroup(pid int, sig os.Signal) error {
 }
 
 func ProcessGroupExists(pid int) bool {
+	if pid <= 1 {
+		return false
+	}
 	err := syscall.Kill(-pid, 0)
 	return err == nil || err == syscall.EPERM
 }

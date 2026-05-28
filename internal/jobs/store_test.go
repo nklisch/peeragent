@@ -5,6 +5,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"syscall"
 	"testing"
 )
 
@@ -151,6 +152,18 @@ func TestApplyDetachAttrsSetsidOnUnix(t *testing.T) {
 	attr := cmd.SysProcAttr
 	if !attr.Setsid {
 		t.Fatalf("Setsid = false in %#v", attr)
+	}
+}
+
+func TestProcessGroupHelpersRejectUnsafePID(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("unix-only process group validation")
+	}
+	if err := SignalProcessGroup(1, syscall.SIGTERM); err == nil {
+		t.Fatal("expected unsafe pid rejection")
+	}
+	if ProcessGroupExists(1) {
+		t.Fatal("unsafe process group should not be reported as existing")
 	}
 }
 

@@ -56,9 +56,9 @@ Options:
 - `--text`: Emit human-readable text output.
 - `--status <job-id>`: Inspect an async job.
 - `--result <job-id>`: Fetch an async job result.
-- `--cancel <job-id>`: Cancel an async job by marking terminal state, sending
-  SIGTERM to the async process group, then sending SIGKILL after a 5-second
-  grace period when the group is still running.
+- `--cancel <job-id>`: Cancel an async job by marking terminal state. On Unix,
+  it sends SIGTERM to the async process group, then sends SIGKILL after a
+  5-second grace period when the group is still running.
 
 ## Result JSON
 
@@ -168,14 +168,14 @@ Async state is stored under:
 .peeragent/jobs/<job-id>/
   job.json       lifecycle + ExecSpec, child-owned after launch
   prompt.txt     resolved task text, parent-written, child-read
-  pid            child PGID for cancel, present while running
+  pid            child PID/PGID for cancel, present while running
   agent.log      combined stdout+stderr from the child
   result.json    final result, written by child OR by --cancel
 ```
 
-`--cancel` writes `job.json` and `result.json` as cancelled before signalling
-the process group. If the `pid` sidecar is missing, cancellation still records
-the terminal state and skips signalling.
+`--cancel` writes `job.json` and `result.json` as cancelled before signalling.
+On Unix, it signals the process group recorded by `pid`. If the `pid` sidecar is
+missing, cancellation still records the terminal state and skips signalling.
 
 ## Guarantees
 
