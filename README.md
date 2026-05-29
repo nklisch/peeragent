@@ -270,23 +270,23 @@ is not available locally.
 Build release archives locally:
 
 ```sh
-make release VERSION=0.2.3
+make release VERSION=0.2.4
 ```
 
 That writes:
 
 ```text
-dist/release/peeragent_0.2.3_linux_amd64.tar.gz
-dist/release/peeragent_0.2.3_linux_arm64.tar.gz
-dist/release/peeragent_0.2.3_darwin_amd64.tar.gz
-dist/release/peeragent_0.2.3_darwin_arm64.tar.gz
+dist/release/peeragent_0.2.4_linux_amd64.tar.gz
+dist/release/peeragent_0.2.4_linux_arm64.tar.gz
+dist/release/peeragent_0.2.4_darwin_amd64.tar.gz
+dist/release/peeragent_0.2.4_darwin_arm64.tar.gz
 dist/release/checksums.txt
 ```
 
 Publish a GitHub release from a machine with `gh` authenticated:
 
 ```sh
-make publish-release VERSION=0.2.3
+make publish-release VERSION=0.2.4
 ```
 
 The GitHub Actions workflow in `.github/workflows/release.yml` also publishes
