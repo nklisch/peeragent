@@ -76,6 +76,18 @@ the artifact is** — not on the conclusions you want validated. Avoid
 leading questions ("don't you think X is good?"). The reviewer is in the
 same repo, so file paths work directly.
 
+Include a no-recursion instruction in every review request. Tell the
+reviewer explicitly **not** to reach for peeragent's own `peer` or
+`peer-review` skills — and not to run the `peeragent` wrapper — to delegate
+the review back out to another local coding agent. That would loop
+host → reviewer → host and burn the review budget. The reviewer is the
+endpoint of this delegation; it should review directly. It may freely use
+its own harness's internal sub-agents for parallel or focused analysis; the
+prohibition is only on recursive peeragent calls. A short line in the
+prompt is enough, e.g. "Review this directly — do not call the peeragent
+peer/peer-review skills to hand it off again; use your own harness's
+sub-agents if you need help."
+
 ### 2. Delegate
 
 A blocking call. Default model/effort is fine for most passes; bump effort
@@ -243,6 +255,10 @@ without substantive findings.
   least 3 — stop. Don't pad the count.
 - **Don't argue with the reviewer.** Take the input, judge it, move on.
   The reviewer is a worker, not a debate partner.
+- **No recursive peeragent.** The review request must tell the reviewer
+  not to call peeragent's `peer`/`peer-review` skills (or the `peeragent`
+  wrapper) back out to another agent. The reviewer's own internal harness
+  sub-agents are fine; recursive peeragent delegation is not.
 - **You own the judgment.** Don't ask the reviewer "is your last feedback
   right?" — they'll either confirm everything or contradict everything.
   The host weighs; the reviewer surfaces.

@@ -98,6 +98,17 @@ Default is blocking. Wait for the command to return, then summarize the
 result using the wrapper's `status`, `summary`, `changed_files`,
 `verification`, and `details` fields.
 
+Include a no-recursion instruction in every handoff. Tell the peer
+explicitly **not** to reach for peeragent's own `peer` or `peer-review`
+skills — and not to run the `peeragent` wrapper — to delegate the work back
+out to another local coding agent. That would loop host → peer → host and
+burn budget. The peer is the endpoint of this delegation. It may freely use
+its own harness's internal sub-agents (Codex/Claude/Gemini built-in task or
+sub-agent tooling) for parallel or focused passes; the prohibition is only
+on recursive peeragent calls. A short line in the prompt is enough, e.g.
+"Do this work directly — do not call the peeragent peer/peer-review skills
+to hand it off again; use your own harness's sub-agents if you need help."
+
 ## Result Handling
 
 - `status: success` — report what changed and what verification ran.
@@ -139,5 +150,9 @@ Use advanced modes only when the request calls for them:
   user. The peer is the worker; you are the narrator.
 - Treat the working tree as shared space — the peer may edit files you
   are also editing. Re-read before re-edit.
+- No recursive peeragent. The handoff prompt must tell the peer not to
+  call peeragent's `peer`/`peer-review` skills (or the `peeragent` wrapper)
+  back out to another agent. The peer's own internal harness sub-agents are
+  fine; recursive peeragent delegation is not.
 - For review work, prefer `/peer-review` (the looping cross-model review
   skill) over a one-shot `peer` call.
