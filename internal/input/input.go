@@ -132,6 +132,7 @@ type parsedArgs struct {
 	promptFile  string
 	json        bool
 	agent       string
+	sandbox     bool
 	fullAccess  bool
 	worktree    bool
 	profile     string
@@ -178,6 +179,8 @@ func parseArgs(args []string) (parsedArgs, error) {
 				return parsedArgs{}, err
 			}
 			parsed.agent = agent
+		case "--sandbox":
+			parsed.sandbox = true
 		case "--full-access":
 			parsed.fullAccess = true
 		case "--worktree":
@@ -240,6 +243,12 @@ func parseArgs(args []string) (parsedArgs, error) {
 	}
 	if parsed.help {
 		return parsed, nil
+	}
+	if parsed.sandbox && parsed.fullAccess {
+		return parsedArgs{}, errors.New("--sandbox cannot be combined with --full-access")
+	}
+	if parsed.sandbox && parsed.worktree {
+		return parsedArgs{}, errors.New("--sandbox cannot be combined with --worktree")
 	}
 	effort, err := normalizeEffort(parsed.agent, parsed.effort)
 	if err != nil {

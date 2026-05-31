@@ -137,6 +137,33 @@ func TestParseFullAccess(t *testing.T) {
 	}
 }
 
+func TestParseSandbox(t *testing.T) {
+	req, err := Parse([]string{"--sandbox", "task"}, nil, fixedCWD)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if req.TaskText != "task" {
+		t.Fatalf("TaskText = %q", req.TaskText)
+	}
+	if req.FullAccess || req.Worktree {
+		t.Fatalf("unexpected access flags: FullAccess=%v Worktree=%v", req.FullAccess, req.Worktree)
+	}
+}
+
+func TestParseRejectsSandboxWithFullAccess(t *testing.T) {
+	_, err := Parse([]string{"--sandbox", "--full-access", "task"}, nil, fixedCWD)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestParseRejectsSandboxWithWorktree(t *testing.T) {
+	_, err := Parse([]string{"--sandbox", "--worktree", "task"}, nil, fixedCWD)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
 func TestParseDefaultsAgentCodex(t *testing.T) {
 	req, err := Parse([]string{"task"}, nil, fixedCWD)
 	if err != nil {

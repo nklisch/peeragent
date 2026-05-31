@@ -41,6 +41,7 @@ Flags:
                                   unused by gemini).
   --profile <name>                Codex profile override.
   --resume <agent-session>        Resume a prior target-agent session when supported.
+  --sandbox                       Use the default bounded target CLI mode.
   --full-access                   Run the target CLI without sandboxing.
   --worktree                      Reserved; returns a clear failure today.
   --cwd <path>                    Repo directory the target runs in.
