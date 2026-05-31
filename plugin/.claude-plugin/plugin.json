@@ -1,6 +1,6 @@
 {
   "name": "peeragent",
-  "version": "0.2.4",
+  "version": "0.3.0",
   "description": "Delegate arbitrary task work from Claude Code to a peer local coding agent (Codex, Claude, Gemini)",
   "author": {
     "name": "nklisch"
