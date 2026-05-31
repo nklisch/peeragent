@@ -1,7 +1,7 @@
 ---
 id: committed-binary-distribution-validation
 kind: story
-stage: review
+stage: done
 tags: [infra]
 parent: committed-binary-distribution
 depends_on: [committed-binary-distribution-shim, committed-binary-distribution-packaging]

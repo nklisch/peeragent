@@ -1,7 +1,7 @@
 ---
 id: committed-binary-distribution-ci-refresh
 kind: story
-stage: review
+stage: done
 tags: [infra]
 parent: committed-binary-distribution
 depends_on: [committed-binary-distribution-packaging]

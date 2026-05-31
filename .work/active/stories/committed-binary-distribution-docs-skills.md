@@ -1,7 +1,7 @@
 ---
 id: committed-binary-distribution-docs-skills
 kind: story
-stage: review
+stage: done
 tags: [docs, infra]
 parent: committed-binary-distribution
 depends_on: [committed-binary-distribution-shim, committed-binary-distribution-packaging]

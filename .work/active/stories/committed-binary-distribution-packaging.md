@@ -1,7 +1,7 @@
 ---
 id: committed-binary-distribution-packaging
 kind: story
-stage: review
+stage: done
 tags: [infra]
 parent: committed-binary-distribution
 depends_on: []

@@ -1,7 +1,7 @@
 ---
 id: committed-binary-distribution
 kind: feature
-stage: review
+stage: done
 tags: [infra, docs]
 parent: null
 depends_on: []
@@ -435,3 +435,29 @@ Run notes: implemented alongside concurrent external Gemini-CLI work. The
 `docs-skills` commit swept some external `README.md`/`CONTRACT.md` hunks (user
 pre-approved interleaving). First CI binary refresh happens on the next push to
 `main` touching Go source.
+
+## Peer review
+
+Cross-model peer review (Codex, via peeragent), 3 passes, converged:
+
+- **Pass 1** — 2 blockers + 4 should-fix + 2 nits. Fixed: exit-3 JSON robustness
+  (sanitize `PEERAGENT_TARGET_OVERRIDE`); accurate unsupported-platform guidance
+  (build from source, not a nonexistent release asset); `-buildvcs=false` clean
+  provenance; `validate.sh` stale-`plugin/` guard; CI push rebase/retry;
+  `release.sh` `shasum` fallback. Rejected: switching the CI model to
+  PR-committed/bot-PR binaries (owner wants CI-committed); pruning obsolete target
+  dirs (stable 4-target set).
+- **Pass 2** — 1 blocker + 3 should-fix + 1 nit. Fixed: a regression in the pass-1
+  CI retry (rebased onto newer source but pushed stale binaries) — added
+  `concurrency: cancel-in-progress` + rebuild-after-rebase via
+  `scripts/build-committed.sh`; `go install …` guidance (actionable without a
+  checkout); removed the filesystem path from the JSON entirely (valid even for
+  control-char paths); PR-side curated-`plugin/` sync check; override requires a
+  dash.
+- **Pass 3** — 0 blockers + 1 should-fix + 1 nit. Fixed: pin the from-source
+  install hint to the plugin manifest version (`@v<version>`). Dropped (nit):
+  leading/trailing dash in the override token (harmless; resolves to a missing
+  path).
+
+Review-fix commits: `b49857e` (pass 1), `0418ab6` (pass 2), `e920783` (pass 3).
+`scripts/validate.sh` ran green after each pass.
