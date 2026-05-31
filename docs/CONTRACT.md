@@ -44,6 +44,8 @@ Options:
 - `--agent <codex|gemini|claude>`: Select the target agent. Defaults to
   `codex`.
 - `--async`: Start the target in the background and return a job id.
+- `--sandbox`: Use the default bounded target CLI mode. This is also the
+  default when no access flag is supplied.
 - `--full-access`: Run the target with full local access.
 - `--worktree`: Reserved for future isolated worktree execution.
 - `--effort <medium|high|xhigh>`: Set target reasoning effort. Codex defaults to
@@ -165,6 +167,7 @@ does not scrape logs to infer a new Gemini conversation id.
 - `0`: Completed successfully. For async launch, this means the job started.
 - `1`: Target failed or exited non-zero.
 - `2`: Wrapper usage error or unsupported mode.
+- `3`: Wrapper binary unavailable for this platform.
 - `4`: Async job lookup failed.
 
 ## Async State

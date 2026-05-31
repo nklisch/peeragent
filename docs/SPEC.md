@@ -31,7 +31,12 @@ peeragent --agent claude <task text>
 Alt Subagent runs on a developer machine with:
 
 - A repository or working directory open in the host agent.
-- A platform-compatible `peeragent` wrapper binary supplied by the plugin.
+- A platform-compatible `peeragent` binary. The plugin ships prebuilt binaries
+  committed at `plugin/bin/<goos>-<goarch>/peeragent` for linux amd64, linux
+  arm64, darwin amd64, and darwin arm64. On other platforms, install manually
+  from the GitHub releases page (https://github.com/nklisch/peeragent/releases)
+  by downloading the matching asset and either setting `PEERAGENT_BIN` to its
+  path or placing it at `<plugin>/bin/<goos>-<goarch>/peeragent`.
 - At least one target CLI installed and authenticated locally.
 
 Supported target CLIs:
@@ -52,7 +57,9 @@ The project contains:
 - `skills/` for host-facing skills. The Codex plugin manifest points here so
   Codex can target Claude or Gemini, and Claude Code also discovers the same
   directory.
-- `bin/peeragent` as the executable host agents call.
+- `bin/peeragent` as the executable shim host agents call.
+- `plugin/bin/<target>/peeragent` — committed prebuilt binaries for each
+  supported platform, included in the marketplace plugin artifact.
 - `cmd/peeragent/` and internal Go packages for the wrapper implementation.
 - `docs/` for foundation documents.
 
@@ -73,7 +80,10 @@ through `--status`, `--result`, or `--cancel`.
 
 Sandbox execution is the default bounded target CLI mode. The caller may pass
 `--sandbox` explicitly to choose the same mode that is used when no access flag
-is supplied.
+is supplied. Each target maps this to its own bounded mode (see below). Gemini
+through Antigravity is the exception: `agy` has no usable sandbox flag in print
+mode (it loops until timeout), so its bounded default is `agy --print` scoped
+only by `--add-dir`.
 
 ### Full Access
 
@@ -91,7 +101,7 @@ Default target invocations:
 ```text
 codex exec --json --cd <repo> --sandbox workspace-write \
   -c approval_policy="on-request" -c approvals_reviewer="auto_review" ...
-agy --print --sandbox --add-dir <repo> ...
+agy --print --add-dir <repo> ...
 claude --print --output-format json --permission-mode auto --add-dir <repo> ...
 ```
 

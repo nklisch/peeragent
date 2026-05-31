@@ -9,7 +9,7 @@ another local coding agent for implementation, research, or review work.
 Host assistant session
   -> host skill
     -> bin/peeragent
-      -> dist/peeragent or go run cmd/peeragent
+      -> dist/peeragent, go run cmd/peeragent, or bin/<goos>-<goarch>/peeragent
         -> target CLI
           -> current repository working tree
 ```
@@ -75,9 +75,12 @@ large command suite.
 
 ## Wrapper Role
 
-`bin/peeragent` is the executable entrypoint. It invokes the compiled Go
-wrapper from `dist/peeragent` when present and falls back to `go run` during
-development.
+`bin/peeragent` is the executable entrypoint. It resolves the compiled Go
+binary using the following order: an explicit `PEERAGENT_BIN` override, a local
+`dist/peeragent` build, `go run cmd/peeragent` when Go is available in a source
+checkout, and a committed platform binary at `bin/<goos>-<goarch>/peeragent`.
+If none of those resolve, the shim exits with code `3` and directs the user to
+install from the GitHub releases page.
 
 The wrapper:
 

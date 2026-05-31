@@ -114,6 +114,14 @@ to hand it off again; use your own harness's sub-agents if you need help."
 - `status: success` — report what changed and what verification ran.
 - `status: blocked` — explain the blocker; continue from the host side.
 - `status: failed` — surface the failure reason and useful log details.
+  - If exit code `3` (or, in `--text` mode, a "peeragent is not installed
+    for this platform" message), peeragent has no committed binary for the
+    user's OS/arch. Tell the user to install peeragent from the GitHub
+    releases page (https://github.com/nklisch/peeragent/releases) for their
+    platform — download the matching asset and either set `PEERAGENT_BIN` to
+    its path or place it at `<plugin>/bin/<goos>-<goarch>/peeragent`. If the
+    platform is misdetected, `PEERAGENT_TARGET_OVERRIDE=<goos>-<goarch>`
+    selects a present binary. Do not retry in a loop.
 - `status: running` — only with `--async`; report the job id and how to
   check it.
 - `status: cancelled` — only after `--cancel`; report cleanly.
@@ -145,7 +153,8 @@ Use advanced modes only when the request calls for them:
 - Keep the handoff concise. The peer receives the task, not a full
   transcript recap unless context matters.
 - Do not run the same peer repeatedly in a loop after `failed` or
-  `blocked` results — diagnose first.
+  `blocked` results — diagnose first. On exit code `3`, direct the user
+  to install from GitHub releases; do not retry.
 - Preserve the host's responsibility for explaining outcomes to the
   user. The peer is the worker; you are the narrator.
 - Treat the working tree as shared space — the peer may edit files you

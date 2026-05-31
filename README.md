@@ -38,10 +38,15 @@ codex plugin marketplace add nklisch/peeragent
 codex plugin add peeragent@peeragent
 ```
 
-The marketplace installs the plugin source. On first use, `bin/peeragent`
-looks for a local compiled binary, then a cached release binary, then downloads
-the matching binary from the GitHub release for the plugin version. If no release
-asset is available, it falls back to `go run` when Go is installed.
+On the four supported platforms (linux amd64/arm64, darwin amd64/arm64),
+the plugin runs immediately with no download and no Go toolchain required —
+prebuilt binaries are committed in `plugin/bin/<goos>-<goarch>/peeragent`.
+
+On other platforms, install manually from the GitHub releases page
+(https://github.com/nklisch/peeragent/releases): download the matching asset,
+then either set `PEERAGENT_BIN` to its path or place it at
+`<plugin>/bin/<goos>-<goarch>/peeragent`. If the platform is misdetected,
+set `PEERAGENT_TARGET_OVERRIDE=<goos>-<goarch>` to select a present binary.
 
 ## Using It
 
@@ -204,6 +209,8 @@ agy --print --sandbox --add-dir <repo> ...
 claude --print --output-format json --permission-mode auto --add-dir <repo> ...
 ```
 
+You can pass `--sandbox` explicitly to select that same default bounded mode.
+
 Use full access only for a trusted repo and an explicit reason:
 
 ```sh
@@ -321,8 +328,11 @@ agy --version
 claude --version
 ```
 
-If the wrapper cannot download a release binary, install Go and run `make build`,
-or set `PEERAGENT_BIN` to an executable `peeragent` binary.
+If peeragent reports it is not installed for this platform, install from the
+GitHub releases page (https://github.com/nklisch/peeragent/releases): download
+the matching asset and either set `PEERAGENT_BIN` to its path or place it at
+`<plugin>/bin/<goos>-<goarch>/peeragent`. For source checkouts, `make build`
+also produces a local `dist/peeragent` binary.
 
 If an async lookup fails, make sure the job id came from the same repository and
 that `.peeragent/jobs/<job-id>/job.json` still exists.
