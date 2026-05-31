@@ -25,13 +25,10 @@ test -f plugin/.codex-plugin/plugin.json
 test -f plugin/skills/peer/SKILL.md
 test -f plugin/skills/peer-review/SKILL.md
 
-# The committed curated tree must already match source. Binaries under
-# plugin/bin/<target>/ are owned by CI (build-binaries.yml) and excluded here.
-if ! git diff --exit-code -- \
-  plugin/.claude-plugin plugin/.codex-plugin plugin/skills plugin/bin/peeragent; then
-  echo "committed plugin/ curated tree is stale; run scripts/package-plugin.sh and commit plugin/" >&2
-  exit 1
-fi
+# Curated-tree sync enforcement lives in CI (.github/workflows/build-binaries.yml),
+# which runs on committed state. It is intentionally NOT here: validate.sh runs
+# mid-bump (scripts/bump.sh regenerates plugin/ for the new version before
+# committing), where uncommitted plugin/ changes are expected and legitimate.
 
 step "committed platform binaries"
 for t in linux-amd64 linux-arm64 darwin-amd64 darwin-arm64; do
