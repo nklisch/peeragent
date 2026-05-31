@@ -51,6 +51,17 @@ func normalizeResult(result *Result) {
 	}
 }
 
+// agyPrintFatalSignals are substrings agy emits on its final "Error: ..." line
+// when print mode fails to produce a model response (timeout or auth). Matching
+// these specifically — rather than any line starting with "Error: " — avoids
+// misclassifying a peer agent's own legitimate final line that merely happens to
+// begin with "Error: " (e.g. reporting a bug it found).
+var agyPrintFatalSignals = []string{
+	"timed out waiting for response",
+	"authentication required",
+	"authentication timed out",
+}
+
 func hasPrintModeError(output string) bool {
 	trimmed := strings.TrimSpace(output)
 	if trimmed == "" {
@@ -59,7 +70,16 @@ func hasPrintModeError(output string) bool {
 	if idx := strings.LastIndexByte(trimmed, '\n'); idx != -1 {
 		trimmed = strings.TrimSpace(trimmed[idx+1:])
 	}
-	return strings.HasPrefix(trimmed, "Error: ")
+	if !strings.HasPrefix(trimmed, "Error: ") {
+		return false
+	}
+	lower := strings.ToLower(trimmed)
+	for _, sig := range agyPrintFatalSignals {
+		if strings.Contains(lower, sig) {
+			return true
+		}
+	}
+	return false
 }
 
 func buildArgs(opts Options) []string {

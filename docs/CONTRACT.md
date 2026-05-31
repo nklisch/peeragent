@@ -134,7 +134,7 @@ codex exec --json --cd <repo> --sandbox workspace-write \
 Default Gemini:
 
 ```text
-agy --print --sandbox --add-dir <repo> --print-timeout 15m ...
+agy --print --add-dir <repo> --print-timeout 15m ...
 ```
 
 Default Claude:

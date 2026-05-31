@@ -1,7 +1,7 @@
 ---
 id: story-fix-gemini-sandbox-false-positive
 kind: story
-stage: review
+stage: done
 tags: [bug]
 parent: null
 depends_on: []
@@ -54,3 +54,22 @@ Two compounding defects, both in `internal/gemini`:
 - New tests assert that an agy result with `ExitCode: 0` plus a trailing
   `Error: timed out waiting for response` is remapped to a non-zero exit, while
   a normal successful result keeps exit 0.
+
+## Review record
+
+Cross-model peer review delegated to Codex (codex-cli 0.135.0) via peeragent.
+
+- Pass 1 — request-changes. (1) `hasPrintModeError` matched any final line
+  starting with `Error: `, risking false failures on a peer's own legitimate
+  `Error: ...` answer; (2) `docs/SPEC.md` still asserted Gemini used `--sandbox`.
+  Both fixed: `hasPrintModeError` now also requires a known agy sentinel
+  (`agyPrintFatalSignals`: timed-out / authentication-required / authentication
+  -timed-out), with a test proving a legitimate `Error: missing validation ...`
+  stays exit 0; SPEC corrected.
+- Pass 2 (resumed) — request-changes. Confirmed code findings resolved; flagged
+  remaining doc drift in `README.md` and `docs/CONTRACT.md` (still published
+  `agy --print --sandbox`). Fixed both.
+
+No clean Codex "approve" was obtained and no third pass was run. The user
+reviewed the changes, directed the README/CONTRACT fix, and authorized advancing
+to `done`. All Codex findings are addressed and `go test ./...` passes.

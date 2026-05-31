@@ -205,11 +205,13 @@ target CLI exposes:
 
 ```text
 codex exec --json --cd <repo> --sandbox workspace-write ...
-agy --print --sandbox --add-dir <repo> ...
+agy --print --add-dir <repo> ...
 claude --print --output-format json --permission-mode auto --add-dir <repo> ...
 ```
 
 You can pass `--sandbox` explicitly to select that same default bounded mode.
+Gemini is the exception: `agy` has no usable sandbox in print mode, so its
+bounded default is `agy --print` scoped only by `--add-dir`.
 
 Use full access only for a trusted repo and an explicit reason:
 

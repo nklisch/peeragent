@@ -131,10 +131,10 @@ func TestNormalizeResult(t *testing.T) {
 			wantExit: 1,
 		},
 		{
-			name: "other error in output",
+			name: "auth failure in output",
 			input: Result{
 				ExitCode: 0,
-				Stdout:   "Error: failed to authenticate\n",
+				Stdout:   "Error: Authentication required\n",
 			},
 			wantExit: 1,
 		},
@@ -145,6 +145,14 @@ func TestNormalizeResult(t *testing.T) {
 				Stdout:   "Error: timed out waiting for response\n",
 			},
 			wantExit: 127,
+		},
+		{
+			name: "legitimate agent error report stays success",
+			input: Result{
+				ExitCode: 0,
+				Stdout:   "Reviewed the change.\nError: missing validation in foo.go\n",
+			},
+			wantExit: 0,
 		},
 	}
 
@@ -158,7 +166,6 @@ func TestNormalizeResult(t *testing.T) {
 		})
 	}
 }
-
 
 func TestExecWithRunnerFlagsPrintModeError(t *testing.T) {
 	stubLookPath(t)
