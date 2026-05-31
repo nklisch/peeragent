@@ -56,7 +56,22 @@ fi
 # from source. The JSON (stdout) embeds only the sanitized TARGET — no filesystem
 # path — so it is always valid regardless of PLUGIN_ROOT. --text (stderr) carries
 # the human-facing path hint.
-INSTALL_HINT="go install github.com/nklisch/peeragent/cmd/peeragent@latest"
+# Pin the install hint to the plugin's own version so an unsupported-platform
+# build matches the installed plugin; fall back to @latest if no manifest.
+hint_version() {
+  for m in "$PLUGIN_ROOT/.claude-plugin/plugin.json" "$PLUGIN_ROOT/.codex-plugin/plugin.json"; do
+    [ -f "$m" ] || continue
+    awk -F'"' '/"version"[[:space:]]*:/ { print $4; exit }' "$m"
+    return 0
+  done
+}
+_pv=$(hint_version || true)
+_pv=${_pv%%+*}
+if [ -n "$_pv" ]; then
+  INSTALL_HINT="go install github.com/nklisch/peeragent/cmd/peeragent@v$_pv"
+else
+  INSTALL_HINT="go install github.com/nklisch/peeragent/cmd/peeragent@latest"
+fi
 wants_text() {
   for a in "$@"; do
     [ "$a" = "--text" ] && return 0

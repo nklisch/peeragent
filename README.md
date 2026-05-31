@@ -43,8 +43,9 @@ the plugin runs immediately with no download and no Go toolchain required —
 prebuilt binaries are committed in `plugin/bin/<goos>-<goarch>/peeragent`.
 
 On any other platform, install from source (requires Go):
-`go install github.com/nklisch/peeragent/cmd/peeragent@latest`, then set
-`PEERAGENT_BIN` to the installed binary (typically `$(go env GOPATH)/bin/peeragent`).
+`go install github.com/nklisch/peeragent/cmd/peeragent@latest` (or pin
+`@v<plugin-version>` to match your installed plugin), then set `PEERAGENT_BIN`
+to the installed binary (typically `$(go env GOPATH)/bin/peeragent`).
 Prebuilt release archives for the four supported platforms are also published at
 https://github.com/nklisch/peeragent/releases for manual install. If your
 platform is misdetected, set `PEERAGENT_TARGET_OVERRIDE=<goos>-<goarch>` to
