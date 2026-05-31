@@ -42,11 +42,12 @@ On the four supported platforms (linux amd64/arm64, darwin amd64/arm64),
 the plugin runs immediately with no download and no Go toolchain required —
 prebuilt binaries are committed in `plugin/bin/<goos>-<goarch>/peeragent`.
 
-On other platforms, install manually from the GitHub releases page
-(https://github.com/nklisch/peeragent/releases): download the matching asset,
-then either set `PEERAGENT_BIN` to its path or place it at
-`<plugin>/bin/<goos>-<goarch>/peeragent`. If the platform is misdetected,
-set `PEERAGENT_TARGET_OVERRIDE=<goos>-<goarch>` to select a present binary.
+On any other platform, build from source (requires Go): run
+`go build -o PATH ./cmd/peeragent` and set `PEERAGENT_BIN=PATH`. Prebuilt
+release archives for the four supported platforms are also published at
+https://github.com/nklisch/peeragent/releases for manual install. If your
+platform is misdetected, set `PEERAGENT_TARGET_OVERRIDE=<goos>-<goarch>` to
+select a present binary.
 
 ## Using It
 
@@ -273,8 +274,9 @@ shim so `plugin/` stays in sync.
 
 ## Releasing
 
-Release artifacts are the compiled binaries used by marketplace installs when Go
-is not available locally.
+Marketplace installs use the committed `plugin/bin/<goos>-<goarch>/peeragent`
+binaries directly. Release artifacts are those same four platform binaries
+published as downloadable archives for manual install.
 
 Build release archives locally:
 
@@ -330,11 +332,13 @@ agy --version
 claude --version
 ```
 
-If peeragent reports it is not installed for this platform, install from the
-GitHub releases page (https://github.com/nklisch/peeragent/releases): download
-the matching asset and either set `PEERAGENT_BIN` to its path or place it at
-`<plugin>/bin/<goos>-<goarch>/peeragent`. For source checkouts, `make build`
-also produces a local `dist/peeragent` binary.
+If peeragent reports it has no prebuilt binary for this platform (exit code 3),
+note that the prebuilt platforms are linux/darwin on amd64/arm64. On those,
+reinstall the plugin or download the matching archive from
+https://github.com/nklisch/peeragent/releases. On any other platform, build from
+source (requires Go): `go build -o PATH ./cmd/peeragent` then set
+`PEERAGENT_BIN=PATH`. For source checkouts, `make build` also produces a local
+`dist/peeragent` binary.
 
 If an async lookup fails, make sure the job id came from the same repository and
 that `.peeragent/jobs/<job-id>/job.json` still exists.

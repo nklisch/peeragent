@@ -33,7 +33,7 @@ build_target() {
   dir="$BUILD/$target"
   mkdir -p "$dir"
   echo "building $target"
-  CGO_ENABLED=0 GOOS=$goos GOARCH=$goarch go build -trimpath -ldflags="-s -w" -o "$dir/peeragent" "$ROOT/cmd/peeragent"
+  CGO_ENABLED=0 GOOS=$goos GOARCH=$goarch go build -trimpath -buildvcs=false -ldflags="-s -w" -o "$dir/peeragent" "$ROOT/cmd/peeragent"
   tar -C "$dir" -czf "$OUT/peeragent_${VERSION}_${goos}_${goarch}.tar.gz" peeragent
 }
 
@@ -44,7 +44,11 @@ build_target darwin arm64
 
 (
   cd "$OUT"
-  sha256sum peeragent_*.tar.gz > checksums.txt
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum peeragent_*.tar.gz > checksums.txt
+  else
+    shasum -a 256 peeragent_*.tar.gz > checksums.txt
+  fi
 )
 
 rm -rf "$BUILD"

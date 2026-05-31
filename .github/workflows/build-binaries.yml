@@ -46,7 +46,7 @@ jobs:
             dest="plugin/bin/$target"
             mkdir -p "$dest"
             CGO_ENABLED=0 GOOS="$goos" GOARCH="$goarch" \
-              go build -trimpath -ldflags="-s -w" -o "$dest/peeragent" ./cmd/peeragent
+              go build -trimpath -buildvcs=false -ldflags="-s -w" -o "$dest/peeragent" ./cmd/peeragent
             size=$(stat -c '%s' "$dest/peeragent")
             echo "$target: $size bytes"
             if [ "$size" -gt "$SIZE_BUDGET_BYTES" ]; then
@@ -62,7 +62,11 @@ jobs:
           git add plugin/bin
           if git diff --cached --quiet; then
             echo "No binary changes to commit."
-          else
-            git commit -m "chore: refresh committed peeragent binaries [skip ci]"
-            git push
+            exit 0
           fi
+          git commit -m "chore: refresh committed peeragent binaries [skip ci]"
+          # main can advance under us (concurrent pushes); rebase once and retry.
+          git push || {
+            git pull --rebase origin "${GITHUB_REF_NAME:-main}"
+            git push
+          }

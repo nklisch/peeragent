@@ -241,12 +241,13 @@ The wrapper returns JSON by default. Per delegation:
   that pass, or surface to the user if it's structural.
 - `status: failed` — surface the failure; one retry is fine; don't loop
   on a broken wrapper.
-  - If exit code `3` (or, in `--text` mode, a "peeragent is not installed
-    for this platform" message), peeragent has no committed binary for the
-    user's OS/arch. Tell the user to install peeragent from the GitHub
-    releases page (https://github.com/nklisch/peeragent/releases) for their
-    platform — download the matching asset and either set `PEERAGENT_BIN` to
-    its path or place it at `<plugin>/bin/<goos>-<goarch>/peeragent`. If the
+  - If exit code `3` (or, in `--text` mode, a "no prebuilt binary for this
+    platform" message), peeragent has no committed binary for the user's
+    OS/arch. Prebuilt binaries cover linux/darwin on amd64/arm64. Tell the
+    user: on those platforms, reinstall the plugin or download the matching
+    archive from https://github.com/nklisch/peeragent/releases; on any other
+    platform, build from source (requires Go) with
+    `go build -o PATH ./cmd/peeragent` and set `PEERAGENT_BIN=PATH`. If the
     platform is misdetected, `PEERAGENT_TARGET_OVERRIDE=<goos>-<goarch>`
     selects a present binary. Do not retry in a loop.
 - `status: running` (if `--async` was used) — record the job id and check
@@ -275,6 +276,6 @@ without substantive findings.
 - **Trivial work doesn't need this skill.** Use judgment — a one-line fix
   doesn't earn three peer-review passes.
 - **No `--full-access` for review.** Reviews shouldn't need it.
-- **On exit code `3`, direct the user to GitHub releases; do not retry.**
-  A "not installed for this platform" failure means no committed binary
-  matches the host OS/arch — looping won't fix it.
+- **On exit code `3`, tell the user to install a prebuilt binary
+  (linux/darwin amd64/arm64) or build from source with Go; do not retry.**
+  No committed binary matches the host OS/arch — looping won't fix it.

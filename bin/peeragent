@@ -22,9 +22,15 @@ fi
 
 # 4. Committed platform binary (marketplace / no-Go install).
 detect_target() {
+  # PEERAGENT_TARGET_OVERRIDE lets a user point at a present binary on a
+  # misdetected platform. Accept it only as a safe <goos>-<goarch> token;
+  # anything else falls back to uname detection so arbitrary text never lands
+  # in the resolved path or the JSON error below.
   if [ -n "${PEERAGENT_TARGET_OVERRIDE:-}" ]; then
-    printf '%s' "$PEERAGENT_TARGET_OVERRIDE"
-    return
+    case "$PEERAGENT_TARGET_OVERRIDE" in
+      "" | *[!a-z0-9_-]*) : ;;
+      *) printf '%s' "$PEERAGENT_TARGET_OVERRIDE"; return ;;
+    esac
   fi
   case "$(uname -s 2>/dev/null || echo unknown)" in
     Linux) goos=linux ;;
@@ -44,9 +50,13 @@ if [ -x "$CANDIDATE" ]; then
   exec "$CANDIDATE" "$@"
 fi
 
-# 5. Not installed for this platform — fail per the result contract (exit 3).
-# JSON goes to stdout (matching the Go binary); --text writes guidance to stderr.
-# Assumes $PLUGIN_ROOT contains no '"' or '\' (pathological on unix); $TARGET is [a-z0-9-].
+# 5. No prebuilt binary for this platform — fail per the result contract (exit 3).
+# Prebuilt binaries cover linux/darwin on amd64/arm64 only; other platforms build
+# from source. JSON goes to stdout (matching the Go binary); --text writes guidance
+# to stderr. TARGET is constrained to [a-z0-9_-]; CANDIDATE is JSON-escaped.
+json_escape() {
+  printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
+}
 wants_text() {
   for a in "$@"; do
     [ "$a" = "--text" ] && return 0
@@ -54,10 +64,11 @@ wants_text() {
   return 1
 }
 if wants_text "$@"; then
-  printf 'peeragent is not installed for this platform (%s).\nDownload the matching asset from %s, then set PEERAGENT_BIN to its path\nor place the binary at %s.\n' \
-    "$TARGET" "$RELEASES_URL" "$CANDIDATE" >&2
+  printf 'peeragent has no prebuilt binary for this platform (%s).\nPrebuilt binaries cover linux and macOS on amd64/arm64.\nOn other platforms, build from source (requires Go):\n  go build -o <path>/peeragent ./cmd/peeragent\nthen set PEERAGENT_BIN=<path>/peeragent (or place it at %s).\nReleases: %s\n' \
+    "$TARGET" "$CANDIDATE" "$RELEASES_URL" >&2
 else
-  printf '{"status":"failed","summary":"peeragent is not installed for %s","changed_files":[],"verification":[],"details":"No committed peeragent binary for %s. Download the matching asset from %s, then set PEERAGENT_BIN to its path or place it at %s.","metadata":{"exit_code":3,"target":"%s"}}\n' \
-    "$TARGET" "$TARGET" "$RELEASES_URL" "$CANDIDATE" "$TARGET"
+  details="No prebuilt peeragent binary for $TARGET. Prebuilt binaries cover linux/darwin on amd64/arm64; on other platforms build from source with Go (go build -o PATH ./cmd/peeragent) and set PEERAGENT_BIN=PATH, or place the binary at $(json_escape "$CANDIDATE"). Releases: $RELEASES_URL"
+  printf '{"status":"failed","summary":"peeragent has no prebuilt binary for %s","changed_files":[],"verification":[],"details":"%s","metadata":{"exit_code":3,"target":"%s"}}\n' \
+    "$TARGET" "$details" "$TARGET"
 fi
 exit 3
