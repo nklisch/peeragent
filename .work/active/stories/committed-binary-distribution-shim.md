@@ -1,7 +1,7 @@
 ---
 id: committed-binary-distribution-shim
 kind: story
-stage: implementing
+stage: review
 tags: [infra]
 parent: committed-binary-distribution
 depends_on: []
@@ -50,3 +50,28 @@ Unit 1 for the full shim source.
 - JSON to stdout (matches the Go binary); text to stderr.
 - `$TARGET` is `[a-z0-9-]`; the JSON emitter assumes `$PLUGIN_ROOT` has no `"`/`\`
   (note inline).
+
+## Implementation notes
+
+Replaced the entire `bin/peeragent` shim. Removed: manifest-version lookup,
+`~/.cache/peeragent` cache directory, `curl`/`tar` download block, and env vars
+`PEERAGENT_VERSION`, `PEERAGENT_CACHE_DIR`, `PEERAGENT_RELEASE_BASE`,
+`PEERAGENT_SKIP_DOWNLOAD`. Also removed the `.git`-directory gate that previously
+restricted `go run` to source checkouts — step 3 now fires whenever `cmd/peeragent`
+exists and `go` is on PATH, regardless of `.git`.
+
+Resolution order matches spec exactly (PEERAGENT_BIN → dist/ → go run → committed
+bin/$TARGET/ → contract JSON exit 3).
+
+### Verification results
+
+1. `sh -n bin/peeragent` — passes, no syntax errors.
+2. `shellcheck` — not installed on this system; skipped.
+3. `bin/peeragent --help` — exercises step 3 (go run); prints full usage text, exits 0.
+   External agents had uncommitted edits to `cmd/peeragent/main.go` but the build
+   compiled cleanly; no external breakage observed.
+4. Not-installed JSON path (isolated shim, `PEERAGENT_TARGET_OVERRIDE=plan9-sparc`):
+   emits `{"status":"failed",...,"metadata":{"exit_code":3,"target":"plan9-sparc"}}`,
+   exits 3.
+5. Not-installed `--text` path: writes human-readable message to stderr only
+   (stdout empty), exits 3.
