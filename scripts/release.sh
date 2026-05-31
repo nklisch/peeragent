@@ -65,6 +65,6 @@ if [ "$PUBLISH" -eq 1 ]; then
     gh release upload "$tag" "$OUT"/* --clobber
   else
     # shellcheck disable=SC2086
-    gh release create "$tag" $target_args "$OUT"/*       --title "peeragent $tag"       --notes "Release binaries for peeragent $tag. Marketplace installs can fetch these assets on first use."
+    gh release create "$tag" $target_args "$OUT"/*       --title "peeragent $tag"       --notes "Prebuilt peeragent binaries for $tag. Use these for manual install on platforms without a committed plugin binary."
   fi
 fi

@@ -1,7 +1,7 @@
 ---
 id: committed-binary-distribution-packaging
 kind: story
-stage: implementing
+stage: review
 tags: [infra]
 parent: committed-binary-distribution
 depends_on: []
@@ -45,3 +45,48 @@ make the packaging flow respect it.
 
 Seed-build flags must match the CI workflow exactly so CI's first refresh produces no
 spurious diff.
+
+## Implementation notes
+
+### What was done
+
+1. **`scripts/package-plugin.sh`**: Replaced `rm -rf "$PLUGIN"` with targeted
+   removals that leave `plugin/bin/<target>/` subdirs intact. The new sequence
+   removes only `.claude-plugin`, `.codex-plugin`, `skills`, and the shim
+   `plugin/bin/peeragent`, then recreates the curated dirs. The platform binary
+   subdirs are not touched.
+
+2. **Seeded four committed binaries** with `CGO_ENABLED=0 -trimpath -ldflags="-s -w"`,
+   matching the CI build flags exactly:
+   - `plugin/bin/linux-amd64/peeragent`:  2 617 506 bytes
+   - `plugin/bin/linux-arm64/peeragent`:  2 556 066 bytes
+   - `plugin/bin/darwin-amd64/peeragent`: 2 584 720 bytes
+   - `plugin/bin/darwin-arm64/peeragent`: 2 431 618 bytes
+
+3. **Ran `scripts/package-plugin.sh`** after seeding. Confirmed all four
+   `plugin/bin/<target>/peeragent` remained present and executable.
+
+4. **`scripts/release.sh`**: Changed `gh release create` note text from
+   "Release binaries for peeragent $tag. Marketplace installs can fetch these
+   assets on first use." to "Prebuilt peeragent binaries for $tag. Use these
+   for manual install on platforms without a committed plugin binary."
+
+5. **`scripts/bump.sh`**: Replaced the explicit
+   `plugin/.claude-plugin/plugin.json` / `plugin/.codex-plugin/plugin.json`
+   adds with `git add plugin` so the full regenerated curated tree is staged.
+   No binary-building was added.
+
+### Verification results
+
+- `sh -n scripts/package-plugin.sh scripts/release.sh scripts/bump.sh` — all
+  three parse without errors.
+- shellcheck not available in this environment.
+- All four `plugin/bin/<target>/peeragent` confirmed present, executable, and
+  non-empty after running `package-plugin.sh`.
+- **Smoke 1** (`plugin/bin/peeragent --status missing-job`): exit 4, JSON
+  contains `"status":"failed"` and `"exit_code":4`. PASS.
+- **Smoke 2** (`PEERAGENT_TARGET_OVERRIDE=plan9-sparc plugin/bin/peeragent
+  --agent codex x`): exit 3, JSON contains `"exit_code":3` and the releases
+  URL. PASS.
+- No external compile breakage observed; `cmd/peeragent/main.go` compiled
+  cleanly for all four targets.

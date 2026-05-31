@@ -4,7 +4,10 @@ set -eu
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 PLUGIN="$ROOT/plugin"
 
-rm -rf "$PLUGIN"
+# Regenerate the curated tree WITHOUT removing committed platform binaries.
+# plugin/bin/<goos>-<goarch>/peeragent are owned by .github/workflows/build-binaries.yml.
+rm -rf "$PLUGIN/.claude-plugin" "$PLUGIN/.codex-plugin" "$PLUGIN/skills"
+rm -f "$PLUGIN/bin/peeragent"
 mkdir -p "$PLUGIN/.claude-plugin" "$PLUGIN/.codex-plugin" "$PLUGIN/bin" "$PLUGIN/skills"
 
 cp "$ROOT/.claude-plugin/plugin.json" "$PLUGIN/.claude-plugin/plugin.json"

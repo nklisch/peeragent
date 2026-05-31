@@ -156,9 +156,8 @@ echo "==> committing"
 git add \
   .claude-plugin/plugin.json \
   .codex-plugin/plugin.json \
-  plugin/.claude-plugin/plugin.json \
-  plugin/.codex-plugin/plugin.json \
   README.md
+git add plugin
 git commit -m "$MESSAGE"
 
 echo "==> tagging v$VERSION"
