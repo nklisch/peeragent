@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os/exec"
+	"strings"
 
 	"github.com/nklisch/peeragent/internal/executil"
 )
@@ -32,15 +33,39 @@ func ExecWithRunner(ctx context.Context, run executil.Runner, opts Options) (Res
 	}
 	result, err := run.Run(ctx, path, buildArgs(opts), opts.CWD)
 	result.AgentSession = opts.Resume
+	normalizeResult(&result)
 	return result, err
+}
+
+// normalizeResult repairs agy print-mode's habit of exiting 0 even when it
+// failed to produce a model response. agy prints a final "Error: ..." line on
+// such failures (print-mode timeouts, auth), so a zero exit alongside that line
+// is a false success; remap it to a non-zero exit so the wrapper reports the
+// failure instead.
+func normalizeResult(result *Result) {
+	if result.ExitCode != 0 {
+		return
+	}
+	if hasPrintModeError(result.Stdout) || hasPrintModeError(result.Stderr) {
+		result.ExitCode = 1
+	}
+}
+
+func hasPrintModeError(output string) bool {
+	trimmed := strings.TrimSpace(output)
+	if trimmed == "" {
+		return false
+	}
+	if idx := strings.LastIndexByte(trimmed, '\n'); idx != -1 {
+		trimmed = strings.TrimSpace(trimmed[idx+1:])
+	}
+	return strings.HasPrefix(trimmed, "Error: ")
 }
 
 func buildArgs(opts Options) []string {
 	args := []string{"--print"}
 	if opts.FullAccess {
 		args = append(args, "--dangerously-skip-permissions")
-	} else {
-		args = append(args, "--sandbox")
 	}
 	args = append(args, "--add-dir", opts.CWD)
 	if opts.PrintTimeout == "" {

@@ -23,7 +23,6 @@ func TestExecWithRunnerBuildsDefaultArgv(t *testing.T) {
 
 	wantArgs := []string{
 		"--print",
-		"--sandbox",
 		"--add-dir", "/repo",
 		"--print-timeout", "15m",
 		"do work",
@@ -68,7 +67,6 @@ func TestExecWithRunnerIgnoresFixedModelArgv(t *testing.T) {
 
 	wantArgs := []string{
 		"--print",
-		"--sandbox",
 		"--add-dir", "/repo",
 		"--print-timeout", "15m",
 		"do work",
@@ -89,7 +87,6 @@ func TestExecWithRunnerBuildsResumeArgv(t *testing.T) {
 
 	wantArgs := []string{
 		"--print",
-		"--sandbox",
 		"--add-dir", "/repo",
 		"--print-timeout", "15m",
 		"--conversation", "conversation-1",
@@ -102,6 +99,66 @@ func TestExecWithRunnerBuildsResumeArgv(t *testing.T) {
 		t.Fatalf("AgentSession = %q", result.AgentSession)
 	}
 }
+
+func TestNormalizeResult(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    Result
+		wantExit int
+	}{
+		{
+			name: "successful output",
+			input: Result{
+				ExitCode: 0,
+				Stdout:   "all looks good\n",
+			},
+			wantExit: 0,
+		},
+		{
+			name: "print mode timeout in stdout",
+			input: Result{
+				ExitCode: 0,
+				Stdout:   "some progress info\nError: timed out waiting for response\n",
+			},
+			wantExit: 1,
+		},
+		{
+			name: "print mode timeout in stderr",
+			input: Result{
+				ExitCode: 0,
+				Stderr:   "Error: timed out waiting for response\n",
+			},
+			wantExit: 1,
+		},
+		{
+			name: "other error in output",
+			input: Result{
+				ExitCode: 0,
+				Stdout:   "Error: failed to authenticate\n",
+			},
+			wantExit: 1,
+		},
+		{
+			name: "non-zero exit code preserved",
+			input: Result{
+				ExitCode: 127,
+				Stdout:   "Error: timed out waiting for response\n",
+			},
+			wantExit: 127,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			res := tt.input
+			normalizeResult(&res)
+			if res.ExitCode != tt.wantExit {
+				t.Errorf("ExitCode = %d, want %d", res.ExitCode, tt.wantExit)
+			}
+		})
+	}
+}
+
 
 type recordingRunner struct {
 	name   string

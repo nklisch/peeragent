@@ -69,6 +69,12 @@ Async invocation is explicit. The wrapper starts a tracked local job, records
 logs and status, and returns a job id. The host can later inspect the task
 through `--status`, `--result`, or `--cancel`.
 
+### Sandbox
+
+Sandbox execution is the default bounded target CLI mode. The caller may pass
+`--sandbox` explicitly to choose the same mode that is used when no access flag
+is supplied.
+
 ### Full Access
 
 Full access is explicit. The caller must request it with `--full-access`.
