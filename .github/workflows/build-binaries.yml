@@ -9,6 +9,11 @@ on:
       - "go.mod"
       - "go.sum"
       - "bin/peeragent"
+      - "skills/**"
+      - ".claude-plugin/**"
+      - ".codex-plugin/**"
+      - "scripts/package-plugin.sh"
+      - "scripts/build-committed.sh"
       - ".github/workflows/build-binaries.yml"
   pull_request:
     paths:
@@ -17,8 +22,19 @@ on:
       - "go.mod"
       - "go.sum"
       - "bin/peeragent"
+      - "skills/**"
+      - ".claude-plugin/**"
+      - ".codex-plugin/**"
+      - "scripts/package-plugin.sh"
+      - "scripts/build-committed.sh"
       - ".github/workflows/build-binaries.yml"
   workflow_dispatch:
+
+# Only the latest run per ref proceeds; a newer source push cancels an in-flight
+# build so we never commit binaries built from superseded source.
+concurrency:
+  group: build-binaries-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   SIZE_BUDGET_BYTES: 8388608 # 8 MB per binary
@@ -35,25 +51,16 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - name: Cross-build committed binaries
+      - name: Verify committed plugin/ curated tree is in sync
         run: |
-          set -eu
-          for pair in "linux amd64" "linux arm64" "darwin amd64" "darwin arm64"; do
-            set -- $pair
-            goos=$1
-            goarch=$2
-            target="$goos-$goarch"
-            dest="plugin/bin/$target"
-            mkdir -p "$dest"
-            CGO_ENABLED=0 GOOS="$goos" GOARCH="$goarch" \
-              go build -trimpath -buildvcs=false -ldflags="-s -w" -o "$dest/peeragent" ./cmd/peeragent
-            size=$(stat -c '%s' "$dest/peeragent")
-            echo "$target: $size bytes"
-            if [ "$size" -gt "$SIZE_BUDGET_BYTES" ]; then
-              echo "ERROR: $target exceeds size budget ($size > $SIZE_BUDGET_BYTES)"
-              exit 1
-            fi
-          done
+          scripts/package-plugin.sh
+          if ! git diff --exit-code -- \
+            plugin/.claude-plugin plugin/.codex-plugin plugin/skills plugin/bin/peeragent; then
+            echo "committed plugin/ curated tree is stale; run scripts/package-plugin.sh and commit plugin/" >&2
+            exit 1
+          fi
+      - name: Cross-build committed binaries
+        run: scripts/build-committed.sh
       - name: Commit refreshed binaries
         if: github.event_name != 'pull_request'
         run: |
@@ -65,8 +72,14 @@ jobs:
             exit 0
           fi
           git commit -m "chore: refresh committed peeragent binaries [skip ci]"
-          # main can advance under us (concurrent pushes); rebase once and retry.
-          git push || {
-            git pull --rebase origin "${GITHUB_REF_NAME:-main}"
-            git push
-          }
+          if git push; then
+            exit 0
+          fi
+          # main advanced under us; rebase, REBUILD from the now-current source so
+          # committed binaries always match the pushed source, then retry once.
+          echo "push rejected; rebasing on origin/${GITHUB_REF_NAME} and rebuilding"
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          scripts/build-committed.sh
+          git add plugin/bin
+          git commit --amend --no-edit
+          git push

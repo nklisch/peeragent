@@ -246,8 +246,9 @@ The wrapper returns JSON by default. Per delegation:
     OS/arch. Prebuilt binaries cover linux/darwin on amd64/arm64. Tell the
     user: on those platforms, reinstall the plugin or download the matching
     archive from https://github.com/nklisch/peeragent/releases; on any other
-    platform, build from source (requires Go) with
-    `go build -o PATH ./cmd/peeragent` and set `PEERAGENT_BIN=PATH`. If the
+    platform, install from source (requires Go) with
+    `go install github.com/nklisch/peeragent/cmd/peeragent@latest` and set
+    `PEERAGENT_BIN`. If the
     platform is misdetected, `PEERAGENT_TARGET_OVERRIDE=<goos>-<goarch>`
     selects a present binary. Do not retry in a loop.
 - `status: running` (if `--async` was used) — record the job id and check
