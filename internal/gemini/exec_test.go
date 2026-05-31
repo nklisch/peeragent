@@ -160,6 +160,35 @@ func TestNormalizeResult(t *testing.T) {
 }
 
 
+func TestExecWithRunnerFlagsPrintModeError(t *testing.T) {
+	stubLookPath(t)
+	run := &recordingRunner{result: Result{
+		ExitCode: 0,
+		Stdout:   "I will explore the repo.\nError: timed out waiting for response",
+	}}
+
+	result, err := ExecWithRunner(context.Background(), run, Options{CWD: "/repo", Prompt: "do work"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.ExitCode == 0 {
+		t.Fatal("expected non-zero exit for agy print-mode error, got 0")
+	}
+}
+
+func TestExecWithRunnerKeepsSuccessExitCode(t *testing.T) {
+	stubLookPath(t)
+	run := &recordingRunner{result: Result{ExitCode: 0, Stdout: "OK"}}
+
+	result, err := ExecWithRunner(context.Background(), run, Options{CWD: "/repo", Prompt: "do work"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.ExitCode != 0 {
+		t.Fatalf("expected exit 0 for success, got %d", result.ExitCode)
+	}
+}
+
 type recordingRunner struct {
 	name   string
 	args   []string
