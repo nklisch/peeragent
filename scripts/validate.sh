@@ -25,6 +25,36 @@ test -f plugin/.codex-plugin/plugin.json
 test -f plugin/skills/peer/SKILL.md
 test -f plugin/skills/peer-review/SKILL.md
 
+step "committed platform binaries"
+for t in linux-amd64 linux-arm64 darwin-amd64 darwin-arm64; do
+  test -x "plugin/bin/$t/peeragent"
+  test -s "plugin/bin/$t/peeragent"
+done
+
+set +e
+committed_out=$(plugin/bin/peeragent --status missing-job 2>&1)
+committed_code=$?
+set -e
+if [ "$committed_code" -ne 4 ]; then
+  echo "committed-binary smoke expected exit 4, got $committed_code"
+  echo "$committed_out"
+  exit 1
+fi
+printf '%s\n' "$committed_out" | grep -q '"status":"failed"'
+printf '%s\n' "$committed_out" | grep -q '"exit_code":4'
+
+set +e
+notinstalled_out=$(PEERAGENT_TARGET_OVERRIDE=plan9-sparc plugin/bin/peeragent --agent codex x 2>&1)
+notinstalled_code=$?
+set -e
+if [ "$notinstalled_code" -ne 3 ]; then
+  echo "not-installed smoke expected exit 3, got $notinstalled_code"
+  echo "$notinstalled_out"
+  exit 1
+fi
+printf '%s\n' "$notinstalled_out" | grep -q '"exit_code":3'
+printf '%s\n' "$notinstalled_out" | grep -q 'releases'
+
 step "release artifacts"
 scripts/release.sh "$VERSION"
 test -f "dist/release/peeragent_${VERSION}_linux_amd64.tar.gz"
