@@ -1,0 +1,68 @@
+name: Build committed binaries
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "cmd/**"
+      - "internal/**"
+      - "go.mod"
+      - "go.sum"
+      - "bin/peeragent"
+      - ".github/workflows/build-binaries.yml"
+  pull_request:
+    paths:
+      - "cmd/**"
+      - "internal/**"
+      - "go.mod"
+      - "go.sum"
+      - "bin/peeragent"
+      - ".github/workflows/build-binaries.yml"
+  workflow_dispatch:
+
+env:
+  SIZE_BUDGET_BYTES: 8388608 # 8 MB per binary
+
+jobs:
+  build-binaries:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Cross-build committed binaries
+        run: |
+          set -eu
+          for pair in "linux amd64" "linux arm64" "darwin amd64" "darwin arm64"; do
+            set -- $pair
+            goos=$1
+            goarch=$2
+            target="$goos-$goarch"
+            dest="plugin/bin/$target"
+            mkdir -p "$dest"
+            CGO_ENABLED=0 GOOS="$goos" GOARCH="$goarch" \
+              go build -trimpath -ldflags="-s -w" -o "$dest/peeragent" ./cmd/peeragent
+            size=$(stat -c '%s' "$dest/peeragent")
+            echo "$target: $size bytes"
+            if [ "$size" -gt "$SIZE_BUDGET_BYTES" ]; then
+              echo "ERROR: $target exceeds size budget ($size > $SIZE_BUDGET_BYTES)"
+              exit 1
+            fi
+          done
+      - name: Commit refreshed binaries
+        if: github.event_name != 'pull_request'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add plugin/bin
+          if git diff --cached --quiet; then
+            echo "No binary changes to commit."
+          else
+            git commit -m "chore: refresh committed peeragent binaries [skip ci]"
+            git push
+          fi

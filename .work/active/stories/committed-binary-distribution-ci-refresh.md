@@ -1,7 +1,7 @@
 ---
 id: committed-binary-distribution-ci-refresh
 kind: story
-stage: implementing
+stage: review
 tags: [infra]
 parent: committed-binary-distribution
 depends_on: [committed-binary-distribution-packaging]
@@ -42,3 +42,25 @@ targets and commits them back to `plugin/bin/<target>/peeragent`.
 Depends on packaging having pinned the `plugin/bin/<target>/` layout and seeded the
 initial binaries (so the first CI run diffs cleanly). Requires branch protection to
 permit the bot push (or a PAT) — see feature Risks.
+
+## Implementation notes
+
+- Created `.github/workflows/build-binaries.yml` with exact YAML specified in the
+  story brief. One `ubuntu-latest` job cross-compiles all four targets
+  (`linux-amd64`, `linux-arm64`, `darwin-amd64`, `darwin-arm64`) with
+  `CGO_ENABLED=0` using `go build -trimpath -ldflags="-s -w"`.
+- YAML well-formedness verified with:
+  `python3 -c 'import yaml,sys; yaml.safe_load(open(".github/workflows/build-binaries.yml")); print("yaml ok")'`
+  Result: `yaml ok`
+- Acceptance criterion "The existing `actionlint` workflow passes on the new file"
+  cannot be fulfilled — this repo has no `actionlint` workflow. Substituted the
+  python3 YAML check above as the closest available validation. The workflow
+  structure was also reviewed manually for correctness against the reference
+  `build-work-view.yml` from the skills repo.
+- Sanity checks confirmed:
+  - Commit step gated `if: github.event_name != 'pull_request'`
+  - Commit message includes `[skip ci]`
+  - `permissions: contents: write` present at job level
+  - `fetch-depth: 0` in checkout step
+  - `git diff --cached --quiet` no-op guard present
+  - `github-actions[bot]` identity configured before commit
