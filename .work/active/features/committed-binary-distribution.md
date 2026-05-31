@@ -1,7 +1,7 @@
 ---
 id: committed-binary-distribution
 kind: feature
-stage: implementing
+stage: review
 tags: [infra, docs]
 parent: null
 depends_on: []
@@ -406,3 +406,32 @@ workflow.
 - **Source checkout without Go** — has neither `go run` nor repo-root committed
   binaries, so it hits the exit-3 install error. Edge case (developers have Go); the
   no-Go path is the marketplace install, which carries the binaries.
+
+## Implementation summary
+
+All five child stories implemented and at `stage: review`:
+
+- `committed-binary-distribution-shim` (`80a1503`) — `bin/peeragent` rewritten to the
+  override → `dist/` → `go run` → committed `bin/<target>/peeragent` → exit-3 JSON
+  order; all download/cache/version-manifest code and env vars removed.
+- `committed-binary-distribution-packaging` (`a88296f`) — `package-plugin.sh`
+  preserves `plugin/bin/<target>/`; four binaries seeded (2.4–2.6 MB stripped);
+  `release.sh` note and `bump.sh` staging updated.
+- `committed-binary-distribution-ci-refresh` (`6ca13c5`) — `.github/workflows/build-binaries.yml`
+  cross-builds four targets + `[skip ci]` commit-back (PR = build-only). No actionlint
+  in this repo, so YAML validated via `python3 yaml.safe_load`.
+- `committed-binary-distribution-docs-skills` (`55b3a38`) — `peer`/`peer-review`
+  not-installed guidance; `CONTRACT.md` exit code 3; `ARCHITECTURE.md`/`SPEC.md`/`README.md`
+  rolled forward; required README example strings preserved.
+- `committed-binary-distribution-validation` (`d9c7e9e`) — `validate.sh` "committed
+  platform binaries" step (exit-4 resolution + exit-3 not-installed smokes).
+
+Verification: `scripts/validate.sh` passed end-to-end (go tests, build, plugin
+package, committed-binary smokes, release artifacts, metadata, doc examples, shim
+smoke). Committed-binary smoke exits 4; not-installed smoke exits 3 with the releases
+URL. `plugin/` resynced so `plugin/skills/*` carry the not-installed guidance.
+
+Run notes: implemented alongside concurrent external Gemini-CLI work. The
+`docs-skills` commit swept some external `README.md`/`CONTRACT.md` hunks (user
+pre-approved interleaving). First CI binary refresh happens on the next push to
+`main` touching Go source.
