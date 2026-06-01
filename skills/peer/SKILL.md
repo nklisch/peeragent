@@ -98,6 +98,11 @@ Default is blocking. Wait for the command to return, then summarize the
 result using the wrapper's `status`, `summary`, `changed_files`,
 `verification`, and `details` fields.
 
+Claude Opus runs, especially with `--effort xhigh`, may take 10 minutes or
+longer to finish. A slow or quiet Opus reply is not by itself evidence of a
+hung process; keep waiting unless the wrapper exits, reports failure, or there
+is concrete evidence the process is stuck.
+
 Include a no-recursion instruction in every handoff. Tell the peer
 explicitly **not** to reach for peeragent's own `peer` or `peer-review`
 skills — and not to run the `peeragent` wrapper — to delegate the work back

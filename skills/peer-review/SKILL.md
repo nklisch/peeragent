@@ -126,6 +126,11 @@ For a deeper review pass:
 <resolved-peeragent-bin> --agent claude --model opus --effort xhigh "..."
 ```
 
+Claude Opus review passes, especially with `--effort xhigh`, may take 10
+minutes or longer to finish. A slow or quiet Opus reply is not by itself
+evidence of a hung process; keep waiting unless the wrapper exits, reports
+failure, or there is concrete evidence the process is stuck.
+
 For very large prompts, write to a file and use `--prompt-file <path>`.
 Never request `--full-access` for review — review shouldn't need it.
 
