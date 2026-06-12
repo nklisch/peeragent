@@ -123,7 +123,7 @@ func normalizeJSONResult(result *Result) {
 
 func parseJSONL(output string) (string, string) {
 	var session string
-	var messages []string
+	var message string
 	for _, raw := range strings.Split(output, "\n") {
 		line := strings.TrimSpace(raw)
 		if line == "" || !strings.HasPrefix(line, "{") {
@@ -137,8 +137,8 @@ func parseJSONL(output string) (string, string) {
 			session = event.ThreadID
 		}
 		if event.Type == "item.completed" && event.Item.Type == "agent_message" && event.Item.Text != "" {
-			messages = append(messages, event.Item.Text)
+			message = event.Item.Text
 		}
 	}
-	return session, strings.Join(messages, "\n\n")
+	return session, message
 }

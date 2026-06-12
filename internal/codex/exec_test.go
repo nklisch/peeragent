@@ -160,8 +160,10 @@ func TestExecWithRunnerBuildsResumeArgv(t *testing.T) {
 func TestExecWithRunnerNormalizesJSONL(t *testing.T) {
 	stubLookPath(t)
 	run := &recordingRunner{result: Result{ExitCode: 0, Stdout: `{"type":"thread.started","thread_id":"thread-1"}
-{"type":"item.completed","item":{"type":"agent_message","text":"done"}}
-`}}
+	{"type":"item.completed","item":{"type":"agent_message","text":"I am checking the repo."}}
+	{"type":"item.completed","item":{"type":"tool_call","text":"ignored"}}
+	{"type":"item.completed","item":{"type":"agent_message","text":"done"}}
+	`}}
 
 	result, err := ExecWithRunner(context.Background(), run, Options{CWD: "/repo", Prompt: "do work"})
 	if err != nil {

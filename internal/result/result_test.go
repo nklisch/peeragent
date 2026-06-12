@@ -20,6 +20,7 @@ func TestResultJSONFields(t *testing.T) {
 			Effort:       "medium",
 			AgentSession: "session-1",
 			ExitCode:     0,
+			LogPath:      "/repo/.peeragent/runs/run.log",
 		},
 	}
 
@@ -38,6 +39,7 @@ func TestResultJSONFields(t *testing.T) {
 		`"exit_code"`,
 		`"effort"`,
 		`"agent_session"`,
+		`"log_path"`,
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("encoded result missing %s: %s", want, got)

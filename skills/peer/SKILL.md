@@ -98,6 +98,11 @@ Default is blocking. Wait for the command to return, then summarize the
 result using the wrapper's `status`, `summary`, `changed_files`,
 `verification`, and `details` fields.
 
+The default `details` payload is compact. For Codex targets, peeragent surfaces
+the final completed agent message instead of the full stream of interim assistant
+messages. If a deeper look is needed, inspect `metadata.log_path` for raw target
+stdout/stderr, or use `metadata.agent_session` with `--resume` for continuity.
+
 Claude Opus runs, especially with `--effort xhigh`, may take 10 minutes or
 longer to finish. A slow or quiet Opus reply is not by itself evidence of a
 hung process; keep waiting unless the wrapper exits, reports failure, or there

@@ -35,4 +35,5 @@ type Metadata struct {
 	ExitCode     int    `json:"exit_code"`
 	AgentSession string `json:"agent_session,omitempty"`
 	JobID        string `json:"job_id,omitempty"`
+	LogPath      string `json:"log_path,omitempty"`
 }

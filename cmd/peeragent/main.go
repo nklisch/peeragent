@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"time"
 
 	"github.com/nklisch/peeragent/internal/claude"
@@ -110,6 +111,7 @@ func run(args []string) error {
 
 	execResult, execErr := executeRequest(context.Background(), req)
 	res := resultFromExecution(req, execResult, execErr)
+	attachExecutionLog(req, &res, execResult, "")
 	if err := writeResult(req, res); err != nil {
 		return err
 	}
@@ -459,6 +461,7 @@ func runAsyncJob(req input.Request) error {
 	execResult, execErr := executeRequest(context.Background(), jobReq)
 	res := resultFromExecution(jobReq, execResult, execErr)
 	res.Metadata.JobID = job.ID
+	attachExecutionLog(jobReq, &res, execResult, jobTargetLogPath(job))
 	return finishAsyncJob(store, job, res)
 }
 
@@ -597,6 +600,52 @@ func details(stdout string, stderr string) string {
 	default:
 		return ""
 	}
+}
+
+func attachExecutionLog(req input.Request, res *result.Result, execResult executil.Result, logPath string) {
+	path, err := writeExecutionLog(req, execResult, logPath)
+	if err == nil && path != "" {
+		res.Metadata.LogPath = path
+	}
+}
+
+func writeExecutionLog(req input.Request, execResult executil.Result, logPath string) (string, error) {
+	stdout, stderr := rawOutput(execResult)
+	content := details(stdout, stderr)
+	if content == "" {
+		return "", nil
+	}
+	if logPath == "" {
+		logPath = runLogPath(req.CWD, agentID(req))
+	}
+	if err := os.MkdirAll(filepath.Dir(logPath), 0o755); err != nil {
+		return "", err
+	}
+	if err := jobs.AtomicWriteFile(logPath, []byte(content+"\n"), 0o644); err != nil {
+		return "", err
+	}
+	return logPath, nil
+}
+
+func rawOutput(execResult executil.Result) (string, string) {
+	stdout := execResult.RawStdout
+	if stdout == "" {
+		stdout = execResult.Stdout
+	}
+	stderr := execResult.RawStderr
+	if stderr == "" {
+		stderr = execResult.Stderr
+	}
+	return stdout, stderr
+}
+
+func runLogPath(cwd string, agent string) string {
+	name := fmt.Sprintf("%s-%d-%s.log", time.Now().UTC().Format("20060102T150405.000000000Z"), os.Getpid(), agent)
+	return filepath.Join(cwd, ".peeragent", "runs", name)
+}
+
+func jobTargetLogPath(job jobs.Job) string {
+	return filepath.Join(filepath.Dir(job.LogPath), "target.log")
 }
 
 func executeRequest(ctx context.Context, req input.Request) (executil.Result, error) {

@@ -172,6 +172,11 @@ When available, JSON output includes `metadata.agent_session`. Use that value
 for continuity inside one review loop. Start a fresh call without `--resume`
 when you want an independent second opinion.
 
+The default result is intentionally compact: for Codex JSONL output, peeragent
+surfaces only the final completed agent message in `details`. If you need to
+inspect the raw target stdout/stderr, open `metadata.log_path`; for continuity,
+use `metadata.agent_session` to resume the target session.
+
 ## Models, Effort, Profiles, And Access
 
 Codex and Claude support `--effort`. Codex defaults to `high`; use `medium`

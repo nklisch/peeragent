@@ -89,7 +89,8 @@ The default result is JSON:
     "model": "sonnet",
     "agent_session": "session-id",
     "exit_code": 0,
-    "job_id": ""
+    "job_id": "",
+    "log_path": "/repo/.peeragent/runs/..."
   }
 }
 ```
@@ -162,6 +163,12 @@ Codex and Claude sessions are captured from machine-readable target output.
 Gemini/Antigravity can resume a caller-supplied conversation id, but the wrapper
 does not scrape logs to infer a new Gemini conversation id.
 
+Default result output is compact. For Codex JSONL output, peeragent records the
+latest completed `agent_message` as the visible stdout detail instead of joining
+intermediate assistant messages. Hosts that need more context can resume with
+`metadata.agent_session` or inspect the raw target stdout/stderr stored at
+`metadata.log_path` when that field is present.
+
 ## Exit Codes
 
 - `0`: Completed successfully. For async launch, this means the job started.
@@ -179,7 +186,8 @@ Async state is stored under:
   job.json       lifecycle + ExecSpec; written on child finish or by --cancel
   prompt.txt     resolved task text, parent-written, child-read
   pid            child PID/PGID for cancel, present while running
-  agent.log      combined stdout+stderr from the child
+  agent.log      background wrapper stdout+stderr
+  target.log     raw target stdout+stderr when available
   result.json    final result, written by child OR by --cancel
 ```
 
@@ -196,7 +204,9 @@ The wrapper:
 - Does not silently switch target agents.
 - Does not rerun a failed target automatically in a loop.
 - Reports the target exit status when available.
-- Reports stdout/stderr excerpts in `details`.
+- Stores raw target stdout/stderr at `metadata.log_path` when output exists.
+- Reports compact stdout/stderr details, preferring the final peer message when
+  the target exposes one.
 
 The wrapper does not guarantee that target-agent output is complete,
 well-structured, or free of partial edits before failure.

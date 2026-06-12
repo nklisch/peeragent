@@ -151,6 +151,11 @@ The wrapper returns a concise result to the host. The result includes:
 - Agent, working directory, access, effort, model, target session, and job
   metadata when available.
 
+For Codex JSONL output, the default visible detail is the latest completed
+`agent_message`, not the full stream of intermediate assistant messages. Hosts
+can use `metadata.agent_session` for continuity and `metadata.log_path` for raw
+target stdout/stderr inspection when output exists.
+
 The wrapper avoids dumping long raw logs into host context unless the task
 failed and the logs are needed to continue.
 

@@ -12,6 +12,8 @@ type Result struct {
 	ExitCode     int
 	Stdout       string
 	Stderr       string
+	RawStdout    string
+	RawStderr    string
 	AgentSession string
 }
 
@@ -31,10 +33,14 @@ func (OSRunner) Run(ctx context.Context, name string, args []string, cwd string)
 	cmd.Stderr = &stderr
 
 	err := cmd.Run()
+	stdoutText := stdout.String()
+	stderrText := stderr.String()
 	result := Result{
-		ExitCode: 0,
-		Stdout:   stdout.String(),
-		Stderr:   stderr.String(),
+		ExitCode:  0,
+		Stdout:    stdoutText,
+		Stderr:    stderrText,
+		RawStdout: stdoutText,
+		RawStderr: stderrText,
 	}
 	if err == nil {
 		return result, nil

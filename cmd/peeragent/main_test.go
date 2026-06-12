@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -41,6 +42,35 @@ func TestResultFromExecutionUsesResumeSessionFallback(t *testing.T) {
 	res := resultFromExecution(input.Request{CWD: "/repo", Resume: "session-1"}, executil.Result{ExitCode: 1}, nil)
 	if res.Metadata.AgentSession != "session-1" {
 		t.Fatalf("AgentSession = %q", res.Metadata.AgentSession)
+	}
+}
+
+func TestAttachExecutionLogWritesRawOutput(t *testing.T) {
+	cwd := t.TempDir()
+	logPath := filepath.Join(cwd, ".peeragent", "jobs", "job-1", "target.log")
+	req := input.Request{CWD: cwd, Agent: "codex"}
+	execResult := executil.Result{
+		ExitCode:  0,
+		Stdout:    "final message",
+		RawStdout: `{"type":"item.completed","item":{"type":"agent_message","text":"thinking"}}`,
+	}
+	res := resultFromExecution(req, execResult, nil)
+
+	attachExecutionLog(req, &res, execResult, logPath)
+
+	if res.Metadata.LogPath != logPath {
+		t.Fatalf("LogPath = %q, want %q", res.Metadata.LogPath, logPath)
+	}
+	content, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(content)
+	if !strings.Contains(got, execResult.RawStdout) {
+		t.Fatalf("log missing raw stdout: %s", got)
+	}
+	if strings.Contains(got, "final message") {
+		t.Fatalf("log used normalized stdout instead of raw stdout: %s", got)
 	}
 }
 

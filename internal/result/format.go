@@ -57,6 +57,9 @@ func FormatText(res Result) string {
 	if res.Metadata.AgentSession != "" {
 		fmt.Fprintf(&b, "- agent_session: %s\n", res.Metadata.AgentSession)
 	}
+	if res.Metadata.LogPath != "" {
+		fmt.Fprintf(&b, "- log_path: %s\n", res.Metadata.LogPath)
+	}
 	fmt.Fprintf(&b, "- exit_code: %d\n", res.Metadata.ExitCode)
 
 	return strings.TrimRight(b.String(), "\n")
