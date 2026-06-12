@@ -288,23 +288,23 @@ published as downloadable archives for manual install.
 Build release archives locally:
 
 ```sh
-make release VERSION=0.3.1
+make release VERSION=0.3.2
 ```
 
 That writes:
 
 ```text
-dist/release/peeragent_0.3.1_linux_amd64.tar.gz
-dist/release/peeragent_0.3.1_linux_arm64.tar.gz
-dist/release/peeragent_0.3.1_darwin_amd64.tar.gz
-dist/release/peeragent_0.3.1_darwin_arm64.tar.gz
+dist/release/peeragent_0.3.2_linux_amd64.tar.gz
+dist/release/peeragent_0.3.2_linux_arm64.tar.gz
+dist/release/peeragent_0.3.2_darwin_amd64.tar.gz
+dist/release/peeragent_0.3.2_darwin_arm64.tar.gz
 dist/release/checksums.txt
 ```
 
 Publish a GitHub release from a machine with `gh` authenticated:
 
 ```sh
-make publish-release VERSION=0.3.1
+make publish-release VERSION=0.3.2
 ```
 
 The GitHub Actions workflow in `.github/workflows/release.yml` also publishes
