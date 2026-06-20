@@ -1,0 +1,30 @@
+{
+  "name": "@nklisch/pi-peeragent",
+  "version": "0.4.0",
+  "description": "Pi package for Peeragent, a local bridge for delegating task work to peer coding agents.",
+  "author": {
+    "name": "nklisch"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nklisch/peeragent.git"
+  },
+  "homepage": "https://github.com/nklisch/peeragent",
+  "license": "MIT",
+  "keywords": [
+    "pi-package",
+    "agent-skills",
+    "peer-review",
+    "delegation",
+    "codex",
+    "claude",
+    "gemini",
+    "zai",
+    "multi-agent"
+  ],
+  "pi": {
+    "skills": [
+      "./plugin/skills"
+    ]
+  }
+}

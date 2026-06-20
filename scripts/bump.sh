@@ -8,9 +8,9 @@ set -eu
 #   scripts/bump.sh <new-version> --message "Add peer-review skill"
 #   scripts/bump.sh <new-version> --no-push
 #
-# Edits the two plugin manifests and README release examples, resyncs the
-# packaged plugin/ tree, runs validation, then commits the changes, tags
-# v<new-version>, and pushes the branch and tag to origin.
+# Edits the two plugin manifests, root Pi package manifest, and README release
+# examples, resyncs the packaged plugin/ tree, runs validation, then commits the
+# changes, tags v<new-version>, and pushes the branch and tag to origin.
 #
 # Refuses to run with a dirty working tree, an existing tag for the target
 # version, or the current version equal to the target — so re-runs surface
@@ -26,9 +26,9 @@ usage() {
   cat <<'EOF'
 usage: scripts/bump.sh <new-version> [--message <msg>] [--no-push]
 
-Bumps the version across both plugin manifests and the README release
-examples, repackages plugin/, runs validation, then commits, tags
-v<new-version>, and pushes branch + tag to origin.
+Bumps the version across both plugin manifests, the root Pi package manifest,
+and the README release examples, repackages plugin/, runs validation, then
+commits, tags v<new-version>, and pushes branch + tag to origin.
 
 Options:
   -m, --message <msg>   Commit message (default: "Bump to v<version>")
@@ -142,6 +142,7 @@ bump_text() {
 echo "==> editing manifests"
 bump_manifest .claude-plugin/plugin.json
 bump_manifest .codex-plugin/plugin.json
+bump_manifest package.json
 
 echo "==> editing README release examples"
 bump_text README.md
@@ -156,6 +157,7 @@ echo "==> committing"
 git add \
   .claude-plugin/plugin.json \
   .codex-plugin/plugin.json \
+  package.json \
   README.md
 git add plugin
 git commit -m "$MESSAGE"

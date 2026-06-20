@@ -40,6 +40,16 @@ codex plugin marketplace add nklisch/peeragent
 codex plugin add peeragent@peeragent
 ```
 
+Pi:
+
+```sh
+pi install git:github.com/nklisch/peeragent@v0.4.0
+```
+
+The Pi package loads the same `peer` and `peer-review` skills from `plugin/skills`
+so their wrapper resolution lands on the bundled `plugin/bin/peeragent` shim and
+committed platform binaries.
+
 On the four supported platforms (linux amd64/arm64, darwin amd64/arm64),
 the plugin runs immediately with no download and no Go toolchain required —
 prebuilt binaries are committed in `plugin/bin/<goos>-<goarch>/peeragent`.

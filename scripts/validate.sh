@@ -71,6 +71,9 @@ test -f dist/release/checksums.txt
 step "plugin metadata"
 grep -q '"name": "peeragent"' .claude-plugin/plugin.json
 grep -q '"name": "peeragent"' .codex-plugin/plugin.json
+grep -q '"name": "@nklisch/pi-peeragent"' package.json
+grep -q '"version": "'"$VERSION"'"' package.json
+grep -q '"./plugin/skills"' package.json
 grep -q '"name": "peeragent"' .claude-plugin/marketplace.json
 grep -q '"name": "peeragent"' .agents/plugins/marketplace.json
 grep -q './plugin' .claude-plugin/marketplace.json
@@ -118,6 +121,7 @@ step "documentation examples"
 grep -q 'make build' README.md
 grep -q 'claude plugin marketplace add nklisch/peeragent' README.md
 grep -q 'codex plugin marketplace add nklisch/peeragent' README.md
+grep -q "pi install git:github.com/nklisch/peeragent@v$VERSION" README.md
 grep -q "make release VERSION=$VERSION" README.md
 grep -q -- '--agent gemini' README.md
 grep -q -- '--agent claude' README.md
