@@ -188,4 +188,23 @@ printf '%s\n' "$status_output" | grep -q '"status":"failed"'
 printf '%s\n' "$status_output" | grep -q '"job_id":"missing-job"'
 printf '%s\n' "$status_output" | grep -q '"exit_code":4'
 
+step "shim PEERAGENT_BIN self-exec-loop guard"
+# PEERAGENT_BIN must point at the Go BINARY, not a shim copy. Pointing it at a
+# shim makes step 1 `exec` the shim again with the same env var -> infinite
+# self-exec loop that burns a core and never runs the agent. The guard detects
+# a shebang (shim) target and fails fast (exit 2) instead of spinning.
+# Run under `timeout` so a regression (guard removed/broken) hangs the test
+# rather than passing by luck.
+set +e
+loop_output=$(timeout 3 env PEERAGENT_BIN="$ROOT/bin/peeragent" bin/peeragent --status missing-job 2>&1)
+loop_code=$?
+set -e
+if [ "$loop_code" -ne 2 ]; then
+  echo "expected PEERAGENT_BIN->shim to exit 2 (guard), got $loop_code (124=spun/looped=REGRESSION)"
+  echo "$loop_output"
+  exit 1
+fi
+printf '%s\n' "$loop_output" | grep -q '"exit_code":2'
+printf '%s\n' "$loop_output" | grep -q 'self-exec loop'
+
 step "validation complete"
