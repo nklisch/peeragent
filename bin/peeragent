@@ -7,6 +7,24 @@ RELEASES_URL="https://github.com/nklisch/peeragent/releases"
 
 # 1. Explicit override.
 if [ -n "${PEERAGENT_BIN:-}" ] && [ -x "$PEERAGENT_BIN" ]; then
+  # Footgun guard: PEERAGENT_BIN must point at the Go BINARY, not at a shim copy
+  # (this script or plugin/bin/peeragent). A shim starts with "#!"; the real
+  # Go binaries start with ELF/Mach-O bytes. Pointing PEERAGENT_BIN at a shim
+  # makes step 1 `exec` the shim again with the same env var -> infinite
+  # self-exec loop that burns a core and never runs the agent. Detect it, fail
+  # loudly (never spin). (wants_text isn't defined yet at this point in the
+  # script, so detect --text inline.)
+  if [ "$(head -c2 "$PEERAGENT_BIN" 2>/dev/null)" = "#!" ]; then
+    _wt=0; for _a in "$@"; do [ "$_a" = "--text" ] && _wt=1; done
+    msg="PEERAGENT_BIN points at a shell shim ($PEERAGENT_BIN), not the Go binary — that would self-exec loop forever. Set PEERAGENT_BIN to the compiled binary (e.g. .../plugin/bin/<goos>-<goarch>/peeragent) or unset it to let this shim auto-detect."
+    if [ "$_wt" = 1 ]; then
+      printf '%s\n' "$msg" >&2
+    else
+      _esc=$(printf '%s' "$msg" | sed 's/\\/\\\\\\\\/g; s/"/\\\"/g')
+      printf '{"status":"failed","summary":"PEERAGENT_BIN points at a shim, not the Go binary (would self-exec loop)","changed_files":[],"verification":[],"details":"%s","metadata":{"exit_code":2}}\n' "$_esc" >&2
+    fi
+    exit 2
+  fi
   exec "$PEERAGENT_BIN" "$@"
 fi
 
