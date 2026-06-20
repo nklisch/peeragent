@@ -1,6 +1,6 @@
 {
   "name": "peeragent",
-  "description": "Marketplace for the Peeragent plugin, a local bridge for delegating arbitrary task work between Claude Code, Codex, and Gemini through Antigravity.",
+  "description": "Marketplace for the Peeragent plugin, a local bridge for delegating arbitrary task work between Claude Code, Codex, Gemini through Antigravity, and Z.AI GLM 5.2 through Pi.",
   "owner": {
     "name": "nklisch"
   },
@@ -8,7 +8,7 @@
     {
       "name": "peeragent",
       "source": "./plugin",
-      "description": "Delegate arbitrary task work between local coding agents. Any host (Claude Code, Codex) can call any peer (Codex, Claude Code, or Gemini through Antigravity).",
+      "description": "Delegate arbitrary task work between local coding agents. Any host (Claude Code, Codex) can call any peer (Codex, Claude Code, Gemini through Antigravity, or Z.AI GLM 5.2 through Pi).",
       "category": "productivity"
     }
   ]

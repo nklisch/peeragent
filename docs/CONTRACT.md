@@ -4,18 +4,11 @@
 
 Skills accept arbitrary task text from the host or user.
 
-Claude-facing skills:
+The plugin exposes the same two skills to Claude Code and Codex hosts:
 
 ```text
-/codex-implement <task text>
-/gemini-implement <task text>
-```
-
-Codex-facing skills:
-
-```text
-claude-implement
-gemini-implement
+/peer <task text>
+/peer-review [review context]
 ```
 
 The task text is treated as delegated task intent, not as shell syntax. The
@@ -41,20 +34,21 @@ are always read when present.
 
 Options:
 
-- `--agent <codex|gemini|claude>`: Select the target agent. Defaults to
-  `codex`.
+- `--agent <codex|gemini|claude|zai>`: Select the target agent. Defaults to
+  `codex`. The `zai` target is fixed to Z.AI GLM 5.2 through Pi.
 - `--async`: Start the target in the background and return a job id.
 - `--sandbox`: Use the default bounded target CLI mode. This is also the
   default when no access flag is supplied.
 - `--full-access`: Run the target with full local access.
 - `--worktree`: Reserved for future isolated worktree execution.
-- `--effort <medium|high|xhigh>`: Set target reasoning effort. Codex defaults to
-  `high` and accepts `medium`, `high`, or `xhigh`; Claude defaults to `xhigh`
-  and accepts `high` or `xhigh`.
-- `--model <sonnet|opus|haiku|gemini-3.5>`: Select a Claude model alias, or
-  explicitly record the fixed Gemini 3.5 target. Gemini model selection is not
-  passed to `agy` because `agy --print` does not expose a non-interactive model
-  flag.
+- `--effort <medium|high|xhigh>`: Set target reasoning effort. Codex and Z.AI
+  default to `high` and accept `medium`, `high`, or `xhigh`; Claude defaults to
+  `xhigh` and accepts `high` or `xhigh`. Z.AI maps effort to Pi `--thinking`.
+- `--model <sonnet|opus|haiku|gemini-3.5|glm-5.2>`: Select a Claude model
+  alias, explicitly record the fixed Gemini 3.5 target, or explicitly record
+  the fixed Z.AI GLM 5.2 target. Gemini model selection is not passed to `agy`
+  because `agy --print` does not expose a non-interactive model flag. Z.AI
+  accepts only `glm-5.2`; no other Z.AI models are surfaced.
 - `--profile <name>`: Pass a Codex configuration profile.
 - `--resume <agent-session>`: Resume a prior target-agent session when the
   target supports it. Use this for continuity inside one review loop; omit it
@@ -144,12 +138,22 @@ Default Claude:
 claude --print --output-format json --add-dir <repo> --permission-mode auto ...
 ```
 
+Default Z.AI GLM 5.2 through Pi:
+
+```text
+pi --provider zai --model glm-5.2 --thinking <effort> --no-session -p ...
+```
+
 When `--model` is provided for Claude, the wrapper passes `--model <alias>` to
 Claude Code. Accepted aliases are `sonnet`, `opus`, and `haiku`. When
 `--model gemini-3.5` is provided for Gemini, the wrapper records that model in
-metadata but leaves the `agy` argv unchanged.
+metadata but leaves the `agy` argv unchanged. When `--model glm-5.2` is provided
+for Z.AI, the wrapper records the fixed target and passes that model to Pi;
+other Z.AI model names are rejected.
 
-Full access maps to each target's explicit bypass flag.
+Full access maps to each target's explicit bypass flag where one exists. Pi has
+no separate peeragent sandbox/full-access toggle; its target uses Pi print mode
+with the normal local Pi tool environment.
 
 Resume maps to each target's native resume surface:
 
@@ -157,11 +161,13 @@ Resume maps to each target's native resume surface:
 codex exec resume <session-id> ...
 agy --print --conversation <conversation-id> ...
 claude --print --resume <session-id> ...
+pi --provider zai --model glm-5.2 --session <session-id> -p ...
 ```
 
 Codex and Claude sessions are captured from machine-readable target output.
-Gemini/Antigravity can resume a caller-supplied conversation id, but the wrapper
-does not scrape logs to infer a new Gemini conversation id.
+Gemini/Antigravity and Pi can resume a caller-supplied session id, but the
+wrapper does not scrape logs to infer new Gemini or Pi session ids. Fresh Z.AI
+calls use `--no-session` by default.
 
 Default result output is compact. For Codex JSONL output, peeragent records the
 latest completed `agent_message` as the visible stdout detail instead of joining

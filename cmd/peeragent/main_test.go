@@ -103,6 +103,22 @@ func TestResultFromExecutionGemini(t *testing.T) {
 	}
 }
 
+func TestResultFromExecutionZAI(t *testing.T) {
+	res := resultFromExecution(input.Request{CWD: "/repo", Agent: "zai", Effort: "xhigh", Model: "glm-5.2"}, executil.Result{ExitCode: 0}, nil)
+	if res.Metadata.Agent != "zai" {
+		t.Fatalf("Agent = %q", res.Metadata.Agent)
+	}
+	if res.Metadata.Model != "glm-5.2" {
+		t.Fatalf("Model = %q", res.Metadata.Model)
+	}
+	if res.Metadata.Effort != "xhigh" {
+		t.Fatalf("Effort = %q", res.Metadata.Effort)
+	}
+	if !strings.Contains(res.Summary, "GLM 5.2") {
+		t.Fatalf("Summary = %q", res.Summary)
+	}
+}
+
 func TestResultStatusFromJob(t *testing.T) {
 	cases := map[string]result.Status{
 		"running":   result.StatusRunning,

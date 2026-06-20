@@ -121,10 +121,12 @@ grep -q 'codex plugin marketplace add nklisch/peeragent' README.md
 grep -q "make release VERSION=$VERSION" README.md
 grep -q -- '--agent gemini' README.md
 grep -q -- '--agent claude' README.md
+grep -q -- '--agent zai' README.md
 grep -q -- '--effort high' README.md
 grep -q -- '--effort xhigh' README.md
 grep -q -- '--model opus' README.md
 grep -q -- '--model gemini-3.5' README.md
+grep -q -- '--model glm-5.2' README.md
 grep -q -- '--async' README.md
 grep -q -- '--status <job-id>' README.md
 grep -q -- '--result <job-id>' README.md
@@ -146,7 +148,7 @@ if grep -R -F -- '--effort low' README.md docs skills; then
   exit 1
 fi
 
-if grep -R -E -- '--agent claude.*--effort medium|--model (sonnet|opus|haiku).*--effort medium|Claude defaults to `medium`|Claude reasoning effort defaults to `medium`|accepts `medium` or `high`' README.md docs skills; then
+if grep -R -E -- '--agent claude[^|`]*--effort medium|--model (sonnet|opus|haiku)[^|`]*--effort medium|Claude defaults to `medium`|Claude reasoning effort defaults to `medium`|accepts `medium` or `high`' README.md docs skills; then
   echo "stale Claude medium effort example found"
   exit 1
 fi
@@ -158,6 +160,11 @@ fi
 
 if grep -R -F -- '--model pro' README.md docs skills; then
   echo "unsupported Gemini model example found"
+  exit 1
+fi
+
+if grep -R -E -- 'glm-(4|5\.1|5-turbo|5v)' README.md docs skills; then
+  echo "unsupported Z.AI model example found"
   exit 1
 fi
 

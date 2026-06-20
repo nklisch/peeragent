@@ -5,8 +5,9 @@ description: >
   design, doc updates, anything — to another local coding agent through the
   bundled peeragent wrapper. Use when the host assistant wants a peer agent
   to take a focused pass on a task in the current repository. Targets: Codex
-  (default), Claude Code, Gemini through Antigravity. Free-form task text;
-  the wrapper returns a JSON result the host summarizes for the user.
+  (default), Claude Code, Gemini through Antigravity, or Z.AI GLM 5.2 through
+  Pi. Free-form task text; the wrapper returns a JSON result the host summarizes
+  for the user.
   Resolve the wrapper from the plugin location before invoking; do not
   assume `peeragent` is on PATH.
 allowed-tools: Bash
@@ -50,7 +51,7 @@ unless the user explicitly asked for that target permission mode.
 Pass the user's task text to the wrapper:
 
 ```bash
-<resolved-peeragent-bin> --agent <codex|claude|gemini> "$ARGUMENTS"
+<resolved-peeragent-bin> --agent <codex|claude|gemini|zai> "$ARGUMENTS"
 ```
 
 `--agent` defaults to `codex` if omitted. The wrapper runs in the current
@@ -62,13 +63,13 @@ JSON before responding to the user.
 The right peer is the agent you are not, unless the user named one.
 
 - **If you are Claude Code** → default to `--agent codex`. Use
-  `--agent gemini` when the user asks for Gemini or when Codex isn't
-  available.
+  `--agent gemini` or `--agent zai` when the user asks for that model, when
+  Codex isn't available, or when extra model diversity is useful.
 - **If you are Codex** → default to `--agent claude`. Use
-  `--agent gemini` when the user asks for Gemini or when Claude isn't
-  available.
+  `--agent gemini` or `--agent zai` when the user asks for that model, when
+  Claude isn't available, or when extra model diversity is useful.
 - **If the user named the target** ("ask Codex…", "have Gemini look
-  at…"), use that one.
+  at…", "ask GLM…", "use Z.AI…"), use that one.
 
 Different blind spots are the point. Their misses are your catches and
 vice versa.
@@ -83,9 +84,23 @@ when the work is dense or the stakes are high.
 | `--agent codex` | `--effort high` | `--effort medium` | `--effort xhigh` |
 | `--agent claude` | `--model sonnet --effort xhigh` | `--model haiku --effort high` | `--model opus --effort xhigh` |
 | `--agent gemini` | fixed Gemini 3.5 (no flag needed) | — | — |
+| `--agent zai` | fixed Z.AI GLM 5.2 through Pi, `--effort high` | `--effort medium` | `--effort xhigh` |
 
 Claude rejects `--effort medium`. Gemini ignores `--effort` and `--model`
-beyond accepting `--model gemini-3.5` as a no-op for explicit metadata.
+beyond accepting `--model gemini-3.5` as a no-op for explicit metadata. Z.AI
+maps `--effort medium|high|xhigh` to Pi `--thinking` and accepts only
+`--model glm-5.2`; no other Z.AI model is surfaced.
+
+Quickly test whether the Z.AI target is configured before delegating:
+
+```bash
+pi --list-models zai | grep -w 'glm-5.2'
+pi --provider zai --model glm-5.2 --thinking high --no-session --no-tools -p 'Reply with OK.'
+<resolved-peeragent-bin> --agent zai --text 'Reply with OK and do not edit files.'
+```
+
+If the Pi smoke test fails, configure Pi with `ZAI_API_KEY` or `/login` for the
+ZAI provider and retry.
 
 ## Delegation Contract
 
@@ -114,7 +129,8 @@ skills — and not to run the `peeragent` wrapper — to delegate the work back
 out to another local coding agent. That would loop host → peer → host and
 burn budget. The peer is the endpoint of this delegation. It may freely use
 its own harness's internal sub-agents (Codex/Claude/Gemini built-in task or
-sub-agent tooling) for parallel or focused passes; the prohibition is only
+sub-agent tooling, or Pi-native extensions if available) for parallel or
+focused passes; the prohibition is only
 on recursive peeragent calls. A short line in the prompt is enough, e.g.
 "Do this work directly — do not call the peeragent peer/peer-review skills
 to hand it off again; use your own harness's sub-agents if you need help."
@@ -148,6 +164,9 @@ Use advanced modes only when the request calls for them:
   ask the user first if the wrapper reports full access is needed.
 - `--worktree` — reserved; returns a clear failure today.
 - `--profile <name>` — Codex profile override.
+- `--model <name>` — Claude aliases (`sonnet`, `opus`, `haiku`), explicit
+  Gemini `gemini-3.5`, or explicit Z.AI `glm-5.2`; no other Z.AI models are
+  accepted.
 - `--resume <agent-session>` — continue a prior target-agent session when
   the previous result included `metadata.agent_session`. Use it for continuity
   inside one multi-pass workflow; omit it for an independent second opinion.

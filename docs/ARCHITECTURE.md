@@ -3,7 +3,8 @@
 ## Overview
 
 Alt Subagent is a plugin-packaged wrapper that lets one coding assistant invoke
-another local coding agent for implementation, research, or review work.
+another local coding agent or model harness for implementation, research, or
+review work.
 
 ```text
 Host assistant session
@@ -19,6 +20,7 @@ Supported target CLIs:
 - `codex exec` for Codex.
 - `agy --print` for Gemini through Antigravity CLI.
 - `claude --print` for Claude Code.
+- `pi --provider zai --model glm-5.2 -p` for Z.AI GLM 5.2 through Pi.
 
 The host decides when delegation is useful. The skill constrains host behavior
 around delegation. The wrapper constrains process execution, prompt
@@ -33,11 +35,9 @@ performs the implementation, research, or review work.
 .codex-plugin/
   plugin.json
 skills/
-  codex-implement/
+  peer/
     SKILL.md
-  claude-implement/
-    SKILL.md
-  gemini-implement/
+  peer-review/
     SKILL.md
 bin/
   peeragent
@@ -52,6 +52,7 @@ internal/
   jobs/
   prompt/
   result/
+  zai/
 docs/
 ```
 
@@ -118,7 +119,9 @@ Default execution uses the current checkout with the target CLI's bounded mode
 where one is available.
 
 Full-access execution is explicit. The wrapper exposes it as `--full-access` and
-labels it in the result.
+labels it in the result. Some targets do not have a separate full-access argv:
+Gemini's default is `agy --print` scoped with `--add-dir`, and Z.AI runs through
+Pi print mode with Pi's normal local tool environment.
 
 Worktree execution is recognized but not implemented yet.
 

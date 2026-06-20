@@ -4,8 +4,8 @@ description: >
   Run iterative cross-model peer review on substantive designs, code, plans,
   refactors, architecture, docs, or repo artifacts by delegating to the other
   local coding agent through peeragent. Use when the user asks for peer review,
-  a second opinion, cross-review, feedback from Codex/Claude, or when recent
-  work is risky enough to deserve an independent review loop. Resolve the
+  a second opinion, cross-review, feedback from Codex/Claude/Gemini/GLM, or
+  when recent work is risky enough to deserve an independent review loop. Resolve the
   bundled wrapper from the plugin location; do not assume peeragent is on PATH.
 allowed-tools: Bash
 metadata:
@@ -44,6 +44,9 @@ The peer reviewer is the agent you are not.
   `<resolved-peeragent-bin> --agent claude ...`.
 - Gemini is also available (`--agent gemini`) when the user asks for it or
   when the natural pair is unavailable.
+- Z.AI GLM 5.2 through Pi is also available (`--agent zai`) when the user asks
+  for GLM/Z.AI or when an additional model family is useful. This is the only
+  Z.AI model peeragent surfaces.
 
 The point of the alternate agent is **different blind spots**, not a more
 authoritative answer. Their misses are your catches and vice versa.
@@ -124,7 +127,20 @@ For a deeper review pass:
 ```bash
 <resolved-peeragent-bin> --agent codex --effort xhigh "..."
 <resolved-peeragent-bin> --agent claude --model opus --effort xhigh "..."
+<resolved-peeragent-bin> --agent zai --effort xhigh "..."
 ```
+
+Quickly test whether the Z.AI target is configured before relying on it in a
+review loop:
+
+```bash
+pi --list-models zai | grep -w 'glm-5.2'
+pi --provider zai --model glm-5.2 --thinking high --no-session --no-tools -p 'Reply with OK.'
+<resolved-peeragent-bin> --agent zai --text 'Reply with OK and do not edit files.'
+```
+
+If the Pi smoke test fails, configure Pi with `ZAI_API_KEY` or `/login` for the
+ZAI provider and retry. Peeragent does not expose other Z.AI models.
 
 Claude Opus review passes, especially with `--effort xhigh`, may take 10
 minutes or longer to finish. A slow or quiet Opus reply is not by itself

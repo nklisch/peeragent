@@ -4,26 +4,21 @@
 
 The repository, bundled wrapper, and plugin name are `peeragent`.
 
-The Claude-facing skills are:
+The host-facing skills are:
 
 ```text
-/codex-implement <task text>
-/gemini-implement <task text>
+/peer <task text>
+/peer-review [review context]
 ```
 
-The Codex-facing skills are:
-
-```text
-claude-implement
-gemini-implement
-```
-
-All skills call the same wrapper with an explicit target:
+Both skills call the same wrapper with an explicit target when the user or host
+selects one:
 
 ```text
 peeragent --agent codex <task text>
 peeragent --agent gemini <task text>
 peeragent --agent claude <task text>
+peeragent --agent zai <task text>
 ```
 
 ## Runtime Context
@@ -44,6 +39,7 @@ Supported target CLIs:
 - Codex CLI for `--agent codex`.
 - Antigravity CLI (`agy`) for `--agent gemini`.
 - Claude Code CLI for `--agent claude`.
+- Pi CLI for `--agent zai`, fixed to Z.AI GLM 5.2.
 
 The plugin uses local target installations and local authentication state. It
 does not bundle a separate target-agent runtime or account system.
@@ -55,8 +51,8 @@ The project contains:
 - `.claude-plugin/plugin.json` for Claude Code plugin metadata.
 - `.codex-plugin/plugin.json` for Codex plugin metadata.
 - `skills/` for host-facing skills. The Codex plugin manifest points here so
-  Codex can target Claude or Gemini, and Claude Code also discovers the same
-  directory.
+  Codex can target Claude, Gemini, or Z.AI GLM 5.2, and Claude Code also
+  discovers the same directory.
 - `bin/peeragent` as the executable shim host agents call.
 - `plugin/bin/<target>/peeragent` — committed prebuilt binaries for each
   supported platform, included in the marketplace plugin artifact.
@@ -83,7 +79,9 @@ Sandbox execution is the default bounded target CLI mode. The caller may pass
 is supplied. Each target maps this to its own bounded mode (see below). Gemini
 through Antigravity is the exception: `agy` has no usable sandbox flag in print
 mode (it loops until timeout), so its bounded default is `agy --print` scoped
-only by `--add-dir`.
+only by `--add-dir`. Pi is also an exception: it has no peeragent-specific
+sandbox/full-access toggle, so the Z.AI target runs in Pi print mode with Pi's
+normal local tool environment.
 
 ### Full Access
 
@@ -103,6 +101,7 @@ codex exec --json --cd <repo> --sandbox workspace-write \
   -c approval_policy="on-request" -c approvals_reviewer="auto_review" ...
 agy --print --add-dir <repo> ...
 claude --print --output-format json --permission-mode auto --add-dir <repo> ...
+pi --provider zai --model glm-5.2 --thinking <effort> --no-session -p ...
 ```
 
 Full-access target invocations:
@@ -113,13 +112,19 @@ agy --print --dangerously-skip-permissions ...
 claude --print --dangerously-skip-permissions ...
 ```
 
+Pi has no separate full-access argv; `--full-access` is recorded in metadata but
+Z.AI still runs through the same Pi print-mode surface.
+
 Codex reasoning effort defaults to `high`; the wrapper exposes `medium`,
-`high`, and `xhigh` for Codex. Claude reasoning effort defaults to `xhigh` and
-exposes `high` and `xhigh`. Claude also supports `--model sonnet`,
-`--model opus`, and `--model haiku`, which pass through to Claude Code. Gemini
-is treated as fixed Gemini 3.5; `--model gemini-3.5` is accepted for explicit
-metadata, but the wrapper does not pass a model flag to `agy` because `agy --print` does
-not expose a non-interactive model option.
+`high`, and `xhigh` for Codex. Z.AI GLM 5.2 also defaults to `high` and maps
+`medium`, `high`, and `xhigh` to Pi `--thinking`. Claude reasoning effort
+defaults to `xhigh` and exposes `high` and `xhigh`. Claude supports
+`--model sonnet`, `--model opus`, and `--model haiku`, which pass through to
+Claude Code. Gemini is treated as fixed Gemini 3.5; `--model gemini-3.5` is
+accepted for explicit metadata, but the wrapper does not pass a model flag to
+`agy` because `agy --print` does not expose a non-interactive model option.
+Z.AI is treated as fixed `glm-5.2`; peeragent rejects every other Z.AI model
+name even if Pi lists it.
 
 ## Session Continuity
 
@@ -135,8 +140,9 @@ can anchor later passes.
 Codex exposes session ids through JSONL output and resumes with
 `codex exec resume`. Claude exposes session ids through JSON output and resumes
 with `--resume`. Antigravity exposes `--conversation` for a known conversation
-id, but the wrapper does not scrape logs to capture a new Gemini conversation
-id.
+id, and Pi exposes `--session` for a known session id, but the wrapper does not
+scrape logs to capture new Gemini or Pi session ids. Fresh Z.AI calls use
+`--no-session`.
 
 ## Output Requirements
 
@@ -176,7 +182,7 @@ approval classifier is a security guarantee.
 The project does not provide:
 
 - A full agent job dashboard.
-- A replacement for Codex, Claude Code, or Antigravity CLI.
+- A replacement for Codex, Claude Code, Antigravity CLI, or Pi.
 - A replacement for host-agent permissions.
 - A required worktree workflow.
 - A general multi-agent planning framework.

@@ -1,7 +1,7 @@
 {
   "name": "peeragent",
   "version": "0.3.2",
-  "description": "Delegate arbitrary task work from Codex to a peer local coding agent (Claude, Codex, Gemini)",
+  "description": "Delegate arbitrary task work from Codex to a peer local coding agent (Claude, Codex, Gemini, Z.AI GLM 5.2)",
   "author": {
     "name": "nklisch"
   },
@@ -10,7 +10,7 @@
   "interface": {
     "displayName": "Peeragent",
     "shortDescription": "Delegate work to a peer coding agent",
-    "longDescription": "Peeragent wraps local coding agent CLIs so any host (Claude Code, Codex) can hand a focused task to a peer agent (Claude, Codex, or Gemini through Antigravity).",
+    "longDescription": "Peeragent wraps local coding agent CLIs so any host (Claude Code, Codex) can hand a focused task to a peer agent (Claude, Codex, Gemini through Antigravity, or Z.AI GLM 5.2 through Pi).",
     "developerName": "nklisch",
     "category": "Productivity",
     "capabilities": [
@@ -19,7 +19,8 @@
     "defaultPrompt": [
       "Delegate this task to a peer agent.",
       "Hand this to Claude.",
-      "Hand this to Gemini."
+      "Hand this to Gemini.",
+      "Hand this to Z.AI GLM 5.2."
     ]
   },
   "repository": "https://github.com/nklisch/peeragent",

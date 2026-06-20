@@ -271,8 +271,10 @@ func normalizeAgent(agent string) (string, error) {
 		return "gemini", nil
 	case "claude":
 		return "claude", nil
+	case "zai", "z.ai", "glm", "glm-5.2", "glm5.2", "pi-zai", "pi-glm":
+		return "zai", nil
 	default:
-		return "", errors.New("--agent must be codex, gemini, or claude")
+		return "", errors.New("--agent must be codex, gemini, claude, or zai")
 	}
 }
 
@@ -299,19 +301,32 @@ func normalizeEffort(agent string, effort string) (string, error) {
 		default:
 			return "", errors.New("--effort for claude must be high or xhigh")
 		}
+	case "zai":
+		if effort == "" {
+			return "high", nil
+		}
+		switch effort {
+		case "medium", "high", "xhigh":
+			return effort, nil
+		default:
+			return "", errors.New("--effort for zai must be medium, high, or xhigh")
+		}
 	case "gemini":
 		if effort == "" {
 			return "", nil
 		}
-		return "", errors.New("--effort is supported only for codex or claude")
+		return "", errors.New("--effort is supported only for codex, claude, or zai")
 	default:
-		return "", errors.New("--effort is supported only for codex or claude")
+		return "", errors.New("--effort is supported only for codex, claude, or zai")
 	}
 }
 
 func normalizeModel(agent string, model string) (string, error) {
 	model = strings.ToLower(strings.TrimSpace(model))
 	if model == "" {
+		if agent == "zai" {
+			return "glm-5.2", nil
+		}
 		return "", nil
 	}
 	switch agent {
@@ -329,7 +344,14 @@ func normalizeModel(agent string, model string) (string, error) {
 		default:
 			return "", errors.New("--model for gemini is fixed to gemini-3.5")
 		}
+	case "zai":
+		switch model {
+		case "glm", "glm-5.2", "glm5.2", "zai/glm-5.2", "z.ai/glm-5.2":
+			return "glm-5.2", nil
+		default:
+			return "", errors.New("--model for zai is fixed to glm-5.2")
+		}
 	default:
-		return "", errors.New("--model is supported only for claude or gemini")
+		return "", errors.New("--model is supported only for claude, gemini, or zai")
 	}
 }

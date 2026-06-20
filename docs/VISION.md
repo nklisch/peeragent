@@ -1,12 +1,12 @@
 # Vision
 
 Alt Subagent gives coding assistants a low-friction way to delegate
-implementation, research, or review work to another local agent without
-leaving the current repository workflow.
+implementation, research, or review work to another local agent or model
+harness without leaving the current repository workflow.
 
 The host assistant remains the primary collaborator in the session. When a task
-benefits from a different autonomous coding agent, the host invokes an Alt
-Subagent skill, passes arbitrary task text, waits by default, and
+benefits from a different autonomous coding agent or model family, the host
+invokes an Alt Subagent skill, passes arbitrary task text, waits by default, and
 resumes with a compact result. The target agent works in the same checkout and
 may edit files directly according to its local permission model.
 
@@ -18,6 +18,7 @@ one or more alternate local agent CLIs installed:
 - OpenAI Codex CLI
 - Google Antigravity CLI (`agy`) for Gemini-backed agents
 - Claude Code CLI
+- Pi CLI configured for Z.AI GLM 5.2
 
 Claude and Codex are also users of this project. Skills give each host a clear
 delegation contract: when to call another agent, what to send, how to interpret
@@ -40,8 +41,8 @@ becoming a general multi-agent control panel.
 Alt Subagent is a plugin-ready repository containing:
 
 - A bundled `peeragent` CLI wrapper.
-- Claude-facing skills for delegating to Codex and Gemini.
-- Codex-facing skills for delegating to Claude and Gemini.
+- A `/peer` skill for focused delegation.
+- A `/peer-review` skill for iterative cross-model review.
 - A shared JSON result contract for host agents.
 
 The wrapper invokes the selected local CLI with predictable defaults, captures
@@ -67,9 +68,9 @@ agents, or reconcile ambiguous outputs.
 
 Concrete success criteria:
 
-- Claude can invoke `codex-implement` or `gemini-implement` skills.
-- Codex can invoke `claude-implement` or `gemini-implement` skills.
-- The wrapper can target `codex`, `gemini`, or `claude`.
+- Claude and Codex can invoke `/peer` or `/peer-review`.
+- The wrapper can target `codex`, `gemini`, `claude`, or `zai`.
+- The `zai` target uses Pi with only Z.AI `glm-5.2` surfaced.
 - Target agents run in the current repository by default.
 - Target agents can make direct edits and run relevant verification commands.
 - Results include status, summary, verification, changed files when known,

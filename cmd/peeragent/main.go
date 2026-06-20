@@ -17,6 +17,7 @@ import (
 	"github.com/nklisch/peeragent/internal/jobs"
 	"github.com/nklisch/peeragent/internal/prompt"
 	"github.com/nklisch/peeragent/internal/result"
+	"github.com/nklisch/peeragent/internal/zai"
 )
 
 func main() {
@@ -34,10 +35,12 @@ Usage:
   peeragent --status|--result|--cancel <job-id> [flags]
 
 Flags:
-  --agent <codex|claude|gemini>   Target assistant (default codex).
+  --agent <codex|claude|gemini|zai>
+                                  Target assistant (default codex).
   --model <name>                  Model override (claude: sonnet|opus|haiku;
-                                  gemini: gemini-3.5; not used by codex).
-  --effort <medium|high|xhigh>    Reasoning effort (codex default high;
+                                  gemini: gemini-3.5; zai: glm-5.2 only;
+                                  not used by codex).
+  --effort <medium|high|xhigh>    Reasoning effort (codex/zai default high;
                                   claude default xhigh, accepts high|xhigh;
                                   unused by gemini).
   --profile <name>                Codex profile override.
@@ -668,6 +671,15 @@ func executeRequest(ctx context.Context, req input.Request) (executil.Result, er
 			Model:      req.Model,
 			Resume:     req.Resume,
 		})
+	case "zai":
+		return zai.Exec(ctx, zai.Options{
+			CWD:        req.CWD,
+			Prompt:     agentPrompt,
+			FullAccess: req.FullAccess,
+			Effort:     req.Effort,
+			Model:      req.Model,
+			Resume:     req.Resume,
+		})
 	default:
 		return codex.Exec(ctx, codex.Options{
 			CWD:        req.CWD,
@@ -730,6 +742,8 @@ func agentDisplayName(req input.Request) string {
 		return "Gemini"
 	case "claude":
 		return "Claude"
+	case "zai":
+		return "Z.AI GLM 5.2"
 	default:
 		return "Codex"
 	}
@@ -741,6 +755,8 @@ func agentPromptName(req input.Request) string {
 		return "Gemini through Antigravity CLI"
 	case "claude":
 		return "Claude Code"
+	case "zai":
+		return "Z.AI GLM 5.2 through Pi"
 	default:
 		return "Codex"
 	}

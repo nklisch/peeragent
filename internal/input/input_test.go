@@ -194,6 +194,32 @@ func TestParseAgentClaude(t *testing.T) {
 	}
 }
 
+func TestParseAgentZAI(t *testing.T) {
+	req, err := Parse([]string{"--agent", "z.ai", "task"}, nil, fixedCWD)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if req.Agent != "zai" {
+		t.Fatalf("Agent = %q", req.Agent)
+	}
+	if req.Effort != "high" {
+		t.Fatalf("Effort = %q", req.Effort)
+	}
+	if req.Model != "glm-5.2" {
+		t.Fatalf("Model = %q", req.Model)
+	}
+}
+
+func TestParseAgentGLMAlias(t *testing.T) {
+	req, err := Parse([]string{"--agent", "glm-5.2", "task"}, nil, fixedCWD)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if req.Agent != "zai" {
+		t.Fatalf("Agent = %q", req.Agent)
+	}
+}
+
 func TestParseRejectsUnsupportedAgent(t *testing.T) {
 	_, err := Parse([]string{"--agent", "llama", "task"}, nil, fixedCWD)
 	if err == nil {
@@ -329,6 +355,23 @@ func TestParseRejectsEffortForGemini(t *testing.T) {
 	}
 }
 
+func TestParseEffortXHighForZAI(t *testing.T) {
+	req, err := Parse([]string{"--agent", "zai", "--effort", "xhigh", "task"}, nil, fixedCWD)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if req.Effort != "xhigh" {
+		t.Fatalf("Effort = %q", req.Effort)
+	}
+}
+
+func TestParseRejectsUnsupportedEffortForZAI(t *testing.T) {
+	_, err := Parse([]string{"--agent", "zai", "--effort", "low", "task"}, nil, fixedCWD)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
 func TestParseClaudeModel(t *testing.T) {
 	req, err := Parse([]string{"--agent", "claude", "--model", "opus", "task"}, nil, fixedCWD)
 	if err != nil {
@@ -385,6 +428,23 @@ func TestParseGeminiFixedModel(t *testing.T) {
 
 func TestParseRejectsUnsupportedGeminiModel(t *testing.T) {
 	_, err := Parse([]string{"--agent", "gemini", "--model", "pro", "task"}, nil, fixedCWD)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestParseZAIModel(t *testing.T) {
+	req, err := Parse([]string{"--agent", "zai", "--model", "zai/glm-5.2", "task"}, nil, fixedCWD)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if req.Model != "glm-5.2" {
+		t.Fatalf("Model = %q", req.Model)
+	}
+}
+
+func TestParseRejectsUnsupportedZAIModel(t *testing.T) {
+	_, err := Parse([]string{"--agent", "zai", "--model", "glm-5.1", "task"}, nil, fixedCWD)
 	if err == nil {
 		t.Fatal("expected error")
 	}
