@@ -43,7 +43,7 @@ codex plugin add peeragent@peeragent
 Pi:
 
 ```sh
-pi install git:github.com/nklisch/peeragent@v0.4.1
+pi install git:github.com/nklisch/peeragent@v0.4.2
 ```
 
 The Pi package loads the same `peer` and `peer-review` skills from `plugin/skills`
@@ -326,23 +326,23 @@ published as downloadable archives for manual install.
 Build release archives locally:
 
 ```sh
-make release VERSION=0.4.1
+make release VERSION=0.4.2
 ```
 
 That writes:
 
 ```text
-dist/release/peeragent_0.4.1_linux_amd64.tar.gz
-dist/release/peeragent_0.4.1_linux_arm64.tar.gz
-dist/release/peeragent_0.4.1_darwin_amd64.tar.gz
-dist/release/peeragent_0.4.1_darwin_arm64.tar.gz
+dist/release/peeragent_0.4.2_linux_amd64.tar.gz
+dist/release/peeragent_0.4.2_linux_arm64.tar.gz
+dist/release/peeragent_0.4.2_darwin_amd64.tar.gz
+dist/release/peeragent_0.4.2_darwin_arm64.tar.gz
 dist/release/checksums.txt
 ```
 
 Publish a GitHub release from a machine with `gh` authenticated:
 
 ```sh
-make publish-release VERSION=0.4.1
+make publish-release VERSION=0.4.2
 ```
 
 The GitHub Actions workflow in `.github/workflows/release.yml` also publishes

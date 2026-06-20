@@ -1,6 +1,6 @@
 {
   "name": "peeragent",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Delegate arbitrary task work from Codex to a peer local coding agent (Claude, Codex, Gemini, Z.AI GLM 5.2)",
   "author": {
     "name": "nklisch"
