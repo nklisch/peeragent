@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/nklisch/peeragent/internal/agent"
 	"github.com/nklisch/peeragent/internal/jobs"
 )
 
@@ -187,7 +188,7 @@ type parsedArgs struct {
 }
 
 func parseArgs(args []string) (parsedArgs, error) {
-	parsed := parsedArgs{json: true, agent: "codex"}
+	parsed := parsedArgs{json: true, agent: string(agent.DefaultID())}
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		switch arg {
@@ -291,19 +292,12 @@ func parseArgs(args []string) (parsedArgs, error) {
 	return parsed, nil
 }
 
-func normalizeAgent(agent string) (string, error) {
-	switch strings.ToLower(strings.TrimSpace(agent)) {
-	case "", "codex":
-		return "codex", nil
-	case "gemini", "agy", "antigravity":
-		return "gemini", nil
-	case "claude":
-		return "claude", nil
-	case "zai", "z.ai", "glm", "glm-5.2", "glm5.2", "pi-zai", "pi-glm":
-		return "zai", nil
-	default:
+func normalizeAgent(raw string) (string, error) {
+	canonical, ok := agent.Normalize(raw)
+	if !ok {
 		return "", errors.New("--agent must be codex, gemini, claude, or zai")
 	}
+	return string(canonical), nil
 }
 
 func normalizeEffort(agent string, effort string) (string, error) {

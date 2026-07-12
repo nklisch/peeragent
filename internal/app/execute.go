@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/nklisch/peeragent/internal/agent"
 	"github.com/nklisch/peeragent/internal/claude"
 	"github.com/nklisch/peeragent/internal/codex"
 	"github.com/nklisch/peeragent/internal/executil"
@@ -17,9 +18,17 @@ import (
 type targetExecutor struct{}
 
 func (targetExecutor) Execute(ctx context.Context, delegation input.Delegation) (executil.Result, error) {
-	agentPrompt := prompt.BuildForAgent(agentPromptName(delegation), delegation.TaskText)
-	switch delegation.Agent {
-	case "gemini":
+	targetID := agent.ID(delegation.Agent)
+	if targetID == "" {
+		targetID = agent.DefaultID()
+	}
+	definition, ok := agent.Lookup(targetID)
+	if !ok {
+		return executil.Result{ExitCode: 2}, fmt.Errorf("unsupported delegation agent %q", delegation.Agent)
+	}
+	agentPrompt := prompt.BuildForAgent(definition.PromptIdentity, delegation.TaskText)
+	switch definition.ID {
+	case agent.GeminiID:
 		return gemini.Exec(ctx, gemini.Options{
 			CWD:        delegation.CWD,
 			Prompt:     agentPrompt,
@@ -27,7 +36,7 @@ func (targetExecutor) Execute(ctx context.Context, delegation input.Delegation) 
 			Model:      delegation.Model,
 			Resume:     delegation.Resume,
 		})
-	case "claude":
+	case agent.ClaudeID:
 		return claude.Exec(ctx, claude.Options{
 			CWD:        delegation.CWD,
 			Prompt:     agentPrompt,
@@ -36,7 +45,7 @@ func (targetExecutor) Execute(ctx context.Context, delegation input.Delegation) 
 			Model:      delegation.Model,
 			Resume:     delegation.Resume,
 		})
-	case "zai":
+	case agent.ZAIID:
 		return zai.Exec(ctx, zai.Options{
 			CWD:        delegation.CWD,
 			Prompt:     agentPrompt,
@@ -45,7 +54,7 @@ func (targetExecutor) Execute(ctx context.Context, delegation input.Delegation) 
 			Model:      delegation.Model,
 			Resume:     delegation.Resume,
 		})
-	case "codex", "":
+	case agent.CodexID:
 		return codex.Exec(ctx, codex.Options{
 			CWD:        delegation.CWD,
 			Prompt:     agentPrompt,
@@ -113,14 +122,14 @@ func agentSession(delegation input.Delegation, execResult executil.Result) strin
 }
 
 func agentPromptName(delegation input.Delegation) string {
-	switch delegation.Agent {
-	case "gemini":
-		return "Gemini through Antigravity CLI"
-	case "claude":
-		return "Claude Code"
-	case "zai":
-		return "Z.AI GLM 5.2 through Pi"
-	default:
-		return "Codex"
+	return agentDefinition(delegation.Agent).PromptIdentity
+}
+
+func agentDefinition(id string) agent.Definition {
+	definition, ok := agent.Lookup(agent.ID(id))
+	if ok {
+		return definition
 	}
+	definition, _ = agent.Lookup(agent.DefaultID())
+	return definition
 }

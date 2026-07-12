@@ -4,6 +4,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/nklisch/peeragent/internal/agent"
 )
 
 func TestParseArgs(t *testing.T) {
@@ -220,10 +222,27 @@ func TestParseAgentGLMAlias(t *testing.T) {
 	}
 }
 
+func TestParseAgentAliasesMatchRegistry(t *testing.T) {
+	for _, definition := range agent.Definitions() {
+		for _, alias := range definition.Aliases {
+			req, err := Parse([]string{"--agent", alias, "task"}, nil, fixedCWD)
+			if err != nil {
+				t.Fatalf("Parse alias %q: %v", alias, err)
+			}
+			if req.Agent != string(definition.ID) {
+				t.Fatalf("Parse alias %q = %q, want %q", alias, req.Agent, definition.ID)
+			}
+		}
+	}
+}
+
 func TestParseRejectsUnsupportedAgent(t *testing.T) {
 	_, err := Parse([]string{"--agent", "llama", "task"}, nil, fixedCWD)
 	if err == nil {
 		t.Fatal("expected error")
+	}
+	if got := err.Error(); got != "--agent must be codex, gemini, claude, or zai" {
+		t.Fatalf("error = %q, want established agent error", got)
 	}
 }
 

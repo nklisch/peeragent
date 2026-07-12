@@ -194,16 +194,7 @@ func accessMode(delegation input.Delegation) string {
 }
 
 func agentDisplayName(delegation input.Delegation) string {
-	switch delegation.Agent {
-	case "gemini":
-		return "Gemini"
-	case "claude":
-		return "Claude"
-	case "zai":
-		return "Z.AI GLM 5.2"
-	default:
-		return "Codex"
-	}
+	return agentDefinition(delegation.Agent).DisplayName
 }
 
 // ProcessLauncher is the production async process adapter. It intentionally
