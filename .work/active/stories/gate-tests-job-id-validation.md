@@ -1,7 +1,7 @@
 ---
 id: gate-tests-job-id-validation
 kind: story
-stage: implementing
+stage: review
 tags: [testing]
 parent: null
 depends_on: [gate-security-job-id-path-traversal]
@@ -35,3 +35,17 @@ func TestRejectsUnsafeJobIDs(t *testing.T) {
 
 ## Test location (suggested)
 `internal/jobs/store_test.go`, `internal/app/jobs_test.go`, `internal/mcp/jobs_test.go`, and CLI parsing tests.
+
+## Implementation Notes
+
+Landed with the security remediation in commit `e1186d8`. Coverage now exercises the authoritative grammar and valid generated ids, traversal/dot/absolute paths, both separator styles, malformed timestamp/hex/length values, Unicode and NUL at store, application, MCP, and CLI/input boundaries. Tests also verify malformed ids do not resolve the working directory or probe the store, while valid missing ids retain structured exit-code-4 behavior.
+
+## Verification
+
+- `go test ./internal/jobs ./internal/app ./internal/input ./internal/mcp ./cmd/peeragent`
+- `go test -race ./internal/jobs ./internal/app ./internal/mcp ./internal/input ./cmd/peeragent`
+- `go test ./...`
+- `go vet ./...`
+- `go build ./...`
+
+All passed in land mode after dependency `gate-security-job-id-path-traversal` reached done.
