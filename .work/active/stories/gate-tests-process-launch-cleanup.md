@@ -1,7 +1,7 @@
 ---
 id: gate-tests-process-launch-cleanup
 kind: story
-stage: drafting
+stage: implementing
 tags: [testing]
 parent: null
 depends_on: []
@@ -35,3 +35,10 @@ Also cover the release-failure cleanup branch through an injectable process seam
 
 ## Test location (suggested)
 `internal/app/service_test.go`
+
+## Design
+
+- Refactor only enough process-launch infrastructure to inject PID persistence and process release failure seams deterministically; do not depend on chmod behavior under privileged CI.
+- Exercise the production `ProcessLauncher` cleanup path with a long-lived helper and assert the child/group exits when PID persistence fails.
+- Cover release failure through the same injectable seam and assert PID cleanup plus child termination.
+- Preserve successful launch argv, detach behavior, and existing async integration tests; run race and full tests.
