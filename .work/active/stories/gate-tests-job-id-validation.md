@@ -1,7 +1,7 @@
 ---
 id: gate-tests-job-id-validation
 kind: story
-stage: review
+stage: done
 tags: [testing]
 parent: null
 depends_on: [gate-security-job-id-path-traversal]
@@ -49,3 +49,7 @@ Landed with the security remediation in commit `e1186d8`. Coverage now exercises
 - `go build ./...`
 
 All passed in land mode after dependency `gate-security-job-id-path-traversal` reached done.
+
+## Review
+
+Approved from the independent security review of commit `e1186d8`, which explicitly verified store/application/MCP/CLI coverage, cross-platform separators, malformed grammar cases, valid generated ids, missing-job semantics, and race/full-suite results.
