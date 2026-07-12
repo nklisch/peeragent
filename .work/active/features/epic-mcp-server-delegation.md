@@ -1,7 +1,7 @@
 ---
 id: epic-mcp-server-delegation
 kind: feature
-stage: review
+stage: done
 tags: [infra]
 parent: epic-mcp-server
 depends_on: []
@@ -175,9 +175,16 @@ Use `mcp.NewInMemoryTransports` in tests to initialize a real client session, li
 ## Implementation summary
 - Execution capability: highest, selected by the autopilot caller because this feature crosses the CLI boundary, target process execution, async jobs, generated MCP schemas, and stdio protocol framing.
 - Review weight: standard (project default).
-- Child implementation status: `epic-mcp-server-delegation-application-services` and `epic-mcp-server-delegation-stdio-server` are both at `stage: review`; every child is terminal-or-review.
+- Child implementation status: `epic-mcp-server-delegation-application-services`, `epic-mcp-server-delegation-stdio-server`, and discovered regression child `story-fix-test-helper-main-inheritance` are at `stage: done`.
 - Delivered the canonical input normalizer, shared blocking/async application service, official MCP Go SDK v1.6.1 integration, Go 1.25 baseline, typed `delegate` tool, in-memory protocol coverage, cancellation coverage, and subprocess stdout-purity coverage.
 - The CLI remains the composition root and owns output formatting/process exit; MCP uses the same application service and preserves structured peeragent results.
 - Verification: focused application/MCP tests, `go test -race ./internal/mcp`, `go test ./...` (159 tests across 12 packages), and `go build -o /tmp/peeragent-mcp ./cmd/peeragent` all passed.
 - Design correction: the corrected story resolved SDK v1.6.1's declared Go 1.25 minimum by raising `go.mod` and documenting Go 1.25 as the supported source-build minimum.
-- Adjacent issues parked: none.
+- Adjacent test debt resolved in scope: inherited helper-mode state could divert nested `go test` subprocesses into the CLI path; the regression child now rejects `-test.*` arguments.
+
+## Review notes
+
+- Effective review weight: standard (autopilot default); selected lane: deep because the feature changes process execution, generated MCP contracts, and stdio framing.
+- Fresh-context reviewer: GLM 5.2. Verification independently rerun: build, `go vet ./...`, `go test ./...` (159 tests), and `go test -race` over app/input/MCP/CLI packages.
+- Verdict: approve with comments. One important comment identified a misleading test name; it was corrected before approval. Remaining findings were non-blocking cleanup/style nits.
+- Acceptance: canonical validation, injected application ports, CLI compatibility, structured blocking/async results, invalid-input fail-fast behavior, context cancellation, generated schema discovery, stdout purity, Go 1.25 baseline, and regression coverage all verified.
