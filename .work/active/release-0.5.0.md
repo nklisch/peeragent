@@ -71,4 +71,6 @@ updated: 2026-07-12
 
 - **gate-tests** (2026-07-12) — 4 coverage gaps (0 critical, 1 high, 2 medium, 1 low); emitted 3 active remediation stories and 1 backlog item; no tautological tests found.
 
-Pending configured gates: cruft, docs, patterns.
+- **gate-cruft** (2026-07-12) — 2 findings (1 high confidence, 1 medium confidence, 0 low); emitted 2 active cleanup stories.
+
+Pending configured gates: docs, patterns.
