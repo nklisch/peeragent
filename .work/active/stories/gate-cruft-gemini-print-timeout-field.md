@@ -1,7 +1,7 @@
 ---
 id: gate-cruft-gemini-print-timeout-field
 kind: story
-stage: drafting
+stage: implementing
 tags: [cleanup]
 parent: null
 depends_on: []
@@ -34,3 +34,10 @@ No production or test caller sets `PrintTimeout`; every invocation uses the same
 
 ## Removal
 Remove the unused option field and replace the fallback branch with a package-level `agyPrintTimeout = "15m"` constant passed unconditionally. Preserve argv behavior and tests.
+
+## Design
+
+- Edit only `internal/gemini/exec.go` and its tests.
+- Remove `Options.PrintTimeout`; add one package constant; keep `--print-timeout 15m` in every generated argv.
+- Update the argv test to assert the unchanged value and run Gemini plus full Go tests.
+- This is behavior-preserving cleanup; no documentation or public contract changes.
