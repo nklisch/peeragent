@@ -78,3 +78,15 @@ updated: 2026-07-12
 - **gate-patterns** (2026-07-12) — 5 structural patterns codified and indexed; 3 inconsistencies emitted as active refactor stories; generated rules digest and Claude compatibility symlink created.
 
 All configured gates have run.
+
+## Gate disposition
+
+All 10 active gate-produced remediation stories reached `stage: done` after implementation and independent review. Low-severity findings remain explicitly parked in `.work/backlog/` for later prioritization.
+
+## Final validation
+
+- All 64 bound non-release items are at `stage: done`.
+- `scripts/validate.sh` passed on 2026-07-12, including full Go tests, build, plugin packaging, MCP protocol smoke, strict Claude plugin validation, committed binaries, release artifact generation, metadata checks, documentation examples, and shim smokes.
+- Focused race verification passed for jobs, application services, MCP, agent registry, and input normalization.
+- `go vet ./...` and `go build ./...` passed.
+- Release mapping: tag-based (`v0.5.0`).
