@@ -1,7 +1,7 @@
 ---
 id: gate-tests-cancel-corrupt-result
 kind: story
-stage: review
+stage: done
 tags: [testing]
 parent: null
 depends_on: []
@@ -46,3 +46,7 @@ Add one focused service test that creates a valid running job, writes malformed 
 - Discrepancies from design: none.
 - Adjacent issues parked: none.
 - Verification: focused test passed with `go test ./internal/app -run '^TestCancelJobReportsCorruptResultAsInfrastructureError$' -count=1`.
+
+## Review
+
+Approved by independent source review of commit `32681ba`. The test honestly verifies decode-error propagation, zero signal calls, no fabricated result, byte-stable persisted state, and unchanged running/PID state. Final focused race verification passed.
