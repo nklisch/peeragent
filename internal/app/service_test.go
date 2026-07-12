@@ -3,7 +3,10 @@ package app
 import (
 	"context"
 	"errors"
+	"os"
+	"os/exec"
 	"reflect"
+	"runtime"
 	"testing"
 
 	"github.com/nklisch/peeragent/internal/executil"
@@ -109,6 +112,136 @@ func TestLaunchUsesInjectedLauncherAndPersistsRequest(t *testing.T) {
 	if launcher.job.Spec.JSON != true {
 		t.Fatal("async job must persist machine-readable result mode")
 	}
+}
+
+func TestProcessLauncherKillsChildWhenPIDPersistenceFails(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("process-group cleanup is unix-only")
+	}
+
+	cwd := t.TempDir()
+	store := jobs.NewStore(cwd)
+	job, err := store.Create(cwd, testJobSpec(), "do work")
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := errors.New("pid persistence failed")
+	var (
+		gotExecutable string
+		gotArgs       []string
+		startedPID    int
+		startedGroup  bool
+	)
+	launcher := ProcessLauncher{
+		command: func(executable string, args ...string) *exec.Cmd {
+			gotExecutable = executable
+			gotArgs = append([]string(nil), args...)
+			return processLauncherHelperCommand(t)
+		},
+		writePID: func(_ jobs.Store, _ string, pid int) error {
+			startedPID = pid
+			startedGroup = jobs.ProcessGroupExists(pid)
+			return expected
+		},
+	}
+
+	err = launcher.Launch("/bin/peeragent", job)
+	if !errors.Is(err, expected) {
+		t.Fatalf("error = %v, want %v", err, expected)
+	}
+	if gotExecutable != "/bin/peeragent" {
+		t.Fatalf("executable = %q, want /bin/peeragent", gotExecutable)
+	}
+	if want := []string{"--job-run", job.ID, "--cwd", job.CWD}; !reflect.DeepEqual(gotArgs, want) {
+		t.Fatalf("launch args = %#v, want %#v", gotArgs, want)
+	}
+	if startedPID <= 1 || !startedGroup {
+		t.Fatalf("started child = pid %d, process group present before cleanup = %v", startedPID, startedGroup)
+	}
+	if jobs.ProcessGroupExists(startedPID) {
+		t.Fatalf("process group %d still exists after pid persistence failure", startedPID)
+	}
+	if _, err := store.ReadPID(job.ID); !os.IsNotExist(err) {
+		t.Fatalf("ReadPID after pid persistence failure = %v, want missing pid", err)
+	}
+}
+
+func TestProcessLauncherKillsChildAndRemovesPIDWhenReleaseFails(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("process-group cleanup is unix-only")
+	}
+
+	cwd := t.TempDir()
+	store := jobs.NewStore(cwd)
+	job, err := store.Create(cwd, testJobSpec(), "do work")
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := errors.New("process release failed")
+	var (
+		gotExecutable      string
+		gotArgs            []string
+		releaseCalled      bool
+		releasePID         int
+		groupBeforeCleanup bool
+		persistedPID       int
+		persistErr         error
+	)
+	launcher := ProcessLauncher{
+		command: func(executable string, args ...string) *exec.Cmd {
+			gotExecutable = executable
+			gotArgs = append([]string(nil), args...)
+			return processLauncherHelperCommand(t)
+		},
+		releaseProcess: func(process *os.Process) error {
+			releaseCalled = true
+			releasePID = process.Pid
+			groupBeforeCleanup = jobs.ProcessGroupExists(process.Pid)
+			persistedPID, persistErr = store.ReadPID(job.ID)
+			return expected
+		},
+	}
+
+	err = launcher.Launch("/bin/peeragent", job)
+	if !errors.Is(err, expected) {
+		t.Fatalf("error = %v, want %v", err, expected)
+	}
+	if gotExecutable != "/bin/peeragent" {
+		t.Fatalf("executable = %q, want /bin/peeragent", gotExecutable)
+	}
+	if want := []string{"--job-run", job.ID, "--cwd", job.CWD}; !reflect.DeepEqual(gotArgs, want) {
+		t.Fatalf("launch args = %#v, want %#v", gotArgs, want)
+	}
+	if !releaseCalled || releasePID <= 1 || !groupBeforeCleanup {
+		t.Fatalf("release called = %v, pid = %d, process group before cleanup = %v", releaseCalled, releasePID, groupBeforeCleanup)
+	}
+	if persistErr != nil || persistedPID != releasePID {
+		t.Fatalf("pid at release = %d, err = %v, want persisted pid %d", persistedPID, persistErr, releasePID)
+	}
+	if jobs.ProcessGroupExists(releasePID) {
+		t.Fatalf("process group %d still exists after release failure", releasePID)
+	}
+	if _, err := store.ReadPID(job.ID); !os.IsNotExist(err) {
+		t.Fatalf("ReadPID after release failure = %v, want missing pid", err)
+	}
+}
+
+func TestProcessLauncherLongLivedHelper(t *testing.T) {
+	if os.Getenv("PEERAGENT_PROCESS_LAUNCHER_HELPER") != "1" {
+		return
+	}
+	select {}
+}
+
+func processLauncherHelperCommand(t *testing.T) *exec.Cmd {
+	t.Helper()
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command(executable, "-test.run=^TestProcessLauncherLongLivedHelper$", "--")
+	cmd.Env = append(os.Environ(), "PEERAGENT_PROCESS_LAUNCHER_HELPER=1")
+	return cmd
 }
 
 func TestLaunchInfrastructureFailureReturnsErrorAndFailedResult(t *testing.T) {

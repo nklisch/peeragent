@@ -209,10 +209,36 @@ func agentDisplayName(delegation input.Delegation) string {
 // ProcessLauncher is the production async process adapter. It intentionally
 // owns only process setup; job state remains owned by the application service
 // and jobs.Store so other inbound adapters can use the same state contract.
-type ProcessLauncher struct{}
+//
+// The dependencies are nil for normal production construction and default to
+// the operating-system operations below. Keeping them as function dependencies
+// makes post-start cleanup failures deterministic to test without using file
+// permissions or replacing process-global functions.
+type ProcessLauncher struct {
+	command        func(string, ...string) *exec.Cmd
+	writePID       func(jobs.Store, string, int) error
+	releaseProcess func(*os.Process) error
+}
 
-func (ProcessLauncher) Launch(executable string, job jobs.Job) error {
-	cmd := exec.Command(executable, "--job-run", job.ID, "--cwd", job.CWD)
+func (l ProcessLauncher) Launch(executable string, job jobs.Job) error {
+	command := l.command
+	if command == nil {
+		command = exec.Command
+	}
+	writePID := l.writePID
+	if writePID == nil {
+		writePID = func(store jobs.Store, id string, pid int) error {
+			return store.WritePID(id, pid)
+		}
+	}
+	releaseProcess := l.releaseProcess
+	if releaseProcess == nil {
+		releaseProcess = func(process *os.Process) error {
+			return process.Release()
+		}
+	}
+
+	cmd := command(executable, "--job-run", job.ID, "--cwd", job.CWD)
 	cmd.Dir = job.CWD
 
 	logFile, err := os.OpenFile(job.LogPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
@@ -227,12 +253,13 @@ func (ProcessLauncher) Launch(executable string, job jobs.Job) error {
 	if err := cmd.Start(); err != nil {
 		return err
 	}
-	if err := jobs.NewStore(job.CWD).WritePID(job.ID, cmd.Process.Pid); err != nil {
+	store := jobs.NewStore(job.CWD)
+	if err := writePID(store, job.ID, cmd.Process.Pid); err != nil {
 		cleanupStartedProcess(cmd)
 		return err
 	}
-	if err := cmd.Process.Release(); err != nil {
-		_ = jobs.NewStore(job.CWD).RemovePID(job.ID)
+	if err := releaseProcess(cmd.Process); err != nil {
+		_ = store.RemovePID(job.ID)
 		cleanupStartedProcess(cmd)
 		return err
 	}

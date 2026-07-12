@@ -1,7 +1,7 @@
 ---
 id: gate-tests-process-launch-cleanup
 kind: story
-stage: implementing
+stage: review
 tags: [testing]
 parent: null
 depends_on: []
@@ -42,3 +42,12 @@ Also cover the release-failure cleanup branch through an injectable process seam
 - Exercise the production `ProcessLauncher` cleanup path with a long-lived helper and assert the child/group exits when PID persistence fails.
 - Cover release failure through the same injectable seam and assert PID cleanup plus child termination.
 - Preserve successful launch argv, detach behavior, and existing async integration tests; run race and full tests.
+
+## Implementation notes
+- Execution capability: highest, selected by the caller because detached process cleanup crosses OS process groups, persistence, and release failure paths.
+- Review weight: deep, selected by the caller's highest-rigor requirement; independent review follows at `stage: review`.
+- Files changed: `internal/app/service.go`, `internal/app/service_test.go`, this item file.
+- Tests added: `TestProcessLauncherKillsChildWhenPIDPersistenceFails` and `TestProcessLauncherKillsChildAndRemovesPIDWhenReleaseFails`, using a long-lived Go test helper process and deterministic function dependencies.
+- Discrepancies from design: none; the command factory seam avoids executable-permission failure injection while retaining production argv construction and detach attributes.
+- Adjacent issues parked: none.
+- Verification: focused process-launch cleanup tests passed with `go test ./internal/app -run 'TestProcessLauncher(KillsChildWhenPIDPersistenceFails|KillsChildAndRemovesPIDWhenReleaseFails)$' -count=1`; `go test -race ./internal/app ./internal/jobs`, `go test ./...`, `go vet ./...`, and `go build -o /tmp/peeragent-release-0.5.0 ./cmd/peeragent` all passed, and the temporary build artifact was removed.
