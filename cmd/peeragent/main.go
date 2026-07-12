@@ -12,12 +12,20 @@ import (
 	"github.com/nklisch/peeragent/internal/executil"
 	"github.com/nklisch/peeragent/internal/input"
 	"github.com/nklisch/peeragent/internal/jobs"
+	"github.com/nklisch/peeragent/internal/mcp"
 	"github.com/nklisch/peeragent/internal/result"
 )
 
 var applicationService = app.NewService(app.Options{})
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "mcp" {
+		if err := mcp.RunStdio(context.Background(), applicationService); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
 	if err := run(os.Args[1:]); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

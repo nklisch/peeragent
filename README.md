@@ -54,7 +54,7 @@ On the four supported platforms (linux amd64/arm64, darwin amd64/arm64),
 the plugin runs immediately with no download and no Go toolchain required —
 prebuilt binaries are committed in `plugin/bin/<goos>-<goarch>/peeragent`.
 
-On any other platform, install from source (requires Go):
+On any other platform, install from source (requires Go 1.25 or newer):
 `go install github.com/nklisch/peeragent/cmd/peeragent@latest` (or pin
 `@v<plugin-version>` to match your installed plugin), then set `PEERAGENT_BIN`
 to the installed binary (typically `$(go env GOPATH)/bin/peeragent`).
@@ -361,6 +361,8 @@ these assets whenever a `v*` tag is pushed, or when run manually with a version.
 
 ## Development
 
+The supported minimum Go version for source builds and development is Go 1.25.
+
 Run the test suite:
 
 ```sh
@@ -393,7 +395,7 @@ If peeragent reports it has no prebuilt binary for this platform (exit code 3),
 note that the prebuilt platforms are linux/darwin on amd64/arm64. On those,
 reinstall the plugin or download the matching archive from
 https://github.com/nklisch/peeragent/releases. On any other platform, install
-from source (requires Go): `go install github.com/nklisch/peeragent/cmd/peeragent@latest`
+from source (requires Go 1.25 or newer): `go install github.com/nklisch/peeragent/cmd/peeragent@latest`
 then set `PEERAGENT_BIN` to the installed binary. For source checkouts,
 `make build` also produces a local `dist/peeragent` binary.
 

@@ -1,7 +1,7 @@
 ---
 id: epic-mcp-server-delegation-stdio-server
 kind: story
-stage: implementing
+stage: review
 tags: [infra]
 parent: epic-mcp-server-delegation
 depends_on: [epic-mcp-server-delegation-application-services]
@@ -30,3 +30,15 @@ Raise the Go baseline to 1.25, add the official MCP Go SDK v1.6.1 in this story 
 ## Design correction
 
 Implementation verified that the `github.com/modelcontextprotocol/go-sdk@v1.6.1` tag declares `go 1.25.0`; the earlier design had inspected the repository's moving default branch and incorrectly recorded Go 1.23. Autopilot resolves the contradiction in favor of the fixed current stable SDK and raises peeragent's baseline to Go 1.25. CI already derives the toolchain from `go.mod`, and the local environment provides Go 1.26.4.
+
+## Implementation notes
+- Execution capability: highest, selected by the autopilot caller because this changes the MCP protocol boundary, stdio process behavior, CLI entrypoint, generated schemas, and the Go dependency contract.
+- Review weight: standard (project default; caller did not override it).
+- Dependency readiness: the application-services predecessor was rechecked at `stage: review`; implementation proceeded in the explicit caller-provided story sequence without marking that predecessor done.
+- Dispatch rationale: direct-read only; the corrected story, feature design, SDK API evidence, existing application service, and CLI tests fully identified the integration surface.
+- Files changed: `go.mod`, `go.sum`, `README.md`, `cmd/peeragent/main.go`, `cmd/peeragent/main_mcp_test.go`, `internal/mcp/server.go`, `internal/mcp/tools.go`, `internal/mcp/server_test.go`.
+- Tests added: official SDK in-memory initialization/tool discovery and generated-schema checks; blocking structured result; async running result; semantic and schema-invalid input rejection; infrastructure errors; context cancellation propagation; subprocess stdio protocol-purity smoke coverage.
+- Go baseline audit: `go.mod` now declares Go 1.25.0 and directly requires `github.com/modelcontextprotocol/go-sdk v1.6.1`; CI workflows derive their toolchain from `go.mod`, and Make/scripts/install documentation contain no independent Go 1.22 assumption. README now states Go 1.25 as the supported minimum.
+- Discrepancies from design: the SDK's own stdio transport batches protocol writes until a response is read, so the subprocess smoke test follows the real request/response sequence instead of closing stdin immediately after a burst. No product-contract discrepancy.
+- Adjacent issues parked: none.
+- Verification: focused MCP tests passed (11 tests); CLI/MCP subprocess tests passed; `go test -race ./internal/mcp` passed; `go test ./...` passed (159 tests across 12 packages); `go build -o /tmp/peeragent-mcp ./cmd/peeragent` passed.
