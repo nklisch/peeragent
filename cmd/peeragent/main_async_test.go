@@ -18,11 +18,35 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	if os.Getenv("PEERAGENT_TEST_HELPER_MAIN") == "1" {
+	if testHelperMainRequested(os.Getenv("PEERAGENT_TEST_HELPER_MAIN"), os.Args) {
 		main()
 		return
 	}
 	os.Exit(m.Run())
+}
+
+func testHelperMainRequested(marker string, args []string) bool {
+	if marker != "1" {
+		return false
+	}
+	for _, arg := range args[1:] {
+		if strings.HasPrefix(arg, "-test.") {
+			return false
+		}
+	}
+	return true
+}
+
+func TestTestHelperMainRequestedRejectsInheritedGoTestArgs(t *testing.T) {
+	if !testHelperMainRequested("1", []string{"peeragent.test", "mcp"}) {
+		t.Fatal("intentional CLI subprocess should enter helper main")
+	}
+	if testHelperMainRequested("1", []string{"peeragent.test", "-test.run", "^$"}) {
+		t.Fatal("go test subprocess should not enter helper main")
+	}
+	if testHelperMainRequested("", []string{"peeragent.test", "mcp"}) {
+		t.Fatal("subprocess without helper marker should not enter helper main")
+	}
 }
 
 func TestAsyncCancelKillsDetachedProcessGroup(t *testing.T) {
