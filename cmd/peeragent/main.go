@@ -164,14 +164,6 @@ func showJobResult(req input.Request) error {
 	return writeJobControlResult(req, res)
 }
 
-func asyncJobRunArgs(jobID string, cwd string) []string {
-	return []string{"--job-run", jobID, "--cwd", cwd}
-}
-
-func resultStatusFromJob(status string) result.Status {
-	return app.ResultStatusFromJob(status)
-}
-
 func cancelJob(req input.Request) error {
 	res, err := applicationService.CancelJob(context.Background(), app.JobRequest{
 		CWD:   req.CWD,
@@ -191,22 +183,6 @@ func writeJobControlResult(req input.Request, res result.Result) error {
 		os.Exit(4)
 	}
 	return nil
-}
-
-func writeJobLookupFailure(req input.Request, jobID string, err error) error {
-	if writeErr := writeResult(req, jobLookupFailureResult(req, jobID, err)); writeErr != nil {
-		return writeErr
-	}
-	os.Exit(4)
-	return nil
-}
-
-func jobLookupFailureResult(req input.Request, jobID string, err error) result.Result {
-	return app.JobLookupFailureResult(app.JobRequest{CWD: req.CWD, JobID: jobID}, err)
-}
-
-func isTerminalJobStatus(status string) bool {
-	return app.IsTerminalJobStatus(status)
 }
 
 func runAsyncJob(req input.Request) error {
@@ -277,10 +253,6 @@ func accessFlagsFromSpec(spec jobs.ExecSpec) (fullAccess bool, worktree bool) {
 
 func finishAsyncJob(store jobs.Store, job jobs.Job, res result.Result) error {
 	return app.FinishJob(store, job, res)
-}
-
-func writeJobResult(path string, res result.Result) error {
-	return app.WriteJobResult(path, res)
 }
 
 func accessMode(req input.Request) string {

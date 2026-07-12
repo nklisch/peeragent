@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/nklisch/peeragent/internal/app"
 	"github.com/nklisch/peeragent/internal/executil"
 	"github.com/nklisch/peeragent/internal/input"
 	"github.com/nklisch/peeragent/internal/jobs"
@@ -128,25 +129,25 @@ func TestResultStatusFromJob(t *testing.T) {
 		"unknown":   result.StatusRunning,
 	}
 	for status, want := range cases {
-		if got := resultStatusFromJob(status); got != want {
-			t.Fatalf("resultStatusFromJob(%q) = %q, want %q", status, got, want)
+		if got := app.ResultStatusFromJob(status); got != want {
+			t.Fatalf("ResultStatusFromJob(%q) = %q, want %q", status, got, want)
 		}
 	}
 }
 
 func TestIsTerminalJobStatus(t *testing.T) {
 	for _, status := range []string{"complete", "failed", "cancelled"} {
-		if !isTerminalJobStatus(status) {
+		if !app.IsTerminalJobStatus(status) {
 			t.Fatalf("expected %q to be terminal", status)
 		}
 	}
-	if isTerminalJobStatus("running") {
+	if app.IsTerminalJobStatus("running") {
 		t.Fatal("running should not be terminal")
 	}
 }
 
 func TestJobLookupFailureResult(t *testing.T) {
-	res := jobLookupFailureResult(input.Request{CWD: "/repo"}, "job-1", errors.New("missing"))
+	res := app.JobLookupFailureResult(app.JobRequest{CWD: "/repo", JobID: "job-1"}, errors.New("missing"))
 	if res.Status != result.StatusFailed {
 		t.Fatalf("Status = %q", res.Status)
 	}
@@ -227,14 +228,6 @@ func TestRequestFromJobUsesCanonicalAccess(t *testing.T) {
 	}
 }
 
-func TestAsyncJobRunArgsAreExact(t *testing.T) {
-	got := asyncJobRunArgs("job-1", "/repo")
-	want := []string{"--job-run", "job-1", "--cwd", "/repo"}
-	if strings.Join(got, "\x00") != strings.Join(want, "\x00") {
-		t.Fatalf("args = %#v, want %#v", got, want)
-	}
-}
-
 func TestRunAsyncJobWorktreeFailureUsesPersistedJobRequest(t *testing.T) {
 	cwd := t.TempDir()
 	store := jobs.NewStore(cwd)
@@ -292,7 +285,7 @@ func TestFinishAsyncJobDoesNotOverwriteCancelledJobOrResult(t *testing.T) {
 		Verification: []result.Verification{},
 		Metadata:     result.Metadata{CWD: cwd, JobID: job.ID},
 	}
-	if err := writeJobResult(job.ResultPath, cancelled); err != nil {
+	if err := app.WriteJobResult(job.ResultPath, cancelled); err != nil {
 		t.Fatal(err)
 	}
 	job.Status = "cancelled"
@@ -334,7 +327,7 @@ func TestFinishAsyncJobDoesNotOverwriteCancelledResult(t *testing.T) {
 	if err := store.WritePID(job.ID, 99999); err != nil {
 		t.Fatal(err)
 	}
-	if err := writeJobResult(job.ResultPath, result.Result{
+	if err := app.WriteJobResult(job.ResultPath, result.Result{
 		Status:       result.StatusCancelled,
 		Summary:      "cancel result",
 		ChangedFiles: []string{},
@@ -443,7 +436,7 @@ func TestCancelJobRepairsExistingTerminalResultWithoutOverwrite(t *testing.T) {
 	if err := store.WritePID(job.ID, 99999); err != nil {
 		t.Fatal(err)
 	}
-	if err := writeJobResult(job.ResultPath, result.Result{
+	if err := app.WriteJobResult(job.ResultPath, result.Result{
 		Status:       result.StatusSuccess,
 		Summary:      "finish won",
 		ChangedFiles: []string{},
