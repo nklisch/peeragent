@@ -1,7 +1,7 @@
 ---
 id: gate-cruft-unused-agent-display-name
 kind: story
-stage: implementing
+stage: review
 tags: [cleanup]
 parent: null
 depends_on: []
@@ -35,3 +35,11 @@ The helper has zero call sites after result construction moved into `internal/ap
 
 ## Removal
 Delete the unused function. Keep `agentID`, which remains live elsewhere. Run CLI tests and build.
+
+## Implementation Notes
+- Removed only the unused `agentDisplayName` helper from `cmd/peeragent/main.go`.
+- Kept `agentID` and all surrounding request/result behavior unchanged.
+
+## Verification
+- `go test ./cmd/peeragent`
+- `go build ./cmd/peeragent`

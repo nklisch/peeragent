@@ -362,15 +362,3 @@ func agentID(req input.Request) string {
 	return req.Agent
 }
 
-func agentDisplayName(req input.Request) string {
-	switch agentID(req) {
-	case "gemini":
-		return "Gemini"
-	case "claude":
-		return "Claude"
-	case "zai":
-		return "Z.AI GLM 5.2"
-	default:
-		return "Codex"
-	}
-}
