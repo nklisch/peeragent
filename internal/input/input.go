@@ -37,15 +37,6 @@ func Parse(args []string, stdin io.Reader, getwd func() (string, error)) (Reques
 		return Request{Help: true, JSON: parsed.json}, nil
 	}
 
-	cwd := strings.TrimSpace(parsed.cwd)
-	if cwd == "" {
-		var err error
-		cwd, err = getwd()
-		if err != nil {
-			return Request{}, fmt.Errorf("resolve cwd: %w", err)
-		}
-	}
-
 	parts := make([]string, 0, 3)
 	if joinedArgs := strings.TrimSpace(strings.Join(parsed.positionals, " ")); joinedArgs != "" {
 		parts = append(parts, joinedArgs)
@@ -72,26 +63,43 @@ func Parse(args []string, stdin io.Reader, getwd func() (string, error)) (Reques
 	}
 
 	taskText := strings.Join(parts, "\n\n")
-	if taskText == "" {
-		if parsed.statusJobID != "" || parsed.resultJobID != "" ||
-			parsed.cancelJobID != "" || parsed.jobRunID != "" {
-			taskText = ""
-		} else {
-			return Request{}, errors.New("no task text supplied")
-		}
+	controlRequest := parsed.statusJobID != "" || parsed.resultJobID != "" ||
+		parsed.cancelJobID != "" || parsed.jobRunID != ""
+	delegation := Delegation{
+		TaskText:   taskText,
+		CWD:        parsed.cwd,
+		Agent:      parsed.agent,
+		FullAccess: parsed.fullAccess,
+		Profile:    parsed.profile,
+		Effort:     parsed.effort,
+		Model:      parsed.model,
+		Resume:     parsed.resume,
+	}
+	if controlRequest && strings.TrimSpace(delegation.TaskText) == "" {
+		// Control operations have no delegation task, but still pass their
+		// target options through the canonical validator so malformed options
+		// cannot be accepted only because no target will run in this process.
+		delegation.TaskText = "control operation"
+	}
+	delegation, err = NormalizeDelegation(delegation, getwd)
+	if err != nil {
+		return Request{}, err
+	}
+	if controlRequest {
+		delegation.TaskText = ""
 	}
 
 	return Request{
-		TaskText:    taskText,
-		CWD:         cwd,
+		TaskText:    delegation.TaskText,
+		CWD:         delegation.CWD,
 		JSON:        parsed.json,
-		Agent:       parsed.agent,
-		FullAccess:  parsed.fullAccess,
+		Agent:       delegation.Agent,
+		FullAccess:  delegation.FullAccess,
 		Worktree:    parsed.worktree,
-		Profile:     parsed.profile,
-		Effort:      parsed.effort,
-		Model:       parsed.model,
-		Resume:      parsed.resume,
+		Profile:     delegation.Profile,
+		Effort:      delegation.Effort,
+		Model:       delegation.Model,
+		Resume:      delegation.Resume,
 		Async:       parsed.async,
 		JobRunID:    parsed.jobRunID,
 		StatusJobID: parsed.statusJobID,
@@ -250,16 +258,6 @@ func parseArgs(args []string) (parsedArgs, error) {
 	if parsed.sandbox && parsed.worktree {
 		return parsedArgs{}, errors.New("--sandbox cannot be combined with --worktree")
 	}
-	effort, err := normalizeEffort(parsed.agent, parsed.effort)
-	if err != nil {
-		return parsedArgs{}, err
-	}
-	parsed.effort = effort
-	model, err := normalizeModel(parsed.agent, parsed.model)
-	if err != nil {
-		return parsedArgs{}, err
-	}
-	parsed.model = model
 	return parsed, nil
 }
 

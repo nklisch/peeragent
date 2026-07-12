@@ -5,20 +5,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"time"
 
-	"github.com/nklisch/peeragent/internal/claude"
-	"github.com/nklisch/peeragent/internal/codex"
+	"github.com/nklisch/peeragent/internal/app"
 	"github.com/nklisch/peeragent/internal/executil"
-	"github.com/nklisch/peeragent/internal/gemini"
 	"github.com/nklisch/peeragent/internal/input"
 	"github.com/nklisch/peeragent/internal/jobs"
-	"github.com/nklisch/peeragent/internal/prompt"
 	"github.com/nklisch/peeragent/internal/result"
-	"github.com/nklisch/peeragent/internal/zai"
 )
+
+var applicationService = app.NewService(app.Options{})
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
@@ -115,8 +112,8 @@ func run(args []string) error {
 		os.Exit(1)
 	}
 
-	execResult, execErr := executeRequest(context.Background(), req)
-	res := resultFromExecution(req, execResult, execErr)
+	delegation := delegationFromRequest(req)
+	res, execResult, _ := applicationService.DelegateWithExecution(context.Background(), delegation)
 	attachExecutionLog(req, &res, execResult, "")
 	if err := writeResult(req, res); err != nil {
 		return err
@@ -128,65 +125,14 @@ func run(args []string) error {
 }
 
 func launchAsync(req input.Request) error {
-	store := jobs.NewStore(req.CWD)
-	job, err := store.Create(req.CWD, execSpecFromRequest(req), req.TaskText)
+	res, err := applicationService.Launch(context.Background(), delegationFromRequest(req))
+	if writeErr := writeResult(req, res); writeErr != nil {
+		return writeErr
+	}
 	if err != nil {
-		return err
+		os.Exit(1)
 	}
-
-	executable, err := os.Executable()
-	if err != nil {
-		return err
-	}
-
-	cmd := exec.Command(executable, asyncJobRunArgs(job.ID, req.CWD)...)
-	cmd.Dir = req.CWD
-
-	logFile, err := os.OpenFile(job.LogPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
-	if err != nil {
-		return err
-	}
-	defer logFile.Close()
-	cmd.Stdout = logFile
-	cmd.Stderr = logFile
-	jobs.ApplyDetachAttrs(cmd)
-
-	if err := cmd.Start(); err != nil {
-		return err
-	}
-	if err := store.WritePID(job.ID, cmd.Process.Pid); err != nil {
-		cleanupStartedAsyncProcess(cmd)
-		return err
-	}
-	if err := cmd.Process.Release(); err != nil {
-		_ = store.RemovePID(job.ID)
-		cleanupStartedAsyncProcess(cmd)
-		return err
-	}
-
-	return writeResult(req, result.Result{
-		Status:       result.StatusRunning,
-		Summary:      fmt.Sprintf("%s implementation job started", agentDisplayName(req)),
-		ChangedFiles: []string{},
-		Verification: []result.Verification{},
-		Metadata: result.Metadata{
-			CWD:          req.CWD,
-			Agent:        agentID(req),
-			Access:       accessMode(req),
-			Profile:      req.Profile,
-			Effort:       req.Effort,
-			Model:        req.Model,
-			AgentSession: req.Resume,
-			ExitCode:     0,
-			JobID:        job.ID,
-		},
-	})
-}
-
-func cleanupStartedAsyncProcess(cmd *exec.Cmd) {
-	_ = jobs.SignalProcessGroup(cmd.Process.Pid, jobs.KillSignal())
-	_ = cmd.Process.Kill()
-	_ = cmd.Wait()
+	return nil
 }
 
 func showJobStatus(req input.Request) error {
@@ -250,20 +196,6 @@ func showJobResult(req input.Request) error {
 		return err
 	}
 	return writeResult(req, res)
-}
-
-func execSpecFromRequest(req input.Request) jobs.ExecSpec {
-	return jobs.ExecSpec{
-		Agent:      agentID(req),
-		Access:     accessMode(req),
-		Profile:    req.Profile,
-		Effort:     req.Effort,
-		Model:      req.Model,
-		Resume:     req.Resume,
-		JSON:       req.JSON,
-		FullAccess: req.FullAccess,
-		Worktree:   req.Worktree,
-	}
 }
 
 func asyncJobRunArgs(jobID string, cwd string) []string {
@@ -464,8 +396,7 @@ func runAsyncJob(req input.Request) error {
 		return finishAsyncJob(store, job, res)
 	}
 
-	execResult, execErr := executeRequest(context.Background(), jobReq)
-	res := resultFromExecution(jobReq, execResult, execErr)
+	res, execResult, _ := applicationService.DelegateWithExecution(context.Background(), delegationFromRequest(jobReq))
 	res.Metadata.JobID = job.ID
 	attachExecutionLog(jobReq, &res, execResult, jobTargetLogPath(job))
 	return finishAsyncJob(store, job, res)
@@ -654,83 +585,21 @@ func jobTargetLogPath(job jobs.Job) string {
 	return filepath.Join(filepath.Dir(job.LogPath), "target.log")
 }
 
-func executeRequest(ctx context.Context, req input.Request) (executil.Result, error) {
-	agentPrompt := prompt.BuildForAgent(agentPromptName(req), req.TaskText)
-	switch agentID(req) {
-	case "gemini":
-		return gemini.Exec(ctx, gemini.Options{
-			CWD:        req.CWD,
-			Prompt:     agentPrompt,
-			FullAccess: req.FullAccess,
-			Model:      req.Model,
-			Resume:     req.Resume,
-		})
-	case "claude":
-		return claude.Exec(ctx, claude.Options{
-			CWD:        req.CWD,
-			Prompt:     agentPrompt,
-			FullAccess: req.FullAccess,
-			Effort:     req.Effort,
-			Model:      req.Model,
-			Resume:     req.Resume,
-		})
-	case "zai":
-		return zai.Exec(ctx, zai.Options{
-			CWD:        req.CWD,
-			Prompt:     agentPrompt,
-			FullAccess: req.FullAccess,
-			Effort:     req.Effort,
-			Model:      req.Model,
-			Resume:     req.Resume,
-		})
-	default:
-		return codex.Exec(ctx, codex.Options{
-			CWD:        req.CWD,
-			Prompt:     agentPrompt,
-			FullAccess: req.FullAccess,
-			Profile:    req.Profile,
-			Effort:     req.Effort,
-			Model:      req.Model,
-			Resume:     req.Resume,
-		})
-	}
-}
-
 func resultFromExecution(req input.Request, execResult executil.Result, execErr error) result.Result {
-	status := result.StatusSuccess
-	summary := fmt.Sprintf("%s implementation completed", agentDisplayName(req))
-	if execErr != nil {
-		status = result.StatusFailed
-		summary = execErr.Error()
-	} else if execResult.ExitCode != 0 {
-		status = result.StatusFailed
-		summary = fmt.Sprintf("%s exited with non-zero status", agentDisplayName(req))
-	}
-
-	return result.Result{
-		Status:       status,
-		Summary:      summary,
-		ChangedFiles: []string{},
-		Verification: []result.Verification{},
-		Details:      details(execResult.Stdout, execResult.Stderr),
-		Metadata: result.Metadata{
-			CWD:          req.CWD,
-			Agent:        agentID(req),
-			Access:       accessMode(req),
-			Profile:      req.Profile,
-			Effort:       req.Effort,
-			Model:        req.Model,
-			AgentSession: agentSession(req, execResult),
-			ExitCode:     execResult.ExitCode,
-		},
-	}
+	return app.ResultFromExecution(delegationFromRequest(req), execResult, execErr)
 }
 
-func agentSession(req input.Request, execResult executil.Result) string {
-	if execResult.AgentSession != "" {
-		return execResult.AgentSession
+func delegationFromRequest(req input.Request) input.Delegation {
+	return input.Delegation{
+		TaskText:   req.TaskText,
+		CWD:        req.CWD,
+		Agent:      agentID(req),
+		FullAccess: req.FullAccess,
+		Profile:    req.Profile,
+		Effort:     req.Effort,
+		Model:      req.Model,
+		Resume:     req.Resume,
 	}
-	return req.Resume
 }
 
 func agentID(req input.Request) string {
@@ -748,19 +617,6 @@ func agentDisplayName(req input.Request) string {
 		return "Claude"
 	case "zai":
 		return "Z.AI GLM 5.2"
-	default:
-		return "Codex"
-	}
-}
-
-func agentPromptName(req input.Request) string {
-	switch agentID(req) {
-	case "gemini":
-		return "Gemini through Antigravity CLI"
-	case "claude":
-		return "Claude Code"
-	case "zai":
-		return "Z.AI GLM 5.2 through Pi"
 	default:
 		return "Codex"
 	}

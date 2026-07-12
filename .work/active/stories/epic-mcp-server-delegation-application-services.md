@@ -1,7 +1,7 @@
 ---
 id: epic-mcp-server-delegation-application-services
 kind: story
-stage: implementing
+stage: review
 tags: [infra]
 parent: epic-mcp-server-delegation
 depends_on: []
@@ -24,3 +24,14 @@ Create the canonical delegation request normalizer and extract blocking executio
 - [ ] Existing CLI, target routing, result, launch-cleanup, and async tests remain green.
 - [ ] No package under `internal/` calls `os.Exit` or writes `os.Stdout`; validation enforces this adapter boundary.
 - [ ] Application tests cover successful, target-failed, and infrastructure-failed paths without local agent CLIs.
+
+## Implementation notes
+- Execution capability: highest, selected by the autopilot caller because this extraction changes process execution, CLI boundaries, and shared contracts.
+- Review weight: standard (project default; caller did not override it).
+- Dispatch rationale: direct-read only; the feature design and existing CLI/job/target packages fully identified the integration surface, so no exploratory worker was needed.
+- Files changed: `internal/input/delegation.go`, `internal/input/delegation_test.go`, `internal/input/input.go`, `internal/app/service.go`, `internal/app/execute.go`, `internal/app/service_test.go`, `cmd/peeragent/main.go`.
+- Tests added: canonical delegation normalization coverage; application success, target-failure, infrastructure-failure, cancellation, async launch, and injected-launcher coverage.
+- Discoveries: the CLI's raw target logging requires an application `DelegateWithExecution` seam in addition to the specified `Delegate` method; it preserves log fidelity without exposing raw output to MCP or duplicating target execution.
+- Discrepancies from design: infrastructure errors return both the established failed result and the underlying error so CLI can preserve its result contract while MCP can map the same condition to a protocol tool error. No behavioral discrepancy for target exit failures or async launch cleanup.
+- Adjacent issues parked: none.
+- Verification: `go test ./...` passed (146 tests across 11 packages); internal packages contain no `os.Exit` or `os.Stdout` writes.
