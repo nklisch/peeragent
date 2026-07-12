@@ -1,7 +1,7 @@
 ---
 id: gate-security-job-id-path-traversal
 kind: story
-stage: review
+stage: done
 tags: [security]
 parent: null
 depends_on: []
@@ -61,3 +61,7 @@ Validate externally supplied job ids against peeragent's generated id grammar be
 - Full tests: `go test ./...`
 - Static/build checks: `go vet ./...`; `go build ./...`
 - All checks passed. Story advanced from `implementing` to `review`; review owns approval.
+
+## Review
+
+Approved in an independent source review of commit `e1186d8`. The reviewer verified fail-fast boundary validation, store defense in depth, cross-platform separator rejection, generated-id compatibility, valid-missing exit-code-4 behavior, and focused/race/full verification. One informational error-context asymmetry was non-blocking.
