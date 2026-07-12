@@ -1,7 +1,7 @@
 ---
 id: epic-mcp-server
 kind: epic
-stage: review
+stage: done
 tags: [infra]
 parent: null
 depends_on: []
@@ -93,3 +93,11 @@ Verification across implementation and review:
 - Three independent fresh-context GLM 5.2 feature reviews approved the implementation. Accepted findings (misleading test name and extraction-residue wrappers) were fixed before child-feature approval; remaining comments were nits or disclosed host limitations.
 
 Effective worker capability: highest, selected for cross-cutting protocol, process-lifecycle, generated-contract, and plugin-distribution risk. Effective review weight: standard (autopilot default).
+
+## Review notes
+
+- Effective review weight: standard; lane: fresh-context deep aggregate review.
+- Reviewer: GLM 5.2. It independently reran vet, focused tests, race tests, schema inspection, packaged protocol validation, mirror checks, and substrate-state checks across the complete epic.
+- Verdict: approve. No blocker, important finding, or material cross-feature gap.
+- Low comments accepted as non-blocking follow-up opportunities rather than release blockers: MCP blocking calls do not create a CLI-style log artifact; the documented `peeragent mcp` subcommand must remain first; one defensive cancellation fallback is unreachable; plugin-default cwd assumes standard host project launch behavior. None violates the accepted contract, loses result data, or weakens safety.
+- Aggregate acceptance verified: CLI compatibility, four generated MCP tools, async and cancellation invariants, stdout purity, Go 1.25 baseline, both plugin install paths, packaging/release inclusion, approval/cwd/full-access guidance, skill fallback, and terminal substrate consistency.
