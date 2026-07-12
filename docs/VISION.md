@@ -22,7 +22,9 @@ one or more alternate local agent CLIs installed:
 
 Claude and Codex are also users of this project. Skills give each host a clear
 delegation contract: when to call another agent, what to send, how to interpret
-results, and how to continue after the target agent returns.
+results, and how to continue after the target agent returns. MCP-capable coding
+hosts can use the same delegation contract through peeragent's local stdio MCP
+server without requiring a host-specific skill.
 
 ## Problem
 
@@ -41,9 +43,10 @@ becoming a general multi-agent control panel.
 Alt Subagent is a plugin-ready repository containing:
 
 - A bundled `peeragent` CLI wrapper.
+- A local stdio MCP server exposing delegation and async job controls.
 - A `/peer` skill for focused delegation.
 - A `/peer-review` skill for iterative cross-model review.
-- A shared JSON result contract for host agents.
+- Shared request and result contracts across CLI, MCP, and host skills.
 
 The wrapper invokes the selected local CLI with predictable defaults, captures
 the outcome, and returns a concise result to the host.
@@ -69,6 +72,8 @@ agents, or reconcile ambiguous outputs.
 Concrete success criteria:
 
 - Claude and Codex can invoke `/peer` or `/peer-review`.
+- MCP-capable hosts can discover and invoke peeragent delegation and async job
+  tools through a local stdio server.
 - The wrapper can target `codex`, `gemini`, `claude`, or `zai`.
 - The `zai` target uses Pi with only Z.AI `glm-5.2` surfaced.
 - Target agents run in the current repository by default.
@@ -78,6 +83,7 @@ Concrete success criteria:
 
 ## Non-Goals
 
-Alt Subagent is not a dashboard, a general multi-agent orchestrator, a mandatory
-worktree manager, or a patch-only generator. It does not replace native
-interfaces, host-agent permissions, or human review for high-risk changes.
+Alt Subagent is not a dashboard, a general multi-agent orchestrator, a remote
+MCP service, an arbitrary MCP proxy, a mandatory worktree manager, or a
+patch-only generator. It does not replace native interfaces, host-agent
+permissions, or human review for high-risk changes.

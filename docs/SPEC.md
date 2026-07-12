@@ -11,6 +11,10 @@ The host-facing skills are:
 /peer-review [review context]
 ```
 
+MCP-capable hosts may instead start `peeragent mcp` as a local stdio server and
+invoke its delegation and async-job tools. The MCP adapter and CLI share the
+same request validation, execution, job store, and result contracts.
+
 Both skills call the same wrapper with an explicit target when the user or host
 selects one:
 
@@ -57,9 +61,19 @@ The project contains:
 - `plugin/bin/<target>/peeragent` — committed prebuilt binaries for each
   supported platform, included in the marketplace plugin artifact.
 - `cmd/peeragent/` and internal Go packages for the wrapper implementation.
+- An MCP stdio adapter that exposes shared application services without writing
+  non-protocol output to stdout.
 - `docs/` for foundation documents.
 
 ## Invocation Modes
+
+### MCP stdio
+
+`peeragent mcp` runs a Model Context Protocol server over stdin/stdout. It
+supports protocol initialization and tool discovery, blocking delegation,
+async delegation launch, job status, result retrieval, and cancellation. It
+does not listen on a network socket, forward arbitrary MCP server configuration
+to target agents, or encode the iterative `/peer-review` workflow.
 
 ### Blocking
 
@@ -188,6 +202,9 @@ approval classifier is a security guarantee.
 
 The project does not provide:
 
+- A remote or Streamable HTTP MCP service.
+- An arbitrary MCP proxy for target agents.
+- A first-class MCP tool for iterative peer-review orchestration.
 - A full agent job dashboard.
 - A replacement for Codex, Claude Code, Antigravity CLI, or Pi.
 - A replacement for host-agent permissions.

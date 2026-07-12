@@ -8,10 +8,10 @@ review work.
 
 ```text
 Host assistant session
-  -> host skill
-    -> bin/peeragent
-      -> dist/peeragent, go run cmd/peeragent, or bin/<goos>-<goarch>/peeragent
-        -> target CLI
+  -> host skill or MCP client
+    -> CLI adapter or stdio MCP adapter
+      -> shared peeragent application services
+        -> target CLI / async job store
           -> current repository working tree
 ```
 
@@ -44,19 +44,24 @@ bin/
 cmd/
   peeragent/
 internal/
+  app/       # shared delegation and job-control use cases
   claude/
   codex/
   executil/
   gemini/
   input/
   jobs/
+  mcp/       # stdio protocol adapter
   prompt/
   result/
   zai/
 docs/
 ```
 
-The plugin-level contract is the skill set and the `peeragent` executable.
+The plugin-level contract is the skill set and the `peeragent` executable. The
+executable has two inbound adapters: the existing CLI and a local stdio MCP
+server. Both call the same application services and return the same domain
+result semantics.
 
 ## Skill Role
 
@@ -83,7 +88,7 @@ checkout, and a committed platform binary at `bin/<goos>-<goarch>/peeragent`.
 If none of those resolve, the shim exits with code `3` and directs the user to
 install from the GitHub releases page.
 
-The wrapper:
+The wrapper's CLI adapter:
 
 - Parses flags and arbitrary task text.
 - Resolves the working directory.
@@ -95,6 +100,24 @@ The wrapper:
 - Captures final output and useful diagnostics.
 - Emits a concise result for the host.
 - Stores async job metadata when async mode is used.
+
+## MCP Adapter Role
+
+`peeragent mcp` is a stdio transport and protocol adapter. It owns MCP
+initialization, tool schemas, request decoding, protocol error mapping, and
+stdout purity. It delegates execution and job operations to shared application
+services also used by the CLI; it does not invoke the CLI parser in-process or
+spawn peeragent recursively.
+
+The adapter exposes blocking delegation and the async lifecycle: launch, status,
+result, and cancellation. Tool input schemas derive from the same authoritative
+request contract used by CLI validation, while tool results preserve the
+existing peeragent result fields. Protocol errors and valid peeragent failure
+results remain distinct.
+
+Because stdout carries protocol frames, diagnostics and target process output
+must never be written there by server infrastructure. Diagnostics go to stderr;
+target output remains captured by the existing execution and logging paths.
 
 ## Prompt Construction
 
@@ -161,8 +184,9 @@ untouched.
 ## Extension Points
 
 The architecture supports these extensions without changing the user-facing
-skills:
+skills or MCP tool semantics:
 
+- Additional MCP transports behind an explicit security and lifecycle design.
 - Structured output parsing when target CLIs provide reliable schemas.
 - Optional worktree mode.
 - Optional review-after-implementation hooks.
