@@ -1,7 +1,7 @@
 ---
 id: gate-patterns-inconsistency-lifecycle-status
 kind: story
-stage: drafting
+stage: implementing
 tags: [refactor]
 parent: null
 depends_on: []
@@ -23,3 +23,11 @@ The terminal sets are re-spelled in `internal/app/jobs.go` for persisted and pub
 ## Reconciliation direction
 
 Establish one authoritative persisted lifecycle type/registry at the lowest dependency layer and derive terminal membership and public mappings from it. Preserve unknown-state conservatism and all race semantics.
+
+## Design
+
+- Define typed lifecycle constants and terminal membership in `internal/jobs`, the persistence-owning package.
+- Replace raw lifecycle literals in `jobs.Store`, `internal/app` mappings, cancellation, and child completion with constants/helpers.
+- Keep `result.Status` as the public contract and centralize only persisted↔public conversion in application code.
+- Preserve unknown-as-running/non-terminal behavior and terminal race winners.
+- Extend mapping/guard tests and run race tests over jobs/app/MCP/CLI.
