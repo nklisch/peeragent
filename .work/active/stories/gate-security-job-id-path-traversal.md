@@ -1,7 +1,7 @@
 ---
 id: gate-security-job-id-path-traversal
 kind: story
-stage: drafting
+stage: implementing
 tags: [security]
 parent: null
 depends_on: []
@@ -39,3 +39,11 @@ func (s Store) jobDir(id string) string {
 ## Remediation direction
 
 Validate externally supplied job ids against peeragent's generated id grammar before any store access, and independently make `jobs.Store` reject unsafe path components as defense in depth. Add CLI, MCP, and store regression tests for traversal, separators, malformed ids, and valid generated ids.
+
+## Design
+
+- Make the generated job-id grammar authoritative in `internal/jobs` with an exported validation function used by both generation tests and store path construction.
+- Reject malformed ids before every store path join; application job request normalization calls the same validator for fail-fast CLI/MCP errors.
+- MCP handlers continue delegating to application normalization rather than duplicating grammar.
+- Cover valid generated ids, traversal, absolute paths, both separators, dot segments, wrong timestamp/hex lengths, Unicode, and NUL at store and application/MCP boundaries.
+- Return a tool/CLI input error without leaking target file contents; preserve exit-code-4 only for a syntactically valid but missing job.
