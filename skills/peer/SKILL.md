@@ -51,7 +51,7 @@ unless the user explicitly asked for that target permission mode.
 Pass the user's task text to the wrapper:
 
 ```bash
-<resolved-peeragent-bin> --agent <codex|claude|gemini|zai> "$ARGUMENTS"
+<resolved-peeragent-bin> --agent <codex|claude|gemini|zai> [--model <name>] "$ARGUMENTS"
 ```
 
 `--agent` defaults to `codex` if omitted. The wrapper runs in the current
@@ -62,9 +62,10 @@ JSON before responding to the user.
 
 The right peer is the agent you are not, unless the user named one.
 
-- **If you are Claude Code** → default to `--agent codex`. Use
-  `--agent gemini` or `--agent zai` when the user asks for that model, when
-  Codex isn't available, or when extra model diversity is useful.
+- **If you are Claude Code** → default to
+  `--agent codex --model luna --effort high`. Use `--agent gemini` or
+  `--agent zai` when the user asks for that model, when Codex isn't available,
+  or when extra model diversity is useful.
 - **If you are Codex** → default to `--agent claude`. Use
   `--agent gemini` or `--agent zai` when the user asks for that model, when
   Claude isn't available, or when extra model diversity is useful.
@@ -76,20 +77,23 @@ vice versa.
 
 ## Effort And Model
 
-Match depth to the task. Routine work takes the defaults; bump up only
-when the work is dense or the stakes are high.
+Use GPT-5.6 for all Codex work. Luna is the routine fast path; Sol is the
+flagship jump for difficult work. Terra is a useful bridge, but most calls can
+jump directly from Luna to Sol.
 
-| Target | Default | Lightweight | Deeper pass |
-| --- | --- | --- | --- |
-| `--agent codex` | `--effort high` | `--effort medium` | `--effort xhigh` |
-| `--agent claude` | `--model sonnet --effort xhigh` | `--model haiku --effort high` | `--model opus --effort xhigh` |
-| `--agent gemini` | fixed Gemini 3.5 (no flag needed) | — | — |
-| `--agent zai` | fixed Z.AI GLM 5.2 through Pi, `--effort high` | `--effort medium` | `--effort xhigh` |
+| Desired pass | Codex recommendation | Claude equivalent |
+| --- | --- | --- |
+| Routine / fast | `--model luna --effort high` | Sonnet-class |
+| Lots of work | `--model luna --effort xhigh` | Strong general pass |
+| Optional bridge | `--model terra --effort high` or `xhigh` | Between general and flagship |
+| Opus-tier | `--model sol --effort low` or `medium` | `--model opus --effort xhigh` |
+| Fable-tier | `--model sol --effort high` or `xhigh` | `--model fable --effort high` or `xhigh` |
 
-Claude rejects `--effort medium`. Gemini ignores `--effort` and `--model`
-beyond accepting `--model gemini-3.5` as a no-op for explicit metadata. Z.AI
-maps `--effort medium|high|xhigh` to Pi `--thinking` and accepts only
-`--model glm-5.2`; no other Z.AI model is surfaced.
+Claude also retains Opus, Sonnet, and Haiku aliases. Claude rejects `--effort medium`;
+peeragent exposes only `high|xhigh` for Claude. Gemini ignores `--effort` and
+`--model` beyond accepting `--model gemini-3.5` as a no-op for explicit
+metadata. Z.AI maps `--effort medium|high|xhigh` to Pi `--thinking` and accepts
+only `--model glm-5.2`; no other Z.AI model is surfaced.
 
 Quickly test whether the Z.AI target is configured before delegating:
 
@@ -118,10 +122,10 @@ the final completed agent message instead of the full stream of interim assistan
 messages. If a deeper look is needed, inspect `metadata.log_path` for raw target
 stdout/stderr, or use `metadata.agent_session` with `--resume` for continuity.
 
-Claude Opus runs, especially with `--effort xhigh`, may take 10 minutes or
-longer to finish. A slow or quiet Opus reply is not by itself evidence of a
-hung process; keep waiting unless the wrapper exits, reports failure, or there
-is concrete evidence the process is stuck.
+Claude Fable and Opus runs, especially with `--effort xhigh`, may take 10
+minutes or longer to finish. A slow or quiet flagship reply is not by itself
+evidence of a hung process; keep waiting unless the wrapper exits, reports
+failure, or there is concrete evidence the process is stuck.
 
 Include a no-recursion instruction in every handoff. Tell the peer
 explicitly **not** to reach for peeragent's own `peer` or `peer-review`
@@ -164,9 +168,10 @@ Use advanced modes only when the request calls for them:
   ask the user first if the wrapper reports full access is needed.
 - `--worktree` — reserved; returns a clear failure today.
 - `--profile <name>` — Codex profile override.
-- `--model <name>` — Claude aliases (`sonnet`, `opus`, `haiku`), explicit
-  Gemini `gemini-3.5`, or explicit Z.AI `glm-5.2`; no other Z.AI models are
-  accepted.
+- `--model <name>` — Codex GPT-5.6 aliases (`luna`, `terra`, `sol`) or their
+  canonical `gpt-5.6-*` IDs; Claude aliases (`fable`, `sonnet`, `opus`,
+  `haiku`); explicit Gemini `gemini-3.5`; or explicit Z.AI `glm-5.2`. No other
+  Z.AI models are accepted.
 - `--resume <agent-session>` — continue a prior target-agent session when
   the previous result included `metadata.agent_session`. Use it for continuity
   inside one multi-pass workflow; omit it for an independent second opinion.

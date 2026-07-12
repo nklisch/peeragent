@@ -18,6 +18,7 @@ type Options struct {
 	FullAccess bool
 	Profile    string
 	Effort     string
+	Model      string
 	Resume     string
 }
 
@@ -51,6 +52,7 @@ func buildArgs(opts Options) []string {
 			"--dangerously-bypass-approvals-and-sandbox",
 		}
 		args = append(args, profileArgs...)
+		args = append(args, modelArgs(opts.Model)...)
 		args = append(args, effortArgs(opts.Effort)...)
 		return append(args, opts.Prompt)
 	}
@@ -62,6 +64,7 @@ func buildArgs(opts Options) []string {
 	}
 	args = append(args, profileArgs...)
 	args = append(args, approvalArgs()...)
+	args = append(args, modelArgs(opts.Model)...)
 	args = append(args, effortArgs(opts.Effort)...)
 	return append(args, opts.Prompt)
 }
@@ -77,6 +80,7 @@ func buildResumeArgs(opts Options) []string {
 	} else {
 		args = append(args, approvalArgs()...)
 	}
+	args = append(args, modelArgs(opts.Model)...)
 	args = append(args, effortArgs(opts.Effort)...)
 	return append(args, opts.Resume, opts.Prompt)
 }
@@ -86,6 +90,13 @@ func profileArgs(profile string) []string {
 		return nil
 	}
 	return []string{"--profile", profile}
+}
+
+func modelArgs(model string) []string {
+	if model == "" {
+		return nil
+	}
+	return []string{"--model", model}
 }
 
 func effortArgs(effort string) []string {

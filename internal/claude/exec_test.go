@@ -60,7 +60,7 @@ func TestExecWithRunnerBuildsModelArgv(t *testing.T) {
 	stubLookPath(t)
 	run := &recordingRunner{result: Result{ExitCode: 0}}
 
-	_, err := ExecWithRunner(context.Background(), run, Options{CWD: "/repo", Prompt: "do work", Model: "opus"})
+	_, err := ExecWithRunner(context.Background(), run, Options{CWD: "/repo", Prompt: "do work", Model: "fable"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +70,7 @@ func TestExecWithRunnerBuildsModelArgv(t *testing.T) {
 		"--output-format", "json",
 		"--add-dir", "/repo",
 		"--permission-mode", "auto",
-		"--model", "opus",
+		"--model", "fable",
 		"--effort", "xhigh",
 		"do work",
 	}

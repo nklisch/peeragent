@@ -38,8 +38,9 @@ loop is overhead; reserve it for work where the loop pays for itself.
 
 The peer reviewer is the agent you are not.
 
-- If you are Claude Code, delegate review to Codex with
-  `<resolved-peeragent-bin> --agent codex ...`.
+- If you are Claude Code, delegate review to GPT-5.6 Codex with
+  `<resolved-peeragent-bin> --agent codex --model luna --effort high ...` for
+  routine review, escalating directly to Sol when deeper scrutiny is needed.
 - If you are Codex, delegate review to Claude with
   `<resolved-peeragent-bin> --agent claude ...`.
 - Gemini is also available (`--agent gemini`) when the user asks for it or
@@ -125,8 +126,9 @@ success looks like>."
 For a deeper review pass:
 
 ```bash
-<resolved-peeragent-bin> --agent codex --effort xhigh "..."
-<resolved-peeragent-bin> --agent claude --model opus --effort xhigh "..."
+<resolved-peeragent-bin> --agent codex --model luna --effort xhigh "..."
+<resolved-peeragent-bin> --agent codex --model sol --effort high "..."
+<resolved-peeragent-bin> --agent claude --model fable --effort xhigh "..."
 <resolved-peeragent-bin> --agent zai --effort xhigh "..."
 ```
 
@@ -142,8 +144,8 @@ pi --provider zai --model glm-5.2 --thinking high --no-session --no-tools -p 'Re
 If the Pi smoke test fails, configure Pi with `ZAI_API_KEY` or `/login` for the
 ZAI provider and retry. Peeragent does not expose other Z.AI models.
 
-Claude Opus review passes, especially with `--effort xhigh`, may take 10
-minutes or longer to finish. A slow or quiet Opus reply is not by itself
+Claude Fable and Opus review passes, especially with `--effort xhigh`, may take
+10 minutes or longer to finish. A slow or quiet flagship reply is not by itself
 evidence of a hung process; keep waiting unless the wrapper exits, reports
 failure, or there is concrete evidence the process is stuck.
 

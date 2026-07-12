@@ -41,14 +41,16 @@ Options:
   default when no access flag is supplied.
 - `--full-access`: Run the target with full local access.
 - `--worktree`: Reserved for future isolated worktree execution.
-- `--effort <medium|high|xhigh>`: Set target reasoning effort. Codex and Z.AI
-  default to `high` and accept `medium`, `high`, or `xhigh`; Claude defaults to
-  `xhigh` and accepts `high` or `xhigh`. Z.AI maps effort to Pi `--thinking`.
-- `--model <sonnet|opus|haiku|gemini-3.5|glm-5.2>`: Select a Claude model
-  alias, explicitly record the fixed Gemini 3.5 target, or explicitly record
-  the fixed Z.AI GLM 5.2 target. Gemini model selection is not passed to `agy`
-  because `agy --print` does not expose a non-interactive model flag. Z.AI
-  accepts only `glm-5.2`; no other Z.AI models are surfaced.
+- `--effort <low|medium|high|xhigh>`: Set target reasoning effort. Codex
+  defaults to `high` and accepts all four levels. Z.AI defaults to `high` and
+  accepts `medium`, `high`, or `xhigh`; Claude defaults to `xhigh` and accepts
+  `high` or `xhigh`. Z.AI maps effort to Pi `--thinking`.
+- `--model <luna|terra|sol|fable|sonnet|opus|haiku|gemini-3.5|glm-5.2>`:
+  Select a GPT-5.6 Codex tier or Claude alias, explicitly record the fixed
+  Gemini 3.5 target, or explicitly record the fixed Z.AI GLM 5.2 target. Codex
+  also accepts the canonical `gpt-5.6-*` IDs. Gemini model selection is not
+  passed to `agy` because `agy --print` does not expose a non-interactive model
+  flag. Z.AI accepts only `glm-5.2`; no other Z.AI models are surfaced.
 - `--profile <name>`: Pass a Codex configuration profile.
 - `--resume <agent-session>`: Resume a prior target-agent session when the
   target supports it. Use this for continuity inside one review loop; omit it
@@ -119,10 +121,11 @@ clone, or sandbox copy unless explicitly requested.
 
 ## Target Invocation
 
-Default Codex:
+Codex (when a recommended GPT-5.6 model is selected):
 
 ```text
 codex exec --json --cd <repo> --sandbox workspace-write \
+  --model gpt-5.6-<luna|terra|sol> \
   -c approval_policy="on-request" -c approvals_reviewer="auto_review" ...
 ```
 
@@ -144,12 +147,14 @@ Default Z.AI GLM 5.2 through Pi:
 pi --provider zai --model glm-5.2 --thinking <effort> --no-session -p ...
 ```
 
-When `--model` is provided for Claude, the wrapper passes `--model <alias>` to
-Claude Code. Accepted aliases are `sonnet`, `opus`, and `haiku`. When
-`--model gemini-3.5` is provided for Gemini, the wrapper records that model in
-metadata but leaves the `agy` argv unchanged. When `--model glm-5.2` is provided
-for Z.AI, the wrapper records the fixed target and passes that model to Pi;
-other Z.AI model names are rejected.
+For Codex, the short aliases `luna`, `terra`, and `sol` normalize to and pass
+through as `gpt-5.6-luna`, `gpt-5.6-terra`, and `gpt-5.6-sol`. The canonical
+IDs are also accepted. For Claude, the wrapper passes `--model <alias>` to
+Claude Code; accepted aliases are `fable`, `sonnet`, `opus`, and `haiku`.
+When `--model gemini-3.5` is provided for Gemini, the wrapper records that model
+in metadata but leaves the `agy` argv unchanged. When `--model glm-5.2` is
+provided for Z.AI, the wrapper records the fixed target and passes that model
+to Pi; other Z.AI model names are rejected.
 
 Full access maps to each target's explicit bypass flag where one exists. Pi has
 no separate peeragent sandbox/full-access toggle; its target uses Pi print mode

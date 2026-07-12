@@ -37,10 +37,13 @@ Usage:
 Flags:
   --agent <codex|claude|gemini|zai>
                                   Target assistant (default codex).
-  --model <name>                  Model override (claude: sonnet|opus|haiku;
-                                  gemini: gemini-3.5; zai: glm-5.2 only;
-                                  not used by codex).
-  --effort <medium|high|xhigh>    Reasoning effort (codex/zai default high;
+  --model <name>                  Model override (codex: luna|terra|sol,
+                                  GPT-5.6 recommended for all Codex work;
+                                  claude: fable|sonnet|opus|haiku;
+                                  gemini: gemini-3.5; zai: glm-5.2 only).
+  --effort <low|medium|high|xhigh>
+                                  Reasoning effort (codex default high, accepts
+                                  all four; zai default high, accepts medium+;
                                   claude default xhigh, accepts high|xhigh;
                                   unused by gemini).
   --profile <name>                Codex profile override.
@@ -687,6 +690,7 @@ func executeRequest(ctx context.Context, req input.Request) (executil.Result, er
 			FullAccess: req.FullAccess,
 			Profile:    req.Profile,
 			Effort:     req.Effort,
+			Model:      req.Model,
 			Resume:     req.Resume,
 		})
 	}

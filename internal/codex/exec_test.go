@@ -85,6 +85,55 @@ func TestExecWithRunnerBuildsProfileArgv(t *testing.T) {
 	}
 }
 
+func TestExecWithRunnerBuildsModelArgv(t *testing.T) {
+	stubLookPath(t)
+	run := &recordingRunner{result: Result{ExitCode: 0}}
+
+	_, err := ExecWithRunner(context.Background(), run, Options{CWD: "/repo", Prompt: "do work", Model: "gpt-5.6-luna"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	wantArgs := []string{
+		"exec",
+		"--json",
+		"--cd", "/repo",
+		"--sandbox", "workspace-write",
+		"-c", `approval_policy="on-request"`,
+		"-c", `approvals_reviewer="auto_review"`,
+		"--model", "gpt-5.6-luna",
+		"-c", `model_reasoning_effort="high"`,
+		"do work",
+	}
+	if !reflect.DeepEqual(run.args, wantArgs) {
+		t.Fatalf("args = %#v, want %#v", run.args, wantArgs)
+	}
+}
+
+func TestExecWithRunnerBuildsLowEffortArgv(t *testing.T) {
+	stubLookPath(t)
+	run := &recordingRunner{result: Result{ExitCode: 0}}
+
+	_, err := ExecWithRunner(context.Background(), run, Options{CWD: "/repo", Prompt: "do work", Effort: "low"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	wantArgs := []string{
+		"exec",
+		"--json",
+		"--cd", "/repo",
+		"--sandbox", "workspace-write",
+		"-c", `approval_policy="on-request"`,
+		"-c", `approvals_reviewer="auto_review"`,
+		"-c", `model_reasoning_effort="low"`,
+		"do work",
+	}
+	if !reflect.DeepEqual(run.args, wantArgs) {
+		t.Fatalf("args = %#v, want %#v", run.args, wantArgs)
+	}
+}
+
 func TestExecWithRunnerBuildsHighEffortArgv(t *testing.T) {
 	stubLookPath(t)
 	run := &recordingRunner{result: Result{ExitCode: 0}}
@@ -137,7 +186,7 @@ func TestExecWithRunnerBuildsResumeArgv(t *testing.T) {
 	stubLookPath(t)
 	run := &recordingRunner{result: Result{ExitCode: 0}}
 
-	_, err := ExecWithRunner(context.Background(), run, Options{CWD: "/repo", Prompt: "continue work", Resume: "019e6be9-b530-7ef3-96aa-989712db6ebb"})
+	_, err := ExecWithRunner(context.Background(), run, Options{CWD: "/repo", Prompt: "continue work", Model: "gpt-5.6-sol", Resume: "019e6be9-b530-7ef3-96aa-989712db6ebb"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -148,6 +197,7 @@ func TestExecWithRunnerBuildsResumeArgv(t *testing.T) {
 		"--json",
 		"-c", `approval_policy="on-request"`,
 		"-c", `approvals_reviewer="auto_review"`,
+		"--model", "gpt-5.6-sol",
 		"-c", `model_reasoning_effort="high"`,
 		"019e6be9-b530-7ef3-96aa-989712db6ebb",
 		"continue work",

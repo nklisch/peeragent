@@ -17,9 +17,9 @@ Host assistant session
 
 Supported target CLIs:
 
-- `codex exec` for Codex.
+- `codex exec` for Codex, including GPT-5.6 Luna, Terra, and Sol selection.
 - `agy --print` for Gemini through Antigravity CLI.
-- `claude --print` for Claude Code.
+- `claude --print` for Claude Code, including the Fable alias.
 - `pi --provider zai --model glm-5.2 -p` for Z.AI GLM 5.2 through Pi.
 
 The host decides when delegation is useful. The skill constrains host behavior

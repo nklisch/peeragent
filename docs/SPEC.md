@@ -94,10 +94,11 @@ repository and machine context.
 The default execution uses the same checkout and working tree as the host. It
 does not create a git worktree or sandboxed copy.
 
-Default target invocations:
+Target invocations (Codex shown with a selected GPT-5.6 tier):
 
 ```text
 codex exec --json --cd <repo> --sandbox workspace-write \
+  --model gpt-5.6-<luna|terra|sol> \
   -c approval_policy="on-request" -c approvals_reviewer="auto_review" ...
 agy --print --add-dir <repo> ...
 claude --print --output-format json --permission-mode auto --add-dir <repo> ...
@@ -115,16 +116,22 @@ claude --print --dangerously-skip-permissions ...
 Pi has no separate full-access argv; `--full-access` is recorded in metadata but
 Z.AI still runs through the same Pi print-mode surface.
 
-Codex reasoning effort defaults to `high`; the wrapper exposes `medium`,
-`high`, and `xhigh` for Codex. Z.AI GLM 5.2 also defaults to `high` and maps
-`medium`, `high`, and `xhigh` to Pi `--thinking`. Claude reasoning effort
-defaults to `xhigh` and exposes `high` and `xhigh`. Claude supports
-`--model sonnet`, `--model opus`, and `--model haiku`, which pass through to
-Claude Code. Gemini is treated as fixed Gemini 3.5; `--model gemini-3.5` is
-accepted for explicit metadata, but the wrapper does not pass a model flag to
-`agy` because `agy --print` does not expose a non-interactive model option.
-Z.AI is treated as fixed `glm-5.2`; peeragent rejects every other Z.AI model
-name even if Pi lists it.
+Codex reasoning effort defaults to `high`; the wrapper exposes `low`, `medium`,
+`high`, and `xhigh` for Codex. Its `luna`, `terra`, and `sol` aliases normalize
+to the corresponding `gpt-5.6-*` IDs and pass through to the Codex CLI. GPT-5.6
+is the recommended family for all Codex work: Luna at high is the routine fast
+path, Luna at xhigh handles larger workloads, Terra is an optional middle
+bridge, Sol at low or medium is roughly Opus-tier, and Sol at high or xhigh is
+roughly Fable-tier. Callers can jump directly from Luna to Sol.
+
+Z.AI GLM 5.2 defaults to `high` and maps `medium`, `high`, and `xhigh` to Pi
+`--thinking`. Claude reasoning effort defaults to `xhigh` and exposes `high`
+and `xhigh`. Claude supports `--model fable`, `--model sonnet`, `--model opus`,
+and `--model haiku`, which pass through to Claude Code. Gemini is treated as
+fixed Gemini 3.5; `--model gemini-3.5` is accepted for explicit metadata, but
+the wrapper does not pass a model flag to `agy` because `agy --print` does not
+expose a non-interactive model option. Z.AI is treated as fixed `glm-5.2`;
+peeragent rejects every other Z.AI model name even if Pi lists it.
 
 ## Session Continuity
 

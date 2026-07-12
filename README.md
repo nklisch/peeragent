@@ -73,8 +73,8 @@ The plugin exposes two skills, available in both Claude Code and Codex:
 Example prompts:
 
 ```text
-/peer Fix the failing parser test and run the relevant test package.
-/peer --agent claude --model opus --effort xhigh Refactor the result formatter and update its tests.
+/peer --agent codex --model luna --effort high Fix the failing parser test and run the relevant test package.
+/peer --agent claude --model fable --effort xhigh Refactor the result formatter and update its tests.
 /peer --agent gemini Inspect the CLI docs and patch stale usage text.
 /peer --agent zai --effort xhigh Ask GLM 5.2 to audit the retry edge cases.
 /peer-review
@@ -89,15 +89,20 @@ Peeragent does not automatically replace a host assistant's normal sub-agent
 pattern. If you want that behavior, add a project instruction to `CLAUDE.md` or
 `AGENTS.md` telling the host when to delegate through these skills.
 
-Use this rough equivalence when choosing a target:
+Use GPT-5.6 for Codex work. Luna is the fast default, Sol is the direct jump
+for demanding work, and Terra is an optional bridge when Luna is not enough but
+Sol is more than the task needs:
 
-| Desired delegated pass | Codex target | Claude target | Gemini target | Z.AI GLM 5.2 target |
-| --- | --- | --- | --- | --- |
-| Lightweight or fast pass | `--agent codex --effort medium` | `--agent claude --model haiku --effort high` | `--agent gemini --model gemini-3.5` | `--agent zai --effort medium` |
-| Normal implementation, research, or review pass | `--agent codex` or `--agent codex --effort high` | `--agent claude --model sonnet` or `--agent claude --model sonnet --effort xhigh` | `--agent gemini --model gemini-3.5` | `--agent zai` or `--agent zai --effort high` |
-| Deeper implementation, research, or review pass | `--agent codex --effort xhigh` | `--agent claude --model opus --effort xhigh` | `--agent gemini --model gemini-3.5` | `--agent zai --effort xhigh` |
+| Desired delegated pass | Recommended Codex target | Rough Claude tier |
+| --- | --- | --- |
+| Fast or routine | `--agent codex --model luna --effort high` | Sonnet-class |
+| Lots of routine work | `--agent codex --model luna --effort xhigh` | Strong general-purpose pass |
+| Middle bridge | `--agent codex --model terra --effort high` (or `xhigh`) | Between the general and flagship tiers |
+| Opus-tier | `--agent codex --model sol --effort low` (or `medium`) | `--agent claude --model opus --effort xhigh` |
+| Fable-tier | `--agent codex --model sol --effort high` (or `xhigh`) | `--agent claude --model fable --effort high` (or `xhigh`) |
 
-Gemini through Antigravity is treated as fixed Gemini 3.5 for this wrapper. The
+Most callers can jump directly from Luna to Sol rather than routing through
+Terra. Gemini through Antigravity is treated as fixed Gemini 3.5 for this wrapper. The
 `--model gemini-3.5` spelling is accepted when you want to be explicit, but the
 wrapper does not pass a model flag to `agy` because `agy --print` does not
 expose a non-interactive model option today. Z.AI through Pi is fixed to
@@ -113,8 +118,10 @@ When you would normally use an implementation, research, or review sub-agent,
 prefer `/peer` for concrete code changes, bug fixes, refactors, tests, docs
 updates, build fixes, research passes, and review passes in this repository.
 
-- Use `/peer` with no `--agent` flag for the default Codex pass.
-- Use `/peer --agent claude --model sonnet` for a normal Claude pass.
+- Use `/peer --agent codex --model luna --effort high` for routine work and
+  Luna at `xhigh` when there is lots of work. Jump to Sol at `low|medium` for an
+  Opus-tier pass or `high|xhigh` for a Fable-tier pass; Terra is an optional bridge.
+- Use `/peer --agent claude --model fable` for the strongest Claude pass.
 - Use `/peer --agent gemini` for a Gemini 3.5 pass through Antigravity.
 - Use `/peer --agent zai` for a Z.AI GLM 5.2 pass through Pi.
 - Use `--effort xhigh` when the work is dense or the stakes are high.
@@ -132,13 +139,13 @@ When you would normally use an implementation, research, or review sub-agent,
 prefer `/peer` for concrete code changes, bug fixes, refactors, tests, docs
 updates, build fixes, research passes, and review passes in this repository.
 
-- Use `/peer --agent claude` (default `--model sonnet`, default `--effort xhigh`)
-  for a normal Claude pass; `--model opus --effort xhigh` for the deeper Claude
-  pass; `--model haiku --effort high` for lightweight Claude work.
+- Use `/peer --agent claude --model fable --effort xhigh` for the strongest
+  Claude pass; Opus, Sonnet, and Haiku remain available for lower tiers.
 - Use `/peer --agent gemini` for a Gemini 3.5 pass through Antigravity.
 - Use `/peer --agent zai` for a Z.AI GLM 5.2 pass through Pi.
-- Use `/peer` with no `--agent` flag for a Codex pass at default high effort;
-  `--effort xhigh` for the deeper Codex pass.
+- For Codex, use GPT-5.6 Luna at `high` for routine work or `xhigh` for lots of
+  work. Jump directly to Sol at `low|medium` for an Opus-tier pass or
+  `high|xhigh` for a Fable-tier pass. Terra is an optional middle bridge.
 - Use `/peer-review` for iterative cross-model review of recent work.
 - Do not use peeragent for planning-only orchestration work.
 ```
@@ -156,7 +163,7 @@ make build
 Blocking mode is the default:
 
 ```sh
-bin/peeragent --agent codex "Implement the requested change and run relevant tests."
+bin/peeragent --agent codex --model luna --effort high "Implement the requested change and run relevant tests."
 bin/peeragent --agent gemini "Implement the requested change and run relevant tests."
 bin/peeragent --agent claude "Implement the requested change and run relevant tests."
 bin/peeragent --agent zai "Implement the requested change and run relevant tests."
@@ -165,7 +172,7 @@ bin/peeragent --agent zai "Implement the requested change and run relevant tests
 Read task text from a file:
 
 ```sh
-bin/peeragent --agent codex --prompt-file task.md
+bin/peeragent --agent codex --model luna --prompt-file task.md
 ```
 
 Run against another checkout:
@@ -197,21 +204,25 @@ use `metadata.agent_session` to resume the target session.
 
 ## Models, Effort, Profiles, And Access
 
-Codex, Claude, and Z.AI GLM 5.2 support `--effort`. Codex and Z.AI default to
-`high`; use `medium` only for lightweight work and `xhigh` for deeper passes.
-Claude defaults to `xhigh` and accepts only `high` or `xhigh`:
+Codex, Claude, and Z.AI GLM 5.2 support `--effort`. Codex defaults to `high`
+and accepts `low`, `medium`, `high`, and `xhigh`. Z.AI defaults to `high` and
+accepts `medium`, `high`, and `xhigh`. Claude defaults to `xhigh` and accepts
+only `high` or `xhigh` through peeragent:
 
 ```sh
-bin/peeragent --agent codex "Implement the routine change."
-bin/peeragent --agent codex --effort medium "Make the localized docs update."
-bin/peeragent --agent codex --effort xhigh "Review the cross-module migration for hidden regressions."
-bin/peeragent --agent claude --model sonnet "Implement the small change."
-bin/peeragent --agent claude --model opus --effort xhigh "Untangle the failing integration test."
-bin/peeragent --agent claude --model haiku --effort high "Make the localized docs update."
+bin/peeragent --agent codex --model luna --effort high "Implement the routine change."
+bin/peeragent --agent codex --model luna --effort xhigh "Work through the large routine change."
+bin/peeragent --agent codex --model sol --effort medium "Run an Opus-tier review."
+bin/peeragent --agent codex --model sol --effort xhigh "Run a Fable-tier migration."
+bin/peeragent --agent codex --model terra --effort high "Use the optional middle tier."
+bin/peeragent --agent claude --model fable --effort xhigh "Untangle the hardest integration test."
+bin/peeragent --agent claude --model opus --effort xhigh "Run an Opus pass."
 bin/peeragent --agent zai --effort xhigh "Review the cross-module migration for hidden regressions."
 ```
 
-Claude supports `--model sonnet`, `--model opus`, and `--model haiku`. Gemini
+Codex accepts the short aliases `luna`, `terra`, and `sol` and passes their
+canonical `gpt-5.6-*` model IDs to the Codex CLI. Claude supports `--model
+fable`, `--model sonnet`, `--model opus`, and `--model haiku`. Gemini
 accepts only `--model gemini-3.5`; this records the fixed Gemini target but does
 not add an `agy` model flag because `agy --print` does not expose a
 non-interactive model option. Use Antigravity's own `/model` flow outside this
@@ -227,7 +238,7 @@ bin/peeragent --agent zai --model glm-5.2 "Implement the requested change."
 Codex also supports profiles:
 
 ```sh
-bin/peeragent --agent codex --profile peeragent "Use this Codex profile."
+bin/peeragent --agent codex --model luna --profile peeragent "Use this Codex profile."
 ```
 
 Quick Z.AI GLM 5.2 configuration checks:

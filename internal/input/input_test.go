@@ -314,8 +314,18 @@ func TestParseEffortXHighBeforeAgentForCodex(t *testing.T) {
 	}
 }
 
+func TestParseEffortLowForCodex(t *testing.T) {
+	req, err := Parse([]string{"--effort", "low", "task"}, nil, fixedCWD)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if req.Effort != "low" {
+		t.Fatalf("Effort = %q", req.Effort)
+	}
+}
+
 func TestParseRejectsUnsupportedEffort(t *testing.T) {
-	_, err := Parse([]string{"--effort", "low", "task"}, nil, fixedCWD)
+	_, err := Parse([]string{"--effort", "minimal", "task"}, nil, fixedCWD)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -373,12 +383,16 @@ func TestParseRejectsUnsupportedEffortForZAI(t *testing.T) {
 }
 
 func TestParseClaudeModel(t *testing.T) {
-	req, err := Parse([]string{"--agent", "claude", "--model", "opus", "task"}, nil, fixedCWD)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if req.Model != "opus" {
-		t.Fatalf("Model = %q", req.Model)
+	for _, model := range []string{"fable", "opus"} {
+		t.Run(model, func(t *testing.T) {
+			req, err := Parse([]string{"--agent", "claude", "--model", model, "task"}, nil, fixedCWD)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if req.Model != model {
+				t.Fatalf("Model = %q", req.Model)
+			}
+		})
 	}
 }
 
@@ -450,7 +464,32 @@ func TestParseRejectsUnsupportedZAIModel(t *testing.T) {
 	}
 }
 
-func TestParseRejectsModelForCodex(t *testing.T) {
+func TestParseCodexModels(t *testing.T) {
+	tests := map[string]string{
+		"luna":          "gpt-5.6-luna",
+		"gpt5.6-luna":   "gpt-5.6-luna",
+		"gpt-5.6-luna":  "gpt-5.6-luna",
+		"terra":         "gpt-5.6-terra",
+		"gpt5.6-terra":  "gpt-5.6-terra",
+		"gpt-5.6-terra": "gpt-5.6-terra",
+		"sol":           "gpt-5.6-sol",
+		"gpt5.6-sol":    "gpt-5.6-sol",
+		"gpt-5.6-sol":   "gpt-5.6-sol",
+	}
+	for inputModel, want := range tests {
+		t.Run(inputModel, func(t *testing.T) {
+			req, err := Parse([]string{"--model", inputModel, "task"}, nil, fixedCWD)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if req.Model != want {
+				t.Fatalf("Model = %q, want %q", req.Model, want)
+			}
+		})
+	}
+}
+
+func TestParseRejectsUnsupportedModelForCodex(t *testing.T) {
 	_, err := Parse([]string{"--model", "opus", "task"}, nil, fixedCWD)
 	if err == nil {
 		t.Fatal("expected error")

@@ -286,10 +286,10 @@ func normalizeEffort(agent string, effort string) (string, error) {
 			return "high", nil
 		}
 		switch effort {
-		case "medium", "high", "xhigh":
+		case "low", "medium", "high", "xhigh":
 			return effort, nil
 		default:
-			return "", errors.New("--effort for codex must be medium, high, or xhigh")
+			return "", errors.New("--effort for codex must be low, medium, high, or xhigh")
 		}
 	case "claude":
 		if effort == "" {
@@ -330,12 +330,23 @@ func normalizeModel(agent string, model string) (string, error) {
 		return "", nil
 	}
 	switch agent {
+	case "codex":
+		switch model {
+		case "luna", "gpt5.6-luna", "gpt-5.6-luna":
+			return "gpt-5.6-luna", nil
+		case "terra", "gpt5.6-terra", "gpt-5.6-terra":
+			return "gpt-5.6-terra", nil
+		case "sol", "gpt5.6-sol", "gpt-5.6-sol":
+			return "gpt-5.6-sol", nil
+		default:
+			return "", errors.New("--model for codex must be luna, terra, sol, or the corresponding gpt-5.6-* model id")
+		}
 	case "claude":
 		switch model {
-		case "sonnet", "opus", "haiku":
+		case "fable", "sonnet", "opus", "haiku":
 			return model, nil
 		default:
-			return "", errors.New("--model for claude must be sonnet, opus, or haiku")
+			return "", errors.New("--model for claude must be fable, sonnet, opus, or haiku")
 		}
 	case "gemini":
 		switch model {
@@ -352,6 +363,6 @@ func normalizeModel(agent string, model string) (string, error) {
 			return "", errors.New("--model for zai is fixed to glm-5.2")
 		}
 	default:
-		return "", errors.New("--model is supported only for claude, gemini, or zai")
+		return "", errors.New("--model is supported only for codex, claude, gemini, or zai")
 	}
 }

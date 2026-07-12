@@ -128,6 +128,10 @@ grep -q -- '--agent claude' README.md
 grep -q -- '--agent zai' README.md
 grep -q -- '--effort high' README.md
 grep -q -- '--effort xhigh' README.md
+grep -q -- '--model luna' README.md
+grep -q -- '--model terra' README.md
+grep -q -- '--model sol' README.md
+grep -q -- '--model fable' README.md
 grep -q -- '--model opus' README.md
 grep -q -- '--model gemini-3.5' README.md
 grep -q -- '--model glm-5.2' README.md
@@ -147,12 +151,12 @@ if grep -R -F -- '--result [job-id]' README.md docs skills; then
   exit 1
 fi
 
-if grep -R -F -- '--effort low' README.md docs skills; then
-  echo "unsupported low effort example found"
+if grep -R -E -- '--agent (claude|zai)[^|`]*--effort low|--model (fable|sonnet|opus|haiku|glm-5\.2)[^|`]*--effort low' README.md docs skills; then
+  echo "low effort is supported only for Codex"
   exit 1
 fi
 
-if grep -R -E -- '--agent claude[^|`]*--effort medium|--model (sonnet|opus|haiku)[^|`]*--effort medium|Claude defaults to `medium`|Claude reasoning effort defaults to `medium`|accepts `medium` or `high`' README.md docs skills; then
+if grep -R -E -- '--agent claude[^|`]*--effort medium|--model (fable|sonnet|opus|haiku)[^|`]*--effort medium|Claude defaults to `medium`|Claude reasoning effort defaults to `medium`|accepts `medium` or `high`' README.md docs skills; then
   echo "stale Claude medium effort example found"
   exit 1
 fi
