@@ -69,4 +69,6 @@ updated: 2026-07-12
 
 - **gate-security** (2026-07-12) — 8 findings (0 critical, 0 high, 1 medium, 7 low); emitted 1 active remediation story and 7 backlog items.
 
-Pending configured gates: tests, cruft, docs, patterns.
+- **gate-tests** (2026-07-12) — 4 coverage gaps (0 critical, 1 high, 2 medium, 1 low); emitted 3 active remediation stories and 1 backlog item; no tautological tests found.
+
+Pending configured gates: cruft, docs, patterns.
