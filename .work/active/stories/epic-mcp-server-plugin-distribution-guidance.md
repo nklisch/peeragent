@@ -1,7 +1,7 @@
 ---
 id: epic-mcp-server-plugin-distribution-guidance
 kind: story
-stage: review
+stage: done
 tags: [docs]
 parent: epic-mcp-server-plugin-distribution
 depends_on: [epic-mcp-server-plugin-distribution-config]
@@ -19,13 +19,13 @@ Document automatic plugin MCP availability, tool contracts, standalone stdio set
 
 ## Acceptance criteria
 
-- [ ] Claude Code and Codex plugin users need no separate global MCP setup.
-- [ ] All four tools and the async workflow are documented accurately.
-- [ ] Full-access delegation and job cancellation are described as explicit write/destructive operations.
-- [ ] Optional `cwd` is documented as intentional cross-repository reach and omitted by default unless the user requests it.
-- [ ] Standalone setup, reload/restart, and troubleshooting guidance is actionable.
-- [ ] Skills preserve peer-review orchestration and wrapper fallback.
-- [ ] Canonical and packaged skill copies remain identical.
+- [x] Claude Code and Codex plugin users need no separate global MCP setup.
+- [x] All four tools and the async workflow are documented accurately.
+- [x] Full-access delegation and job cancellation are described as explicit write/destructive operations.
+- [x] Optional `cwd` is documented as intentional cross-repository reach and omitted by default unless the user requests it.
+- [x] Standalone setup, reload/restart, and troubleshooting guidance is actionable.
+- [x] Skills preserve peer-review orchestration and wrapper fallback.
+- [x] Canonical and packaged skill copies remain identical.
 
 ## Implementation notes
 
@@ -40,3 +40,9 @@ Document automatic plugin MCP availability, tool contracts, standalone stdio set
 - Environment limitations: neither Claude nor Codex exposes a non-interactive command in these versions that enumerates the four tools from an installed plugin. Codex server discovery was verified without faking tool enumeration; the four-tool protocol list was verified by the packaged-shim smoke using the fresh `dist/peeragent` through the packaged shim because committed platform binaries are owned by the existing refresh workflow and were intentionally not changed.
 - Discrepancies from design: none.
 - Adjacent issues parked: none.
+
+## Review notes
+
+- Effective review weight: standard; fresh-context deep review covered public contracts, safety posture, and host skill behavior.
+- Evidence: reviewer verified MCP-first/fallback/no-recursion clauses, four-tool and async guidance, approval posture, cwd/full-access/cancel constraints, docs non-goals, and byte-identical packaged mirrors.
+- Verdict: approve. No blocking or important findings.
