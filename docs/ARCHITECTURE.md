@@ -58,10 +58,12 @@ internal/
 docs/
 ```
 
-The plugin-level contract is the skill set and the `peeragent` executable. The
-executable has two inbound adapters: the existing CLI and a local stdio MCP
-server. Both call the same application services and return the same domain
-result semantics.
+The plugin-level contract is the skill set, bundled MCP configuration, and the
+`peeragent` executable. The executable has two inbound adapters: the existing
+CLI and a local stdio MCP server. Both call the same application services and
+return the same domain result semantics. Claude Code and Codex manifests point
+to host-specific MCP configuration files so each can resolve the packaged
+binary with its own plugin-root variable without a brittle cross-host shim.
 
 ## Skill Role
 

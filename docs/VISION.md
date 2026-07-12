@@ -43,7 +43,8 @@ becoming a general multi-agent control panel.
 Alt Subagent is a plugin-ready repository containing:
 
 - A bundled `peeragent` CLI wrapper.
-- A local stdio MCP server exposing delegation and async job controls.
+- A local stdio MCP server exposing delegation and async job controls, bundled
+  into both the Claude Code and Codex plugins.
 - A `/peer` skill for focused delegation.
 - A `/peer-review` skill for iterative cross-model review.
 - Shared request and result contracts across CLI, MCP, and host skills.

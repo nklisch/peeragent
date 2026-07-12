@@ -25,6 +25,7 @@ The first release is a stdio server for local process configuration. It exposes 
 - **Transport**: The first version supports stdio only. It does not open a network listener or add daemon lifecycle and authentication concerns.
 - **Tool surface**: Include blocking delegation and the existing async job lifecycle (launch, status, result, cancel). Iterative peer-review orchestration remains in the host skill rather than becoming an MCP tool.
 - **Compatibility**: Preserve the current CLI and JSON result contract. MCP is an adapter over shared application services, not an alternate implementation.
+- **Plugin integration**: Bundle and enable the stdio server as an MCP component in both the Claude Code and Codex plugin packages. Each ecosystem gets a plugin-root-safe MCP config rather than requiring users to edit global MCP settings.
 
 ## Scope boundaries
 
@@ -32,5 +33,6 @@ The first release is a stdio server for local process configuration. It exposes 
 - Add a stdio MCP server entry mode and protocol adapter.
 - Extract shared application services from the CLI composition root where needed.
 - Cover protocol initialization, tool discovery, calls, errors, cancellation, and stdout purity.
-- Document configuration examples for supported MCP-capable hosts.
+- Bundle host-specific MCP configuration in the Claude Code and Codex plugins, including portable resolution of the packaged peeragent binary.
+- Document plugin-provided and standalone configuration examples for supported MCP-capable hosts.
 - Do not add Streamable HTTP, remote access, arbitrary MCP forwarding, or a first-class peer-review workflow.

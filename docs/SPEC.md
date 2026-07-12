@@ -12,8 +12,11 @@ The host-facing skills are:
 ```
 
 MCP-capable hosts may instead start `peeragent mcp` as a local stdio server and
-invoke its delegation and async-job tools. The MCP adapter and CLI share the
-same request validation, execution, job store, and result contracts.
+invoke its delegation and async-job tools. The Claude Code and Codex plugin
+packages bundle this server as an MCP component with host-specific plugin-root
+resolution, so installing the plugin does not require separate global MCP
+configuration. The MCP adapter and CLI share the same request validation,
+execution, job store, and result contracts.
 
 Both skills call the same wrapper with an explicit target when the user or host
 selects one:
@@ -63,6 +66,7 @@ The project contains:
 - `cmd/peeragent/` and internal Go packages for the wrapper implementation.
 - An MCP stdio adapter that exposes shared application services without writing
   non-protocol output to stdout.
+- Host-specific bundled MCP configuration referenced by both plugin manifests.
 - `docs/` for foundation documents.
 
 ## Invocation Modes
