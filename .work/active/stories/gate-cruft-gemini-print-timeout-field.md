@@ -1,7 +1,7 @@
 ---
 id: gate-cruft-gemini-print-timeout-field
 kind: story
-stage: implementing
+stage: review
 tags: [cleanup]
 parent: null
 depends_on: []
@@ -41,3 +41,11 @@ Remove the unused option field and replace the fallback branch with a package-le
 - Remove `Options.PrintTimeout`; add one package constant; keep `--print-timeout 15m` in every generated argv.
 - Update the argv test to assert the unchanged value and run Gemini plus full Go tests.
 - This is behavior-preserving cleanup; no documentation or public contract changes.
+
+## Implementation Notes
+- Removed the never-configured `Options.PrintTimeout` field.
+- Added the package-level `agyPrintTimeout = "15m"` constant and pass it unconditionally.
+- Kept all generated Antigravity argv, including `--print-timeout 15m`, unchanged.
+
+## Verification
+- `go test ./internal/gemini`

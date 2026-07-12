@@ -11,13 +11,14 @@ import (
 
 type Result = executil.Result
 
+const agyPrintTimeout = "15m"
+
 type Options struct {
-	CWD          string
-	Prompt       string
-	FullAccess   bool
-	Model        string
-	Resume       string
-	PrintTimeout string
+	CWD        string
+	Prompt     string
+	FullAccess bool
+	Model      string
+	Resume     string
 }
 
 var lookPath = exec.LookPath
@@ -88,10 +89,7 @@ func buildArgs(opts Options) []string {
 		args = append(args, "--dangerously-skip-permissions")
 	}
 	args = append(args, "--add-dir", opts.CWD)
-	if opts.PrintTimeout == "" {
-		opts.PrintTimeout = "15m"
-	}
-	args = append(args, "--print-timeout", opts.PrintTimeout)
+	args = append(args, "--print-timeout", agyPrintTimeout)
 	if opts.Resume != "" {
 		args = append(args, "--conversation", opts.Resume)
 	}
