@@ -53,3 +53,5 @@ All passed in land mode after dependency `gate-security-job-id-path-traversal` r
 ## Review
 
 Approved from the independent security review of commit `e1186d8`, which explicitly verified store/application/MCP/CLI coverage, cross-platform separators, malformed grammar cases, valid generated ids, missing-job semantics, and race/full-suite results.
+
+Release validation subsequently exposed two stale smoke fixtures using the now-invalid literal `missing-job`. `scripts/validate.sh` now uses the syntactically valid but absent `20000101T000000Z-00000000`, preserving the intended exit-code-4 lookup assertion under the new grammar.

@@ -4,6 +4,8 @@ set -eu
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$ROOT"
 VERSION=$(awk -F'"' '/"version"[[:space:]]*:/ { print $4; exit }' .claude-plugin/plugin.json)
+# Syntactically valid but intentionally absent, so lookup reaches the not-found contract.
+MISSING_JOB_ID=20000101T000000Z-00000000
 
 step() {
   printf '\n==> %s\n' "$1"
@@ -50,7 +52,7 @@ for t in linux-amd64 linux-arm64 darwin-amd64 darwin-arm64; do
 done
 
 set +e
-committed_out=$(plugin/bin/peeragent --status missing-job 2>&1)
+committed_out=$(plugin/bin/peeragent --status "$MISSING_JOB_ID" 2>&1)
 committed_code=$?
 set -e
 if [ "$committed_code" -ne 4 ]; then
@@ -191,7 +193,7 @@ fi
 
 step "shim smoke"
 set +e
-status_output=$(bin/peeragent --status missing-job 2>&1)
+status_output=$(bin/peeragent --status "$MISSING_JOB_ID" 2>&1)
 status_code=$?
 set -e
 
@@ -202,7 +204,7 @@ if [ "$status_code" -ne 4 ]; then
 fi
 
 printf '%s\n' "$status_output" | grep -q '"status":"failed"'
-printf '%s\n' "$status_output" | grep -q '"job_id":"missing-job"'
+printf '%s\n' "$status_output" | grep -q '"job_id":"'"$MISSING_JOB_ID"'"'
 printf '%s\n' "$status_output" | grep -q '"exit_code":4'
 
 step "shim PEERAGENT_BIN self-exec-loop guard"
@@ -213,7 +215,7 @@ step "shim PEERAGENT_BIN self-exec-loop guard"
 # Run under `timeout` so a regression (guard removed/broken) hangs the test
 # rather than passing by luck.
 set +e
-loop_output=$(timeout 3 env PEERAGENT_BIN="$ROOT/bin/peeragent" bin/peeragent --status missing-job 2>&1)
+loop_output=$(timeout 3 env PEERAGENT_BIN="$ROOT/bin/peeragent" bin/peeragent --status "$MISSING_JOB_ID" 2>&1)
 loop_code=$?
 set -e
 if [ "$loop_code" -ne 2 ]; then
