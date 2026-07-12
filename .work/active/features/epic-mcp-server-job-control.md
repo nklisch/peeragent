@@ -1,7 +1,7 @@
 ---
 id: epic-mcp-server-job-control
 kind: feature
-stage: review
+stage: done
 tags: [infra]
 parent: epic-mcp-server
 depends_on: [epic-mcp-server-delegation]
@@ -63,9 +63,9 @@ func (s *Service) JobResult(context.Context, JobRequest) (result.Result, error)
 Normalize cwd and require a non-empty job id before opening the repository-local store. `JobStatus` maps persisted job states through the existing result status mapping. `JobResult` returns running when the result file is absent and decodes the terminal shared result otherwise. Missing job state produces the existing exit-code-4 failed result.
 
 **Acceptance criteria**:
-- [ ] CLI `--status` and `--result` output and exit behavior stay compatible.
-- [ ] Running, complete, failed, cancelled, missing, and corrupt state paths are tested.
-- [ ] MCP and CLI consume the same returned `result.Result` rather than reading files independently.
+- [x] CLI `--status` and `--result` output and exit behavior stay compatible.
+- [x] Running, complete, failed, cancelled, missing, and corrupt state paths are tested.
+- [x] MCP and CLI consume the same returned `result.Result` rather than reading files independently.
 
 ### Unit 2: Shared cancellation service
 **Files**: `internal/app/cancel.go`, `internal/app/cancel_test.go`, `cmd/peeragent/main.go`
@@ -82,13 +82,13 @@ func (s *Service) CancelJob(context.Context, JobRequest) (result.Result, error)
 Move the TERM-then-KILL/wait sequence behind one injectable process controller rather than exposing each signal and clock operation separately. Once the locked cancelled result is persisted, finish process termination and PID cleanup independently of the caller context, with the existing bounded grace periods, so a disconnect cannot strand the child. Preserve terminal result conflict detection and idempotent repeated cancellation.
 
 **Acceptance criteria**:
-- [ ] Completion wins if its terminal result exists before cancellation commits.
-- [ ] Cancellation wins atomically when no competing terminal result exists.
-- [ ] TERM escalates to KILL after the existing grace period and PID state is removed.
-- [ ] Repeated cancellation is idempotent and never signals an already-complete process.
-- [ ] After the cancelled result is persisted, TERM/KILL and PID removal complete even if the caller context is cancelled mid-call.
-- [ ] No package under `internal/` calls `os.Exit` or writes `os.Stdout`; validation enforces this adapter boundary.
-- [ ] Tests use fake process control and do not signal real process groups.
+- [x] Completion wins if its terminal result exists before cancellation commits.
+- [x] Cancellation wins atomically when no competing terminal result exists.
+- [x] TERM escalates to KILL after the existing grace period and PID state is removed.
+- [x] Repeated cancellation is idempotent and never signals an already-complete process.
+- [x] After the cancelled result is persisted, TERM/KILL and PID removal complete even if the caller context is cancelled mid-call.
+- [x] No package under `internal/` calls `os.Exit` or writes `os.Stdout`; validation enforces this adapter boundary.
+- [x] Tests use fake process control and do not signal real process groups.
 
 ### Unit 3: MCP job tools
 **Files**: `internal/mcp/jobs.go`, `internal/mcp/server.go`, `internal/mcp/server_test.go`
@@ -110,11 +110,11 @@ type JobInput struct {
 Register three typed tools. Mark `job_status` and `job_result` read-only/non-destructive; mark `job_cancel` write-capable and destructive. All return `result.Result` as structured content. Update server instructions with the async workflow: `delegate(async=true)` → `job_status` → `job_result`, with `job_cancel` only on explicit intent.
 
 **Acceptance criteria**:
-- [ ] Tool discovery lists all four total server tools with correct schemas and annotations.
-- [ ] Status and result calls do not mutate persisted state.
-- [ ] Cancellation is visibly write/destructive to hosts and returns the shared cancelled or race-winning result.
-- [ ] Invalid/missing ids fail before store or process operations.
-- [ ] Concurrent MCP calls preserve job-store locking and terminal-state invariants.
+- [x] Tool discovery lists all four total server tools with correct schemas and annotations.
+- [x] Status and result calls do not mutate persisted state.
+- [x] Cancellation is visibly write/destructive to hosts and returns the shared cancelled or race-winning result.
+- [x] Invalid/missing ids fail before store or process operations.
+- [x] Concurrent MCP calls preserve job-store locking and terminal-state invariants.
 
 ## Implementation order
 
@@ -146,3 +146,9 @@ Register three typed tools. Mark `job_status` and `job_result` read-only/non-des
 - Design decisions recorded in child items: service-level working-directory resolver for one lookup normalizer; context-free process-control port for disconnect-safe cleanup; typed combined MCP service contract to prevent incomplete tool registration.
 - Discrepancies from design: none.
 - Adjacent issues parked: none.
+
+## Review notes
+
+- Effective review weight: standard; lane: fresh-context deep review due cancellation, process lifecycle, persistence races, and destructive tool semantics.
+- Reviewer: GLM 5.2. It manually traced every terminal transition and verified completion/cancellation winners, stale-state repair, post-commit cleanup, schemas, annotations, cwd behavior, concurrency, and CLI compatibility.
+- Verdict: approve with comments. Removed six extraction-residue wrappers from `cmd/peeragent/main.go` and pointed tests at the authoritative application functions. The remaining boolean-pointer style nit is optional.
