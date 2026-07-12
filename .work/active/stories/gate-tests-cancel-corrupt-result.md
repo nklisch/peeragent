@@ -1,7 +1,7 @@
 ---
 id: gate-tests-cancel-corrupt-result
 kind: story
-stage: drafting
+stage: implementing
 tags: [testing]
 parent: null
 depends_on: []
@@ -33,3 +33,7 @@ func TestCancelJobReportsCorruptResultAsInfrastructureError(t *testing.T) {
 
 ## Test location (suggested)
 `internal/app/cancel_test.go`
+
+## Design
+
+Add one focused service test that creates a valid running job, writes malformed `result.json`, invokes `CancelJob` with fake process control, and asserts an infrastructure/decode error. Assert no cancellation result is fabricated, no process is signaled, and persisted running state remains unchanged. Run application race tests and the full suite.
