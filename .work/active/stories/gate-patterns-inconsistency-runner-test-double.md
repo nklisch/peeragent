@@ -1,7 +1,7 @@
 ---
 id: gate-patterns-inconsistency-runner-test-double
 kind: story
-stage: review
+stage: done
 tags: [refactor]
 parent: null
 depends_on: []
@@ -39,3 +39,7 @@ Introduce a focused shared test-support package or helper that preserves package
 
 ## Verification
 - `go test ./internal/claude ./internal/codex ./internal/gemini ./internal/zai`
+
+## Review
+
+Approved by independent source review of commit `9e316ff`. The shared double satisfies `executil.Runner`, is imported only from test files, preserves local `lookPath` cleanup and every target assertion, and passed all adapter tests.
