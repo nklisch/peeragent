@@ -1,7 +1,7 @@
 ---
 id: epic-mcp-server-delegation-stdio-server
 kind: story
-stage: review
+stage: done
 tags: [infra]
 parent: epic-mcp-server-delegation
 depends_on: [epic-mcp-server-delegation-application-services]
@@ -19,13 +19,13 @@ Raise the Go baseline to 1.25, add the official MCP Go SDK v1.6.1 in this story 
 
 ## Acceptance criteria
 
-- [ ] MCP initialization, instructions, list-tools, generated schemas, and delegate calls work through an in-memory client/server test.
-- [ ] Blocking and async results preserve the peeragent result schema.
-- [ ] Invalid delegation input is rejected before execution.
-- [ ] Context cancellation reaches blocking target execution.
-- [ ] A subprocess smoke test proves protocol stdout purity.
-- [ ] CI workflows, build scripts, and installation docs are audited for independent Go 1.22 assumptions; the supported minimum is stated as Go 1.25.
-- [ ] Existing CLI behavior remains green under Go 1.25.
+- [x] MCP initialization, instructions, list-tools, generated schemas, and delegate calls work through an in-memory client/server test.
+- [x] Blocking and async results preserve the peeragent result schema.
+- [x] Invalid delegation input is rejected before execution.
+- [x] Context cancellation reaches blocking target execution.
+- [x] A subprocess smoke test proves protocol stdout purity.
+- [x] CI workflows, build scripts, and installation docs are audited for independent Go 1.22 assumptions; the supported minimum is stated as Go 1.25.
+- [x] Existing CLI behavior remains green under Go 1.25.
 
 ## Design correction
 
@@ -42,3 +42,9 @@ Implementation verified that the `github.com/modelcontextprotocol/go-sdk@v1.6.1`
 - Discrepancies from design: the SDK's own stdio transport batches protocol writes until a response is read, so the subprocess smoke test follows the real request/response sequence instead of closing stdin immediately after a burst. No product-contract discrepancy.
 - Adjacent issues parked: none.
 - Verification: focused MCP tests passed (11 tests); CLI/MCP subprocess tests passed; `go test -race ./internal/mcp` passed; `go test ./...` passed (159 tests across 12 packages); `go build -o /tmp/peeragent-mcp ./cmd/peeragent` passed.
+
+## Review notes
+
+- Effective review weight: standard (autopilot default); fresh-context deep review was required for the new protocol and public tool contract.
+- Evidence: GLM 5.2 review verified real generated schemas and stdio framing, plus green build, vet, full tests, and race tests.
+- Verdict: approve with comments; no blocker or important finding applied to this story.
