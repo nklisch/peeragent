@@ -19,6 +19,22 @@ reviews; you weigh the feedback honestly; you refine the work; you ask again.
 Convergence is the goal — not consensus, not politeness, not a clean signoff
 no one earned.
 
+## MCP-first behavior
+
+The MCP server exposes delegation, not the iterative review loop. When the host
+has `peeragent` MCP available, use its `delegate` tool for each review pass and
+keep the review/refine loop in this skill. Prefer `async: true` for a pass that
+may exceed the host tool timeout, then poll `job_status` and retrieve the result
+with `job_result`. Omit `cwd` unless the user explicitly requests a different
+checkout; provide the same explicit `cwd` for later job-control calls. Keep
+`full_access` and `job_cancel` approval-gated because they can change or
+terminate work.
+
+If the MCP server is unavailable, use the bundled-wrapper procedure below. Do
+not recursively ask a delegated reviewer to invoke peeragent's `peer` or
+`peer-review` skill, MCP `delegate`, or wrapper. The reviewer is the endpoint of
+each pass; it may use its own local tools but must not hand the review back.
+
 ## When To Use
 
 - You just finished a design, refactor, implementation, plan, or doc and

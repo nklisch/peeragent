@@ -34,6 +34,8 @@ performs the implementation, research, or review work.
   plugin.json
 .codex-plugin/
   plugin.json
+.mcp.claude.json
+.mcp.codex.json
 skills/
   peer/
     SKILL.md
@@ -65,6 +67,19 @@ return the same domain result semantics. Claude Code and Codex manifests point
 to host-specific MCP configuration files so each can resolve the packaged
 binary with its own plugin-root variable without a brittle cross-host shim.
 
+Installing and enabling either bundled plugin makes the `peeragent` MCP server
+available without a separate global MCP entry. Claude Code reads
+`.mcp.claude.json` through `${CLAUDE_PLUGIN_ROOT}`; Codex reads
+`.mcp.codex.json` through `${PLUGIN_ROOT}`. Each config contains one local
+stdio server and starts `bin/peeragent mcp`. The configs are deliberately
+separate because host-root interpolation is not portable between ecosystems.
+
+Host approval policy remains authoritative. `delegate` can change the checkout
+and `job_cancel` is destructive; `job_status` and `job_result` are read-only.
+The skills prefer these MCP tools when the server is available and fall back to
+the bundled wrapper for older hosts or standalone skill use. The host, not the
+MCP adapter, owns iterative peer-review orchestration.
+
 ## Skill Role
 
 Each skill tells the host:
@@ -74,6 +89,8 @@ Each skill tells the host:
 - How to pass arbitrary task text to the wrapper.
 - Which flags are available.
 - That blocking mode is the default.
+- That MCP `delegate` with `async: true` is preferred for work likely to exceed
+  the host tool timeout, followed by `job_status` and `job_result`.
 - That the wrapper result must be read before responding.
 - That the host remains responsible for continuing the user conversation.
 

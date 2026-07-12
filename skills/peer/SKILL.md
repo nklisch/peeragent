@@ -24,6 +24,22 @@ spots — implementation, research, review, debugging, refactors, doc
 updates, build fixes. Not just "implementation" despite the historical
 name.
 
+## MCP-first behavior
+
+If the host exposes the bundled `peeragent` MCP server, prefer its `delegate`
+tool over shelling out to this skill's wrapper. Pass the task as `task`, select
+`agent` when needed, and omit `cwd` unless the user explicitly asks for a
+cross-repository checkout. For work likely to exceed the host tool timeout, set
+`async: true`, poll `job_status`, and retrieve the completed result with
+`job_result`. Ask for explicit user intent before using `full_access: true` or
+`job_cancel`; both can change or terminate work.
+
+If the MCP server is unavailable, use the bundled-wrapper procedure below. Do
+not assume a globally installed `peeragent` command. Whether the MCP tool or
+wrapper is used, never recursively delegate through peeragent's `peer` or
+`peer-review` skill, MCP `delegate`, or wrapper from the delegated task. The
+peer is the endpoint of this handoff.
+
 ## Default Behavior
 
 Do not assume `peeragent` is on `PATH`. Resolve the bundled wrapper before

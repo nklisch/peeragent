@@ -83,6 +83,98 @@ Example prompts:
 The host assistant remains responsible for reading the wrapper result and
 explaining the outcome to you.
 
+## Bundled MCP Server
+
+Installing and enabling the Claude Code or Codex plugin also enables the local
+`peeragent` MCP server. No separate global MCP configuration is required. The
+plugin manifest points at a host-specific config so Claude Code resolves
+`${CLAUDE_PLUGIN_ROOT}/bin/peeragent` and Codex resolves
+`${PLUGIN_ROOT}/bin/peeragent`; the two root variables are intentionally not
+interchangeable.
+
+The server exposes four tools:
+
+- `delegate` runs a short task in blocking mode or starts a tracked job with
+  `async: true`.
+- `job_status` polls a repository-local async job.
+- `job_result` retrieves its structured result and target details.
+- `job_cancel` marks a job cancelled and terminates its detached process group.
+
+Prefer the async workflow for implementation, research, or review work likely
+to exceed the host MCP tool timeout: call `delegate` with `async: true`, poll
+with `job_status`, and call `job_result` when complete. `delegate` and
+`job_cancel` can write to the checkout and should remain approval-gated in the
+host. `job_status` and `job_result` are read-only and are reasonable candidates
+for automatic approval. These annotations reinforce host policy; they are not
+a security boundary. For Codex, plugin-scoped enablement is visible with
+`codex plugin list` after `codex plugin add peeragent@peeragent`; approve
+`delegate` and `job_cancel` when the host asks, while allowing read-only status
+and result calls according to your normal MCP policy. Claude Code uses the
+equivalent plugin lifecycle (`claude plugin list`, `claude plugin enable`) and
+its normal tool permission prompts for the same approval distinction.
+
+The server uses the current repository by default. Omit `cwd` unless the user
+explicitly requests work in another checkout; setting it is intentional
+cross-repository reach and must be repeated for job status, result, or cancel.
+Set `full_access: true` only after explicit user approval. It disables the
+target's bounded mode and can modify or delete files beyond normal sandbox
+limits. MCP provides no review-orchestration tool, HTTP transport, or arbitrary
+MCP proxy; `/peer-review` remains host-side orchestration.
+
+### Standalone MCP setup
+
+For an MCP host without the plugin, install an executable first and make
+`peeragent` available on `PATH` (or replace it with an absolute path). Then use
+the host's stdio MCP configuration, for example:
+
+```json
+{
+  "mcpServers": {
+    "peeragent": {
+      "command": "peeragent",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+Codex's equivalent command is:
+
+```sh
+codex mcp add peeragent -- peeragent mcp
+```
+
+A standalone server does not download an executable, provide target-agent
+credentials, or open a network listener. The installed executable still needs
+the local target CLI and authentication described below.
+
+### Plugin reload and troubleshooting
+
+After changing plugin files, restart the host session; Claude Code plugin
+changes also require a reload/restart before MCP configuration is rescanned.
+For Claude Code, check the package without starting a model session with:
+
+```sh
+claude plugin validate --strict plugin
+```
+
+For Codex, verify that the installed plugin is enabled and that its bundled
+server is listed:
+
+```sh
+codex plugin list
+codex mcp list
+codex mcp get peeragent
+```
+
+If the server is listed but tools do not appear, restart the host and confirm
+that the plugin's platform binary is executable. Run `peeragent mcp` only with
+an MCP client or protocol inspector: stdout is reserved for JSON-RPC frames and
+human-readable diagnostics go to stderr. The packaged configs and manifests
+are `.mcp.claude.json`, `.mcp.codex.json`, `.claude-plugin/plugin.json`, and
+`.codex-plugin/plugin.json`; do not substitute one host's root variable for the
+other.
+
 ## Agent Equivalence And Defaults
 
 Peeragent does not automatically replace a host assistant's normal sub-agent

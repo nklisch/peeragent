@@ -15,6 +15,47 @@ The task text is treated as delegated task intent, not as shell syntax. The
 wrapper is responsible for preserving the text safely when invoking the target
 agent.
 
+## MCP Interface
+
+`peeragent mcp` is a local stdio MCP server. The Claude Code and Codex plugin
+packages enable it automatically through their host-specific manifests; plugin
+users do not need a separate global MCP entry. Non-plugin hosts must have an
+installed `peeragent` executable and configure a stdio server that runs
+`peeragent mcp` (or an absolute path to that executable):
+
+```json
+{
+  "mcpServers": {
+    "peeragent": {
+      "command": "peeragent",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+The server exposes exactly four tools:
+
+- `delegate`: run one focused delegation, or set `async: true` to return a
+  tracked job id without waiting for the target agent.
+- `job_status`: read compact status for a repository-local async job.
+- `job_result`: read the structured result after a job completes.
+- `job_cancel`: explicitly cancel a job, marking it terminal and terminating
+  its detached process group on supported platforms.
+
+Use async delegation for work likely to exceed the host tool timeout, then poll
+`job_status` and retrieve `job_result`. `delegate` and `job_cancel` are
+write/destructive operations and should remain approval-gated by the host;
+status and result are read-only. `full_access` is an explicit opt-in that
+disables the target's bounded mode. `cwd` is optional and defaults to the
+server working directory; setting it is intentional cross-repository reach and
+should be omitted unless the user asks for it. Job-control calls for a job
+started with another `cwd` must provide that same directory.
+
+MCP is a local stdio adapter only. It does not provide HTTP transport, arbitrary
+MCP forwarding, or an MCP peer-review orchestration tool. The host skills keep
+that review loop.
+
 ## Wrapper Interface
 
 ```text

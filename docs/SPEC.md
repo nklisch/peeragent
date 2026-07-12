@@ -66,7 +66,10 @@ The project contains:
 - `cmd/peeragent/` and internal Go packages for the wrapper implementation.
 - An MCP stdio adapter that exposes shared application services without writing
   non-protocol output to stdout.
-- Host-specific bundled MCP configuration referenced by both plugin manifests.
+- Host-specific bundled MCP configuration referenced by both plugin manifests:
+  `.mcp.claude.json` uses `${CLAUDE_PLUGIN_ROOT}` and `.mcp.codex.json` uses
+  `${PLUGIN_ROOT}`. The configs execute `bin/peeragent mcp` and are copied into
+  the curated `plugin/` tree.
 - `docs/` for foundation documents.
 
 ## Invocation Modes
@@ -78,6 +81,15 @@ supports protocol initialization and tool discovery, blocking delegation,
 async delegation launch, job status, result retrieval, and cancellation. It
 does not listen on a network socket, forward arbitrary MCP server configuration
 to target agents, or encode the iterative `/peer-review` workflow.
+
+Installing and enabling either bundled plugin makes the server available under
+`peeragent` without a separate global MCP setup. Host approval controls still
+apply: `delegate` may edit the checkout and `job_cancel` terminates a detached
+job, while `job_status` and `job_result` are read-only. Hosts should use
+`async: true` for work likely to outlast their tool timeout, then poll status and
+retrieve the result. `full_access` and an alternate `cwd` are explicit options;
+`cwd` should be omitted unless the user requests intentional cross-repository
+reach.
 
 ### Blocking
 
