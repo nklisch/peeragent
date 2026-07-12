@@ -1,7 +1,7 @@
 ---
 id: epic-mcp-server-delegation-application-services
 kind: story
-stage: review
+stage: done
 tags: [infra]
 parent: epic-mcp-server-delegation
 depends_on: []
@@ -19,11 +19,11 @@ Create the canonical delegation request normalizer and extract blocking executio
 
 ## Acceptance criteria
 
-- [ ] CLI parsing and MCP delegation request validation both use `input.NormalizeDelegation`; no second validation path exists.
-- [ ] Blocking execution and async launch are callable through injected application ports.
-- [ ] Existing CLI, target routing, result, launch-cleanup, and async tests remain green.
-- [ ] No package under `internal/` calls `os.Exit` or writes `os.Stdout`; validation enforces this adapter boundary.
-- [ ] Application tests cover successful, target-failed, and infrastructure-failed paths without local agent CLIs.
+- [x] CLI parsing and MCP delegation request validation both use `input.NormalizeDelegation`; no second validation path exists.
+- [x] Blocking execution and async launch are callable through injected application ports.
+- [x] Existing CLI, target routing, result, launch-cleanup, and async tests remain green.
+- [x] No package under `internal/` calls `os.Exit` or writes `os.Stdout`; validation enforces this adapter boundary.
+- [x] Application tests cover successful, target-failed, and infrastructure-failed paths without local agent CLIs.
 
 ## Implementation notes
 - Execution capability: highest, selected by the autopilot caller because this extraction changes process execution, CLI boundaries, and shared contracts.
@@ -35,3 +35,10 @@ Create the canonical delegation request normalizer and extract blocking executio
 - Discrepancies from design: infrastructure errors return both the established failed result and the underlying error so CLI can preserve its result contract while MCP can map the same condition to a protocol tool error. No behavioral discrepancy for target exit failures or async launch cleanup.
 - Adjacent issues parked: none.
 - Verification: `go test ./...` passed (146 tests across 11 packages); internal packages contain no `os.Exit` or `os.Stdout` writes.
+
+## Review notes
+
+- Effective review weight: standard (autopilot default); escalated to fresh-context deep review because this story changes the shared caller/execution boundary.
+- Evidence: fresh GLM 5.2 review plus `go build`, `go vet ./...`, `go test ./...`, and race tests over app/input/MCP/CLI packages.
+- Verdict: approve with comments. Renamed the misleading executable-resolution test to describe the verified contract: the failed launch returns the id of the job record already persisted for that attempt.
+- Remaining comments were non-blocking cleanup/style nits.

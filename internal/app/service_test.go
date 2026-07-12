@@ -131,7 +131,7 @@ func TestLaunchInfrastructureFailureReturnsErrorAndFailedResult(t *testing.T) {
 	}
 }
 
-func TestLaunchDoesNotCreateJobWhenExecutableResolutionFails(t *testing.T) {
+func TestLaunchReturnsPersistedJobIDWhenExecutableResolutionFails(t *testing.T) {
 	expected := errors.New("executable unavailable")
 	service := NewService(Options{
 		Executable: func() (string, error) { return "", expected },
