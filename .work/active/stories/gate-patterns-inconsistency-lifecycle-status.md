@@ -1,7 +1,7 @@
 ---
 id: gate-patterns-inconsistency-lifecycle-status
 kind: story
-stage: review
+stage: done
 tags: [refactor]
 parent: null
 depends_on: []
@@ -40,3 +40,7 @@ Establish one authoritative persisted lifecycle type/registry at the lowest depe
 - Discrepancies from design: `app.ResultStatusFromJob` and `app.IsTerminalJobStatus` retain their string-facing signatures for existing CLI/test compatibility, while converting to the typed `jobs.Status` internally; persisted `Job.Status` and guarded-save results are typed.
 - Adjacent issues parked: none.
 - Verification: focused tests, focused race tests, full tests, `go vet ./...`, and `go build ./...` all passed.
+
+## Review
+
+Approved by independent deep review of commit `8307e73` plus amendment `9a27e66`. Persisted JSON strings remain compatible; unknown states remain non-terminal/running; guarded cancellation/completion winners and dependency direction are unchanged. One residual MCP test literal and stale pattern line references were corrected. Independent focused race tests, vet, and build passed.
