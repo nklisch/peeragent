@@ -1,7 +1,7 @@
 ---
 id: epic-mcp-server-job-control-tools
 kind: story
-stage: review
+stage: done
 tags: [infra]
 parent: epic-mcp-server-job-control
 depends_on: [epic-mcp-server-job-control-application-services]
@@ -19,12 +19,12 @@ Register typed `job_status`, `job_result`, and `job_cancel` tools over the share
 
 ## Acceptance criteria
 
-- [ ] Tool discovery exposes delegate plus all three job tools with correct schemas.
-- [ ] Read-only annotations distinguish status/result from destructive cancellation.
-- [ ] Running, terminal, missing, corrupt, and cancellation-race outcomes map correctly.
-- [ ] Repository cwd defaults and explicit overrides use the same normalizer.
-- [ ] At least eight concurrent status/result/cancel calls against one job preserve consistent job/result files and produce one allowed terminal winner.
-- [ ] Application and MCP packages pass `go test -race` in validation.
+- [x] Tool discovery exposes delegate plus all three job tools with correct schemas.
+- [x] Read-only annotations distinguish status/result from destructive cancellation.
+- [x] Running, terminal, missing, corrupt, and cancellation-race outcomes map correctly.
+- [x] Repository cwd defaults and explicit overrides use the same normalizer.
+- [x] At least eight concurrent status/result/cancel calls against one job preserve consistent job/result files and produce one allowed terminal winner.
+- [x] Application and MCP packages pass `go test -race` in validation.
 
 ## Implementation notes
 - Execution capability: highest, retained from the autopilot caller because typed protocol contracts, destructive cancellation annotations, and concurrent MCP calls exercise the process-race boundary implemented by the prerequisite story.
@@ -35,3 +35,9 @@ Register typed `job_status`, `job_result`, and `job_cancel` tools over the share
 - Discrepancies from design: none.
 - Verification: `go test ./internal/mcp ./cmd/peeragent` passed (41 tests); race, full-suite, vet, and build evidence will be appended to the parent implementation summary.
 - Adjacent issues parked: none.
+
+## Review notes
+
+- Effective review weight: standard; fresh-context deep review covered the complete async MCP contract.
+- Evidence: generated schema/annotation inspection, structured call tests, cwd normalization, eight-way concurrency, full tests, race tests, vet, build, and manual terminal-race analysis.
+- Verdict: approve with comments; no blocking or important finding applied to the MCP job tools.
