@@ -73,4 +73,6 @@ updated: 2026-07-12
 
 - **gate-cruft** (2026-07-12) — 2 findings (1 high confidence, 1 medium confidence, 0 low); emitted 2 active cleanup stories.
 
-Pending configured gates: docs, patterns.
+- **gate-docs** (2026-07-12) — 1 medium-confidence README staleness finding; emitted 1 active documentation story; no foundation assertion, skill, pattern, generated-file, or changelog drift.
+
+Pending configured gates: patterns.
