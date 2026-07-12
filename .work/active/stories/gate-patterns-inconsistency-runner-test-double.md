@@ -1,7 +1,7 @@
 ---
 id: gate-patterns-inconsistency-runner-test-double
 kind: story
-stage: drafting
+stage: implementing
 tags: [refactor]
 parent: null
 depends_on: []
@@ -23,3 +23,10 @@ updated: 2026-07-12
 ## Reconciliation direction
 
 Introduce a focused shared test-support package or helper that preserves package-specific lookPath restoration and argv assertions without coupling production adapters. Keep behavior and test coverage unchanged.
+
+## Design
+
+- Add an internal test-support package exposing a recording `executil.Runner`; keep each adapter's package-local `lookPath` assignment/restoration helper because unexported variables cannot be set externally.
+- Replace four duplicate runner structs/methods with the shared double while retaining local argv assertions and cleanup.
+- Do not move production code or target-specific fixtures.
+- Run all target adapter tests and the full suite.
