@@ -29,7 +29,7 @@ This feature extends the server and application boundary established by `epic-mc
 
 ## Design decisions
 
-- **Tool granularity**: Expose `job_status`, `job_result`, and `job_cancel` separately. Each operation has distinct read/write annotations and host approval behavior; one overloaded job tool would obscure cancellation risk.
+- **Tool granularity**: Expose `job_status`, `job_result`, and `job_cancel` separately. Cancellation needs distinct destructive/write annotations. Status and result are both read-only but intentionally separate: status is a compact polling operation that never returns potentially large target details, while result retrieves the full terminal contract only when the host asks for it.
 - **Lookup scope**: Every tool accepts `job_id` plus optional `cwd`, defaulting to the MCP server working directory. Job IDs remain repository-local and are never searched globally.
 - **Result semantics**: Missing jobs return the existing structured failed result with metadata exit code 4. A job without `result.json` returns `status: running`. Corrupt persisted state is a tool/infrastructure error because no truthful domain result can be reconstructed.
 - **Cancellation**: Preserve the existing lock, result-first terminal transition, process-group TERM/KILL sequence, and completed-vs-cancelled race winner exactly. MCP request cancellation must not abort cleanup after cancellation has committed terminal state.
@@ -73,21 +73,21 @@ Normalize cwd and require a non-empty job id before opening the repository-local
 
 ```go
 type ProcessController interface {
-    TerminateGroup(pid int) error
-    KillGroup(pid int) error
-    GroupExists(pid int) bool
+    TerminateAndWait(pid int, termGrace, killGrace time.Duration) error
 }
 
 func (s *Service) CancelJob(context.Context, JobRequest) (result.Result, error)
 ```
 
-Move cancellation orchestration behind an injectable process controller and clock/wait policy. Once the locked cancelled result is persisted, finish PID cleanup with a bounded internal context even if the caller disconnects, so the child is not stranded. Preserve terminal result conflict detection and idempotent repeated cancellation.
+Move the TERM-then-KILL/wait sequence behind one injectable process controller rather than exposing each signal and clock operation separately. Once the locked cancelled result is persisted, finish process termination and PID cleanup independently of the caller context, with the existing bounded grace periods, so a disconnect cannot strand the child. Preserve terminal result conflict detection and idempotent repeated cancellation.
 
 **Acceptance criteria**:
 - [ ] Completion wins if its terminal result exists before cancellation commits.
 - [ ] Cancellation wins atomically when no competing terminal result exists.
 - [ ] TERM escalates to KILL after the existing grace period and PID state is removed.
 - [ ] Repeated cancellation is idempotent and never signals an already-complete process.
+- [ ] After the cancelled result is persisted, TERM/KILL and PID removal complete even if the caller context is cancelled mid-call.
+- [ ] No package under `internal/` calls `os.Exit` or writes `os.Stdout`; validation enforces this adapter boundary.
 - [ ] Tests use fake process control and do not signal real process groups.
 
 ### Unit 3: MCP job tools
@@ -127,10 +127,11 @@ Register three typed tools. Mark `job_status` and `job_result` read-only/non-des
 - Add table-driven service tests for every persisted status, absent results, missing ids, missing jobs, malformed JSON, repeated cancellation, and competing completion.
 - Inject process control and short wait policies to deterministically test TERM/KILL behavior.
 - Extend in-memory MCP integration tests to invoke all job tools and inspect tool annotations.
-- Run race-enabled package tests for concurrent status/result/cancel calls where CI budget permits.
+- Add a deterministic test with at least eight concurrent status/result/cancel calls against one job and assert one allowed terminal winner with consistent `job.json`/`result.json`; run `go test -race` for the application and MCP packages in validation.
 
 ## Risks
 
 - **Cancellation refactor**: This is the highest-risk unit because terminal files, locks, PIDs, and real process state cross boundaries. Preserve write order and add tests before moving logic.
 - **Context lifetime**: Blindly honoring a disconnected MCP context after persisting cancellation can strand a target. Cleanup needs a bounded continuation context, while pre-commit cancellation can still abort safely.
 - **Host approval**: Tool annotations are hints, not authorization. Plugin configuration and server instructions must still recommend prompting for `delegate` and `job_cancel`.
+- **Cross-repository scope**: Optional `cwd` permits intentional operation outside the server's starting repository. Documentation must identify that capability explicitly and recommend omitting `cwd` unless the user requested cross-repository work.

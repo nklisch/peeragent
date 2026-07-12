@@ -60,3 +60,17 @@ The epic is split by delivered capability rather than implementation layer. The 
 - MCP stdout is a protocol channel, while several current paths write results or exit directly. The application boundary must return values and typed errors instead of writing or terminating the process.
 - Host MCP calls commonly have shorter timeouts than delegated agent runs. Async launch must be the documented path for substantial work even though blocking delegation remains available.
 - Claude Code and Codex use different plugin-root variables. Separate configs avoid interpolation assumptions but increase packaging drift risk, so validation must assert both.
+
+## Design review
+
+A fresh-context GLM 5.2 review challenged SDK/plugin assumptions, cancellation cleanup, application boundaries, concurrency evidence, and over-complex test seams. Accepted changes:
+
+- recorded official SDK v1.6.1 and host plugin documentation evidence in the owning feature designs;
+- added manual install/discovery acceptance for both plugin hosts;
+- required post-commit cancellation cleanup to survive MCP caller disconnection;
+- fixed the application-service constructor contract and simplified process-control injection;
+- made MCP use of canonical validation, stdout/exit boundaries, Go 1.23 audit, cross-repository `cwd` risk, and race/concurrency tests explicit;
+- reduced duplicate subprocess smoke coverage to one packaged execution plus structural checks for both configs;
+- retained separate status/result tools because compact polling should not return potentially large target details.
+
+Rejected as out of scope or contrary to the existing contract: renaming the established Alt Subagent text surface, removing reserved `blocked` status, and requiring byte-identical JSON whitespace rather than semantic result compatibility.

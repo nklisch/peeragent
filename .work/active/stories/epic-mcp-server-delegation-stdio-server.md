@@ -15,7 +15,7 @@ updated: 2026-07-12
 
 ## Scope
 
-Raise the Go baseline to 1.23, add the official MCP Go SDK v1.6.1, route `peeragent mcp` to a stdio server, and expose the typed `delegate` tool over the shared application service. The tool supports blocking and async calls and returns the existing result contract as structured output.
+Raise the Go baseline to 1.23, add the official MCP Go SDK v1.6.1 in this story (and no earlier story), route `peeragent mcp` to a stdio server, and expose the typed `delegate` tool over the shared application service. The tool supports blocking and async calls and returns the existing result contract as structured output.
 
 ## Acceptance criteria
 
@@ -24,4 +24,5 @@ Raise the Go baseline to 1.23, add the official MCP Go SDK v1.6.1, route `peerag
 - [ ] Invalid delegation input is rejected before execution.
 - [ ] Context cancellation reaches blocking target execution.
 - [ ] A subprocess smoke test proves protocol stdout purity.
+- [ ] CI workflows, build scripts, and installation docs are audited for independent Go 1.22 assumptions; the supported minimum is stated as Go 1.23.
 - [ ] Existing CLI behavior remains green under Go 1.23.

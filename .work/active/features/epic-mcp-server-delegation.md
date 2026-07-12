@@ -29,7 +29,7 @@ This feature also establishes the server entry mode and the internal application
 
 ## Design decisions
 
-- **SDK**: Use the official `github.com/modelcontextprotocol/go-sdk/mcp` SDK at v1.6.1. Its typed `AddTool` API generates and validates input/output schemas, supports structured content, provides in-memory test transports, and is the protocol owner's maintained implementation. This requires raising the module baseline from Go 1.22 to Go 1.23, matching the SDK's declared minimum.
+- **SDK**: Use the official `github.com/modelcontextprotocol/go-sdk/mcp` SDK at v1.6.1. Its typed `AddTool` API generates and validates input/output schemas, supports structured content, provides in-memory test transports, and is the protocol owner's maintained implementation. This requires raising the module baseline from Go 1.22 to Go 1.23, matching the SDK's declared minimum. Verified 2026-07-12 against the [v1.6.1 release](https://github.com/modelcontextprotocol/go-sdk/releases/tag/v1.6.1), repository `go.mod`, `examples/server/hello/main.go`, `examples/server/toolschemas/main.go`, and `mcp/{server,tool}.go`: the concrete APIs used below are `mcp.NewServer`, generic `mcp.AddTool`, `mcp.StdioTransport`, `mcp.NewInMemoryTransports`, `ServerOptions.Instructions`, and typed structured output.
 - **Tool shape**: Expose one `delegate` tool with an `async` boolean rather than separate blocking and launch tools. This mirrors the existing CLI contract and keeps target/model/access fields in one schema.
 - **Failure semantics**: A valid peeragent `failed`, `blocked`, `cancelled`, or `running` result is structured tool output, not an MCP protocol error. Invalid arguments remain invalid-params errors; server/infrastructure failures become MCP tool errors.
 - **Working directory**: `cwd` is optional and defaults to the MCP server process working directory. Normalize it once at the application boundary before execution or job creation.
@@ -79,6 +79,12 @@ func NormalizeDelegation(raw Delegation, getwd func() (string, error)) (Delegati
 **Story**: `epic-mcp-server-delegation-application-services`
 
 ```go
+type Options struct {
+    Executor   TargetExecutor
+    Launcher   JobLauncher
+    Executable func() (string, error)
+}
+
 type Service struct {
     executor   TargetExecutor
     launcher   JobLauncher
@@ -93,7 +99,7 @@ type JobLauncher interface {
     Launch(executable string, job jobs.Job) error
 }
 
-func NewService(executor TargetExecutor, launcher JobLauncher) *Service
+func NewService(opts Options) *Service
 func (s *Service) Delegate(context.Context, input.Delegation) (result.Result, error)
 func (s *Service) Launch(context.Context, input.Delegation) (result.Result, error)
 ```
@@ -104,6 +110,7 @@ The production executor routes to Codex, Claude, Gemini, or Z.AI and builds the 
 - [ ] Blocking and async CLI tests remain behaviorally unchanged.
 - [ ] Target failure is represented by the existing failed result contract.
 - [ ] Launch cleanup still kills a started child when PID persistence or release fails.
+- [ ] No package under `internal/` calls `os.Exit` or writes `os.Stdout`; those remain CLI-adapter concerns and validation enforces the boundary.
 - [ ] Application tests inject fake execution and launching without invoking local agent CLIs.
 
 ### Unit 3: MCP server and delegate tool
@@ -117,7 +124,7 @@ type DelegationService interface {
 }
 
 type DelegateInput struct {
-    Task       string `json:"task" jsonschema:"required task for the peer agent"`
+    Task       string `json:"task" jsonschema:"task for the peer agent"`
     Agent      string `json:"agent,omitempty" jsonschema:"codex, claude, gemini, or zai; defaults to codex"`
     CWD        string `json:"cwd,omitempty" jsonschema:"repository directory; defaults to the server working directory"`
     Profile    string `json:"profile,omitempty" jsonschema:"Codex profile override"`
@@ -140,6 +147,7 @@ Use `mcp.NewInMemoryTransports` in tests to initialize a real client session, li
 - [ ] `peeragent mcp` completes MCP initialization and advertises only `delegate` in this feature.
 - [ ] Blocking calls return the full peeragent result as structured content.
 - [ ] `async: true` returns a running result with a job id.
+- [ ] MCP `delegate` maps through `input.NormalizeDelegation`; no second agent/model/effort validation path exists.
 - [ ] Invalid target/model/effort combinations are rejected before the service executes.
 - [ ] Cancellation of the MCP call propagates through context to blocking target execution.
 - [ ] Protocol stdout contains no help, logs, target output, or plain JSON result lines.
@@ -159,7 +167,7 @@ Use `mcp.NewInMemoryTransports` in tests to initialize a real client session, li
 
 ## Risks
 
-- **Go baseline**: Official SDK v1.6.1 requires Go 1.23. CI already derives its toolchain from `go.mod`; documentation and local validation must state the new minimum.
+- **Go baseline**: Official SDK v1.6.1 requires Go 1.23. CI derives its toolchain from `go.mod`, but implementation must also audit workflows, build scripts, and installation docs for independent 1.22 assumptions and state the new minimum.
 - **Main-package extraction**: Directly moving behavior can alter exit codes or races. Keep compatibility tests green after each application-service move rather than rewriting tests around new behavior.
 - **SDK schema details**: Typed schema generation is authoritative, but optional fields and descriptions must be inspected in a real list-tools response; customize only where generated constraints are insufficient.
 - **Timeouts**: Blocking agent work can outlive host MCP defaults. Async guidance is a product constraint, not something the server can override for every host.

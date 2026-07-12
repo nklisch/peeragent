@@ -23,5 +23,6 @@ Add host-specific Claude Code and Codex MCP config files, reference them from ea
 - [ ] Packaging keeps manifests/configs synchronized.
 - [ ] Deterministic validation catches schema, pointer, root-variable, and mirror drift.
 - [ ] Claude plugin validation passes when available; Codex config follows its documented direct server map.
-- [ ] Built binary and packaged shim pass initialize/list-tools smoke tests.
+- [ ] Local Claude plugin load/reload and local Codex marketplace install each discover the bundled server and four tools; tested host versions are recorded.
+- [ ] The source integration test and one packaged-shim subprocess smoke pass initialize/list-tools checks.
 - [ ] MCP config changes trigger committed-binary CI.

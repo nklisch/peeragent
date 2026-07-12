@@ -23,4 +23,5 @@ Register typed `job_status`, `job_result`, and `job_cancel` tools over the share
 - [ ] Read-only annotations distinguish status/result from destructive cancellation.
 - [ ] Running, terminal, missing, corrupt, and cancellation-race outcomes map correctly.
 - [ ] Repository cwd defaults and explicit overrides use the same normalizer.
-- [ ] Concurrent MCP calls preserve persisted terminal-state invariants.
+- [ ] At least eight concurrent status/result/cancel calls against one job preserve consistent job/result files and produce one allowed terminal winner.
+- [ ] Application and MCP packages pass `go test -race` in validation.

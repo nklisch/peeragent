@@ -22,6 +22,7 @@ Document automatic plugin MCP availability, tool contracts, standalone stdio set
 - [ ] Claude Code and Codex plugin users need no separate global MCP setup.
 - [ ] All four tools and the async workflow are documented accurately.
 - [ ] Full-access delegation and job cancellation are described as explicit write/destructive operations.
+- [ ] Optional `cwd` is documented as intentional cross-repository reach and omitted by default unless the user requests it.
 - [ ] Standalone setup, reload/restart, and troubleshooting guidance is actionable.
 - [ ] Skills preserve peer-review orchestration and wrapper fallback.
 - [ ] Canonical and packaged skill copies remain identical.

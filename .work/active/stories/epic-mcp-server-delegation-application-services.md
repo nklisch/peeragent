@@ -19,7 +19,8 @@ Create the canonical delegation request normalizer and extract blocking executio
 
 ## Acceptance criteria
 
-- [ ] CLI parsing and request validation use `input.NormalizeDelegation`.
+- [ ] CLI parsing and MCP delegation request validation both use `input.NormalizeDelegation`; no second validation path exists.
 - [ ] Blocking execution and async launch are callable through injected application ports.
 - [ ] Existing CLI, target routing, result, launch-cleanup, and async tests remain green.
+- [ ] No package under `internal/` calls `os.Exit` or writes `os.Stdout`; validation enforces this adapter boundary.
 - [ ] Application tests cover successful, target-failed, and infrastructure-failed paths without local agent CLIs.
