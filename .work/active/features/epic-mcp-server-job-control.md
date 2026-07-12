@@ -1,7 +1,7 @@
 ---
 id: epic-mcp-server-job-control
 kind: feature
-stage: implementing
+stage: review
 tags: [infra]
 parent: epic-mcp-server
 depends_on: [epic-mcp-server-delegation]
@@ -135,3 +135,14 @@ Register three typed tools. Mark `job_status` and `job_result` read-only/non-des
 - **Context lifetime**: Blindly honoring a disconnected MCP context after persisting cancellation can strand a target. Cleanup needs a bounded continuation context, while pre-commit cancellation can still abort safely.
 - **Host approval**: Tool annotations are hints, not authorization. Plugin configuration and server instructions must still recommend prompting for `delegate` and `job_cancel`.
 - **Cross-repository scope**: Optional `cwd` permits intentional operation outside the server's starting repository. Documentation must identify that capability explicitly and recommend omitting `cwd` unless the user requested cross-repository work.
+
+## Implementation summary
+- Execution capability: highest, selected by the autopilot caller because the feature crosses filesystem terminal races, detached process cleanup, generated MCP schemas, destructive tool annotations, and protocol concurrency.
+- Review weight: standard (autopilot default).
+- Delivered shared `JobStatus`, `JobResult`, and `CancelJob` application services; CLI adapters now format returned results and retain exit-code behavior while MCP shares the same service boundary.
+- Delivered context-independent post-commit TERM/KILL cleanup through injectable `ProcessController`, repository-local cwd/job-id normalization, structured exit-code-4 missing-job failures, corrupt-state infrastructure errors, and shared locked terminal transitions.
+- Delivered typed `job_status`, `job_result`, and `job_cancel` tools with generated schemas, read-only/destructive/idempotent annotations, complete async workflow instructions, and a combined `ServerService` contract.
+- Verification evidence: `go test -race ./internal/app ./internal/mcp ./cmd/peeragent` passed (65 tests); `go test ./...` passed (183 tests across 12 packages); `go vet ./...` passed; `go build -o /tmp/peeragent-job-control ./cmd/peeragent` passed; internal stdout/exit boundary grep found no `os.Exit` or `os.Stdout` references.
+- Design decisions recorded in child items: service-level working-directory resolver for one lookup normalizer; context-free process-control port for disconnect-safe cleanup; typed combined MCP service contract to prevent incomplete tool registration.
+- Discrepancies from design: none.
+- Adjacent issues parked: none.
