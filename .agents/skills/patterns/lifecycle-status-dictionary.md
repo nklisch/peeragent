@@ -8,11 +8,11 @@ Persisted state (`running`, `complete`, `failed`, `cancelled`) and wire state (`
 
 ## Examples
 
-- `internal/app/jobs.go:156` — `ResultStatusFromJob` maps persisted lifecycle to wire status.
-- `internal/app/jobs.go:171` — `IsTerminalJobStatus` defines terminal persisted states.
-- `internal/app/jobs.go:182` — `JobStatusFromResult` maps wire results back to persisted state.
-- `internal/app/jobs.go:254` — terminal membership on the result side.
-- `internal/jobs/store.go:212` — guarded-save terminal membership at the persistence boundary.
+- `internal/app/jobs.go:159` — `ResultStatusFromJob` maps persisted lifecycle to wire status.
+- `internal/app/jobs.go:174` — `IsTerminalJobStatus` delegates persisted terminal membership.
+- `internal/app/jobs.go:180` — `JobStatusFromResult` maps wire results back to persisted state.
+- `internal/app/jobs.go:252` — terminal membership on the result side derives from persisted mappings.
+- `internal/jobs/store.go:265` — `IsTerminalStatus` is the authoritative persisted terminal set.
 
 ## When to use
 

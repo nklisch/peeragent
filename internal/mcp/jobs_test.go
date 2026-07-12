@@ -217,7 +217,7 @@ func TestMCPJobToolsConcurrentCallsPreserveTerminalState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if loaded.Status != "cancelled" {
+	if loaded.Status != jobs.StatusCancelled {
 		t.Fatalf("job status = %q, want one cancellation winner", loaded.Status)
 	}
 	content, err := os.ReadFile(job.ResultPath)
