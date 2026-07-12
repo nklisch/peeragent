@@ -67,4 +67,6 @@ updated: 2026-07-12
 
 ## Gate runs
 
-Pending configured gates: security, tests, cruft, docs, patterns.
+- **gate-security** (2026-07-12) — 8 findings (0 critical, 0 high, 1 medium, 7 low); emitted 1 active remediation story and 7 backlog items.
+
+Pending configured gates: tests, cruft, docs, patterns.
