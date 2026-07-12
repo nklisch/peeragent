@@ -104,7 +104,7 @@ All 10 active gate-produced remediation stories reached `stage: done` after impl
 
 ## Shipped items
 
-Bodies live in git history. Use `git show <git-ref>:<former-path>` for rows with a recorded ref; tag `v0.5.0` also preserves every former bound path, including the late-bound archived item.
+Bodies live in git history. Use `git show <git-ref>:<former-path>` for rows with a recorded ref; the `v0.5.0` tag history also preserves the late-bound archived item.
 
 | id | title | kind | archived_atop | git ref |
 |----|-------|------|---------------|---------|
