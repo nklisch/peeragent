@@ -75,4 +75,6 @@ updated: 2026-07-12
 
 - **gate-docs** (2026-07-12) — 1 medium-confidence README staleness finding; emitted 1 active documentation story; no foundation assertion, skill, pattern, generated-file, or changelog drift.
 
-Pending configured gates: patterns.
+- **gate-patterns** (2026-07-12) — 5 structural patterns codified and indexed; 3 inconsistencies emitted as active refactor stories; generated rules digest and Claude compatibility symlink created.
+
+All configured gates have run.
