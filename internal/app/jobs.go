@@ -112,7 +112,7 @@ func (s *Service) normalizeJobRequest(ctx context.Context, raw JobRequest) (JobR
 
 func jobStatusResult(req JobRequest, job jobs.Job) result.Result {
 	return result.Result{
-		Status:       ResultStatusFromJob(job.Status),
+		Status:       ResultStatusFromJob(string(job.Status)),
 		Summary:      fmt.Sprintf("Async job %s is %s", job.ID, job.Status),
 		ChangedFiles: []string{},
 		Verification: []result.Verification{},
@@ -157,39 +157,34 @@ func JobLookupFailureResult(req JobRequest, err error) result.Result {
 // ResultStatusFromJob is the one mapping from persisted lifecycle values to
 // the public result contract. Unknown values stay conservatively running.
 func ResultStatusFromJob(status string) result.Status {
-	switch status {
-	case "complete":
+	switch jobs.Status(status) {
+	case jobs.StatusComplete:
 		return result.StatusSuccess
-	case "failed":
+	case jobs.StatusFailed:
 		return result.StatusFailed
-	case "cancelled":
+	case jobs.StatusCancelled:
 		return result.StatusCancelled
 	default:
 		return result.StatusRunning
 	}
 }
 
-// IsTerminalJobStatus is shared by child completion and cancellation so both
-// paths agree on which persisted states can win a terminal transition.
+// IsTerminalJobStatus keeps the application-facing helper compatible with its
+// string boundary while delegating terminal membership to the jobs package.
 func IsTerminalJobStatus(status string) bool {
-	switch status {
-	case "complete", "failed", "cancelled":
-		return true
-	default:
-		return false
-	}
+	return jobs.IsTerminalStatus(jobs.Status(status))
 }
 
-// JobStatusFromResult maps an application result back to the persisted job
-// lifecycle value used by job.json.
-func JobStatusFromResult(status result.Status) string {
+// JobStatusFromResult maps an application result back to the typed persisted
+// job lifecycle value used by job.json.
+func JobStatusFromResult(status result.Status) jobs.Status {
 	switch status {
 	case result.StatusSuccess:
-		return "complete"
+		return jobs.StatusComplete
 	case result.StatusCancelled:
-		return "cancelled"
+		return jobs.StatusCancelled
 	default:
-		return "failed"
+		return jobs.StatusFailed
 	}
 }
 
@@ -203,7 +198,7 @@ func FinishJob(store jobs.Store, job jobs.Job, res result.Result) error {
 		if err != nil {
 			return err
 		}
-		if IsTerminalJobStatus(current.Status) && current.Status != targetStatus {
+		if jobs.IsTerminalStatus(current.Status) && current.Status != targetStatus {
 			return nil
 		}
 		prior, exists, err := readStoredResult(current.ResultPath)
@@ -255,12 +250,16 @@ func readStoredResult(path string) (result.Result, bool, error) {
 }
 
 func isTerminalResultStatus(status result.Status) bool {
-	switch status {
-	case result.StatusSuccess, result.StatusFailed, result.StatusCancelled:
-		return true
-	default:
-		return false
+	for _, persisted := range []jobs.Status{
+		jobs.StatusComplete,
+		jobs.StatusFailed,
+		jobs.StatusCancelled,
+	} {
+		if ResultStatusFromJob(string(persisted)) == status && jobs.IsTerminalStatus(persisted) {
+			return true
+		}
 	}
+	return false
 }
 
 func terminalJobResult(req JobRequest, job jobs.Job) (result.Result, error) {

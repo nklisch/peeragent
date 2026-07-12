@@ -67,7 +67,7 @@ func (s *Service) CancelJob(ctx context.Context, raw JobRequest) (result.Result,
 		}
 		job = current
 
-		if IsTerminalJobStatus(current.Status) {
+		if jobs.IsTerminalStatus(current.Status) {
 			cancelResult, err = terminalJobResult(req, current)
 			return err
 		}
@@ -97,7 +97,7 @@ func (s *Service) CancelJob(ctx context.Context, raw JobRequest) (result.Result,
 				return err
 			}
 		}
-		current.Status = "cancelled"
+		current.Status = jobs.StatusCancelled
 		if _, err := store.SaveGuarded(current); err != nil {
 			return err
 		}
@@ -117,7 +117,7 @@ func (s *Service) CancelJob(ctx context.Context, raw JobRequest) (result.Result,
 	if cancelResult.Status == "" {
 		cancelResult = jobStatusResult(req, job)
 	}
-	if !cancellationStored && job.Status != "cancelled" {
+	if !cancellationStored && job.Status != jobs.StatusCancelled {
 		if err := store.RemovePID(job.ID); err != nil {
 			return cancelResult, err
 		}

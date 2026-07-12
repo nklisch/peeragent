@@ -30,7 +30,7 @@ func TestCreateAndLoadJob(t *testing.T) {
 	if job.ID == "" {
 		t.Fatal("expected id")
 	}
-	if job.Status != "running" {
+	if job.Status != StatusRunning {
 		t.Fatalf("Status = %q", job.Status)
 	}
 
@@ -65,7 +65,7 @@ func TestSaveJob(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	job.Status = "complete"
+	job.Status = StatusComplete
 	if err := store.Save(job); err != nil {
 		t.Fatal(err)
 	}
@@ -73,7 +73,7 @@ func TestSaveJob(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if loaded.Status != "complete" {
+	if loaded.Status != StatusComplete {
 		t.Fatalf("Status = %q", loaded.Status)
 	}
 }
@@ -179,7 +179,7 @@ func TestProcessGroupHelpersRejectUnsafePID(t *testing.T) {
 
 func TestSaveGuardedRefusesTerminalStatusOverwrite(t *testing.T) {
 	store := NewStore(t.TempDir())
-	for _, status := range []string{"cancelled", "failed", "complete"} {
+	for _, status := range []Status{StatusCancelled, StatusFailed, StatusComplete} {
 		job, err := store.Create("/repo", ExecSpec{Agent: "codex", Access: "default", JSON: true}, "do work")
 		if err != nil {
 			t.Fatal(err)
@@ -188,7 +188,7 @@ func TestSaveGuardedRefusesTerminalStatusOverwrite(t *testing.T) {
 		if err := store.Save(job); err != nil {
 			t.Fatal(err)
 		}
-		job.Status = "running"
+		job.Status = StatusRunning
 		prior, err := store.SaveGuarded(job)
 		if err != nil {
 			t.Fatal(err)
@@ -400,7 +400,7 @@ func TestAtomicSaveFailureLeavesExistingJobJSON(t *testing.T) {
 	if err := os.Mkdir(tmpPath, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	job.Status = "complete"
+	job.Status = StatusComplete
 	if err := store.Save(job); err == nil {
 		t.Fatal("expected save failure")
 	}

@@ -16,14 +16,14 @@ import (
 func TestJobStatusMapsPersistedStates(t *testing.T) {
 	for _, tt := range []struct {
 		name   string
-		status string
+		status jobs.Status
 		want   result.Status
 	}{
-		{name: "running", status: "running", want: result.StatusRunning},
-		{name: "complete", status: "complete", want: result.StatusSuccess},
-		{name: "failed", status: "failed", want: result.StatusFailed},
-		{name: "cancelled", status: "cancelled", want: result.StatusCancelled},
-		{name: "unknown is conservative", status: "future-state", want: result.StatusRunning},
+		{name: "running", status: jobs.StatusRunning, want: result.StatusRunning},
+		{name: "complete", status: jobs.StatusComplete, want: result.StatusSuccess},
+		{name: "failed", status: jobs.StatusFailed, want: result.StatusFailed},
+		{name: "cancelled", status: jobs.StatusCancelled, want: result.StatusCancelled},
+		{name: "unknown is conservative", status: jobs.Status("future-state"), want: result.StatusRunning},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			cwd := t.TempDir()
@@ -44,6 +44,26 @@ func TestJobStatusMapsPersistedStates(t *testing.T) {
 			}
 			if got.Status != tt.want || got.Metadata.CWD != cwd || got.Metadata.JobID != job.ID {
 				t.Fatalf("result = %#v, want status=%q cwd=%q id=%q", got, tt.want, cwd, job.ID)
+			}
+		})
+	}
+}
+
+func TestJobStatusMappingsUsePersistedLifecycleConstants(t *testing.T) {
+	for _, tt := range []struct {
+		name   string
+		status result.Status
+		want   jobs.Status
+	}{
+		{name: "success", status: result.StatusSuccess, want: jobs.StatusComplete},
+		{name: "cancelled", status: result.StatusCancelled, want: jobs.StatusCancelled},
+		{name: "failed", status: result.StatusFailed, want: jobs.StatusFailed},
+		{name: "running remains failed for persisted completion", status: result.StatusRunning, want: jobs.StatusFailed},
+		{name: "blocked remains failed for persisted completion", status: result.StatusBlocked, want: jobs.StatusFailed},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := JobStatusFromResult(tt.status); got != tt.want {
+				t.Fatalf("JobStatusFromResult(%q) = %q, want %q", tt.status, got, tt.want)
 			}
 		})
 	}
@@ -225,7 +245,7 @@ func TestFinishJobPreservesCompetingTerminalResult(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if loaded.Status != "cancelled" {
+	if loaded.Status != jobs.StatusCancelled {
 		t.Fatalf("job status = %q, want cancelled", loaded.Status)
 	}
 	content, err := os.ReadFile(job.ResultPath)

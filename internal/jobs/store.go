@@ -12,9 +12,21 @@ import (
 	"time"
 )
 
+// Status is the persisted lifecycle vocabulary for an asynchronous job.
+// Unknown values may still be loaded from disk so older/newer writers remain
+// readable; callers must use IsTerminalStatus for terminal membership.
+type Status string
+
+const (
+	StatusRunning   Status = "running"
+	StatusComplete  Status = "complete"
+	StatusFailed    Status = "failed"
+	StatusCancelled Status = "cancelled"
+)
+
 type Job struct {
 	ID         string    `json:"id"`
-	Status     string    `json:"status"`
+	Status     Status    `json:"status"`
 	CWD        string    `json:"cwd"`
 	Spec       ExecSpec  `json:"spec"`
 	CreatedAt  time.Time `json:"created_at"`
@@ -58,7 +70,7 @@ func (s Store) Create(cwd string, spec ExecSpec, prompt string) (Job, error) {
 	}
 	job := Job{
 		ID:         id,
-		Status:     "running",
+		Status:     StatusRunning,
 		CWD:        cwd,
 		Spec:       spec,
 		CreatedAt:  now,
@@ -111,12 +123,12 @@ func (s Store) Save(job Job) error {
 	return AtomicWriteFile(filepath.Join(dir, "job.json"), append(content, '\n'), 0o644)
 }
 
-func (s Store) SaveGuarded(job Job) (string, error) {
+func (s Store) SaveGuarded(job Job) (Status, error) {
 	prior, err := s.Load(job.ID)
 	if err != nil {
-		return "", err
+		return Status(""), err
 	}
-	if isTerminalStatus(prior.Status) && prior.Status != job.Status {
+	if IsTerminalStatus(prior.Status) && prior.Status != job.Status {
 		return prior.Status, nil
 	}
 	return prior.Status, s.Save(job)
@@ -247,9 +259,12 @@ func AtomicWriteFile(path string, content []byte, perm os.FileMode) error {
 	return nil
 }
 
-func isTerminalStatus(status string) bool {
+// IsTerminalStatus is the authoritative persisted terminal-state membership
+// check. Unknown values intentionally remain non-terminal so a newer writer
+// cannot be accidentally overwritten by an older process.
+func IsTerminalStatus(status Status) bool {
 	switch status {
-	case "complete", "failed", "cancelled":
+	case StatusComplete, StatusFailed, StatusCancelled:
 		return true
 	default:
 		return false

@@ -39,7 +39,7 @@ func TestCancelJobPersistsCancelledStateAndCleansPIDThroughPort(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if loaded.Status != "cancelled" {
+	if loaded.Status != jobs.StatusCancelled {
 		t.Fatalf("job status = %q, want cancelled", loaded.Status)
 	}
 	stored, err := os.ReadFile(job.ResultPath)
@@ -106,7 +106,7 @@ func TestCancelJobReportsCorruptResultAsInfrastructureError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if loaded.Status != "running" {
+	if loaded.Status != jobs.StatusRunning {
 		t.Fatalf("job status = %q, want running", loaded.Status)
 	}
 	pid, err := store.ReadPID(job.ID)
@@ -138,7 +138,7 @@ func TestCancelJobCompletionWinsWithoutSignalling(t *testing.T) {
 	if err := WriteJobResult(job.ResultPath, winner); err != nil {
 		t.Fatal(err)
 	}
-	job.Status = "complete"
+	job.Status = jobs.StatusComplete
 	if err := store.Save(job); err != nil {
 		t.Fatal(err)
 	}
@@ -194,7 +194,7 @@ func TestCancelJobRepairsCompletionResultThatPrecedesJobStatus(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if loaded.Status != "failed" || controller.calls() != 0 {
+	if loaded.Status != jobs.StatusFailed || controller.calls() != 0 {
 		t.Fatalf("job = %#v, controller calls = %d", loaded, controller.calls())
 	}
 }

@@ -1,7 +1,7 @@
 ---
 id: gate-patterns-inconsistency-lifecycle-status
 kind: story
-stage: implementing
+stage: review
 tags: [refactor]
 parent: null
 depends_on: []
@@ -31,3 +31,12 @@ Establish one authoritative persisted lifecycle type/registry at the lowest depe
 - Keep `result.Status` as the public contract and centralize only persisted↔public conversion in application code.
 - Preserve unknown-as-running/non-terminal behavior and terminal race winners.
 - Extend mapping/guard tests and run race tests over jobs/app/MCP/CLI.
+
+## Implementation notes
+- Execution capability: inline/high reasoning; this is a cohesive lifecycle refactor and delegation was explicitly disallowed.
+- Review weight: standard (project default); stop at review as requested for independent follow-up review.
+- Files changed: `internal/jobs/store.go`, `internal/jobs/status_test.go`, `internal/jobs/store_test.go`, `internal/app/jobs.go`, `internal/app/jobs_test.go`, `internal/app/cancel.go`, `internal/app/cancel_test.go`.
+- Tests added: authoritative persisted terminal-membership table; persisted-result mapping table.
+- Discrepancies from design: `app.ResultStatusFromJob` and `app.IsTerminalJobStatus` retain their string-facing signatures for existing CLI/test compatibility, while converting to the typed `jobs.Status` internally; persisted `Job.Status` and guarded-save results are typed.
+- Adjacent issues parked: none.
+- Verification: focused tests, focused race tests, full tests, `go vet ./...`, and `go build ./...` all passed.
