@@ -1,7 +1,7 @@
 ---
 id: gate-docs-pi-package-repository-shape
 kind: story
-stage: implementing
+stage: review
 tags: [documentation]
 parent: null
 depends_on: []
@@ -40,3 +40,12 @@ Roll current truth into the Repository Shape section and file listing, and add t
 - Add `package.json` to the repository-shape tree with its Pi skills role.
 - Add the Pi package manifest to `docs/SPEC.md` Components.
 - Preserve rolling-foundation wording and run documentation validation.
+
+## Implementation Notes
+- Updated README Repository Shape to identify Claude, Codex, and Pi packaging.
+- Added the root `package.json` Pi manifest to the README file tree.
+- Added the Pi package manifest and its `./plugin/skills` entrypoint to the SPEC Components list.
+
+## Verification
+- `git diff --check -- README.md docs/SPEC.md`
+- `scripts/validate.sh` reached and passed the documentation examples checks, then failed at the pre-existing shim smoke expectation (`--status missing-job` returns exit 2 after job-id validation, while the script expects exit 4).

@@ -402,11 +402,12 @@ local runtime state and ignored by git.
 
 ## Repository Shape
 
-This repo is shaped as both a Claude Code marketplace and a Codex marketplace.
-The root is the development source; `plugin/` is the committed install package
-that marketplaces point at.
+This repo is shaped as a Claude Code marketplace, a Codex marketplace, and a
+Pi package. The root is the development source; `plugin/` is the committed
+install package that marketplaces point at.
 
 ```text
+package.json                            # Pi package manifest, loads ./plugin/skills
 .claude-plugin/marketplace.json        # Claude marketplace entry, source ./plugin
 .agents/plugins/marketplace.json       # Codex marketplace entry, source ./plugin
 plugin/.claude-plugin/plugin.json      # Claude plugin manifest

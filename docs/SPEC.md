@@ -57,6 +57,8 @@ The project contains:
 
 - `.claude-plugin/plugin.json` for Claude Code plugin metadata.
 - `.codex-plugin/plugin.json` for Codex plugin metadata.
+- `package.json` for the Pi package manifest, which loads the bundled skills from
+  `./plugin/skills`.
 - `skills/` for host-facing skills. The Codex plugin manifest points here so
   Codex can target Claude, Gemini, or Z.AI GLM 5.2, and Claude Code also
   discovers the same directory.
