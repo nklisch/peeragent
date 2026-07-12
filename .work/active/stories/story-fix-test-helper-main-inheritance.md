@@ -1,7 +1,7 @@
 ---
 id: story-fix-test-helper-main-inheritance
 kind: story
-stage: review
+stage: done
 tags: [bug, tests]
 parent: epic-mcp-server-delegation
 depends_on: []
@@ -46,3 +46,8 @@ Added a testable `testHelperMainRequested` predicate that requires the explicit 
 - `go test ./...`
 
 Both passed as part of the MCP stdio integration verification.
+
+## Review notes
+
+- Effective review weight: standard; fast administrative acceptance was supplemented by the parent feature's fresh-context review because this regression sits on the subprocess protocol test path.
+- Verdict: approve. The regression predicate and all three marker/test-argument branches were verified; full and race test suites passed.
