@@ -1,7 +1,7 @@
 ---
 id: epic-mcp-server-plugin-distribution
 kind: feature
-stage: implementing
+stage: review
 tags: [infra, docs]
 parent: epic-mcp-server
 depends_on: [epic-mcp-server-delegation, epic-mcp-server-job-control]
@@ -140,3 +140,39 @@ Document:
 - **Binary refresh sequencing**: MCP configs can land before CI refreshes committed platform binaries. Packaged-shim smoke must fail clearly until the matching binary exists, and release must wait for refresh.
 - **Tool timeout expectations**: Plugin manifests do not universally control host tool-call timeouts. Documentation must make async the reliable path rather than promising blocking completion.
 - **Host version drift**: Claude has a plugin validator; current Codex does not. Keep structural validation in-repo and treat live host validation as additional evidence, not the only gate.
+
+## Implementation summary
+
+Both child stories are implemented and waiting for review:
+
+- `epic-mcp-server-plugin-distribution-config` — `dc37bbd` — stage `review`.
+  Added host-specific MCP configs/manifests, curated packaging, deterministic
+  JSON/pointer/root-variable/mirror validation, source and packaged
+  initialize/tools-list checks, Claude validation, and MCP CI path filters.
+- `epic-mcp-server-plugin-distribution-guidance` — `b79ba3b` — stage `review`.
+  Documented automatic plugin MCP availability, all four tools, async-first
+  operation, approval/full-access/cancellation/cwd safety, standalone setup,
+  host reload and protocol troubleshooting, and MCP-first skill behavior with
+  wrapper fallback and no recursion. Canonical and packaged skills are synced.
+
+Verification completed for the feature:
+
+- `scripts/validate.sh` passed end-to-end, including full Go tests, build,
+  package generation, config/mirror validation, fresh-build packaged-shim MCP
+  protocol smoke, strict Claude validation, release artifacts, metadata,
+  documentation checks, and shim smokes.
+- Standalone `go test ./...` passed (182 tests); `scripts/build.sh` passed.
+- `scripts/package-plugin.sh` followed by `cmp` checks confirmed source/package
+  manifests, configs, and skills are synchronized. No committed platform binary
+  or `.work/bin/work-view` was modified by this feature.
+- Claude Code `2.1.201` accepted `claude plugin validate --strict plugin`.
+  Codex CLI `0.144.1` installed the local marketplace plugin and exposed the
+  enabled bundled server through `codex mcp list` and `codex mcp get peeragent`.
+
+Host limitations are explicit rather than fabricated: these host versions do
+not provide a non-interactive command that enumerates all four discovered MCP
+tools. The four-tool list was verified directly through the packaged shim using
+fresh `dist/peeragent` via `PEERAGENT_BIN`; committed platform binaries remain
+owned by the existing refresh workflow and were not changed. Live Claude
+session/tool enumeration and Codex tool enumeration therefore remain manual
+interactive evidence for review.
