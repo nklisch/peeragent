@@ -10,6 +10,7 @@ import (
 	"time"
 
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/nklisch/peeragent/internal/app"
 	"github.com/nklisch/peeragent/internal/input"
 	"github.com/nklisch/peeragent/internal/result"
 )
@@ -30,11 +31,30 @@ func TestServerInitializesListsGeneratedDelegateSchemaAndInstructions(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(listed.Tools) != 1 || listed.Tools[0].Name != "delegate" {
+	if len(listed.Tools) != 4 {
 		t.Fatalf("tools = %#v", listed.Tools)
 	}
+	byName := make(map[string]*sdkmcp.Tool, len(listed.Tools))
+	for _, tool := range listed.Tools {
+		byName[tool.Name] = tool
+	}
+	for _, name := range []string{"delegate", "job_status", "job_result", "job_cancel"} {
+		if byName[name] == nil {
+			t.Fatalf("tool discovery missing %q: %#v", name, listed.Tools)
+		}
+	}
+	if byName["job_status"].Annotations == nil || !byName["job_status"].Annotations.ReadOnlyHint || byName["job_status"].Annotations.DestructiveHint == nil || *byName["job_status"].Annotations.DestructiveHint {
+		t.Fatalf("job_status annotations = %#v", byName["job_status"].Annotations)
+	}
+	if byName["job_result"].Annotations == nil || !byName["job_result"].Annotations.ReadOnlyHint || byName["job_result"].Annotations.DestructiveHint == nil || *byName["job_result"].Annotations.DestructiveHint {
+		t.Fatalf("job_result annotations = %#v", byName["job_result"].Annotations)
+	}
+	cancelAnnotations := byName["job_cancel"].Annotations
+	if cancelAnnotations == nil || cancelAnnotations.ReadOnlyHint || cancelAnnotations.DestructiveHint == nil || !*cancelAnnotations.DestructiveHint || !cancelAnnotations.IdempotentHint {
+		t.Fatalf("job_cancel annotations = %#v", cancelAnnotations)
+	}
 
-	schema := decodeObject(t, listed.Tools[0].InputSchema)
+	schema := decodeObject(t, byName["delegate"].InputSchema)
 	properties, ok := schema["properties"].(map[string]any)
 	if !ok {
 		t.Fatalf("input schema properties = %#v", schema["properties"])
@@ -46,6 +66,19 @@ func TestServerInitializesListsGeneratedDelegateSchemaAndInstructions(t *testing
 	}
 	if _, ok := properties["worktree"]; ok {
 		t.Fatal("worktree must not be exposed by MCP delegation")
+	}
+	for _, name := range []string{"job_status", "job_result", "job_cancel"} {
+		jobSchema := decodeObject(t, byName[name].InputSchema)
+		jobProperties, ok := jobSchema["properties"].(map[string]any)
+		if !ok {
+			t.Fatalf("%s schema properties = %#v", name, jobSchema["properties"])
+		}
+		if _, ok := jobProperties["job_id"]; !ok {
+			t.Fatalf("%s schema missing job_id: %#v", name, jobProperties)
+		}
+		if _, ok := jobProperties["cwd"]; !ok {
+			t.Fatalf("%s schema missing cwd: %#v", name, jobProperties)
+		}
 	}
 }
 
@@ -222,7 +255,7 @@ func TestDelegatePropagatesInfrastructureErrorsAsToolErrors(t *testing.T) {
 	}
 }
 
-func connectTestClient(t *testing.T, service DelegationService) *sdkmcp.ClientSession {
+func connectTestClient(t *testing.T, service ServerService) *sdkmcp.ClientSession {
 	t.Helper()
 	serverTransport, clientTransport := sdkmcp.NewInMemoryTransports()
 	server := NewServer(service, func() (string, error) { return "/repo", nil })
@@ -272,17 +305,30 @@ func decodeResult(t *testing.T, value any) result.Result {
 }
 
 type fakeService struct {
-	delegateResult result.Result
-	launchResult   result.Result
-	delegateErr    error
-	launchErr      error
-	delegateFn     func(context.Context, input.Delegation) (result.Result, error)
-	launchFn       func(context.Context, input.Delegation) (result.Result, error)
+	delegateResult  result.Result
+	launchResult    result.Result
+	jobStatusResult result.Result
+	jobResultResult result.Result
+	jobCancelResult result.Result
+	delegateErr     error
+	launchErr       error
+	jobStatusErr    error
+	jobResultErr    error
+	jobCancelErr    error
+	delegateFn      func(context.Context, input.Delegation) (result.Result, error)
+	launchFn        func(context.Context, input.Delegation) (result.Result, error)
+	jobStatusFn     func(context.Context, app.JobRequest) (result.Result, error)
+	jobResultFn     func(context.Context, app.JobRequest) (result.Result, error)
+	jobCancelFn     func(context.Context, app.JobRequest) (result.Result, error)
 
 	mu             sync.Mutex
 	delegateCalls  int
 	launchCalls    int
+	jobStatusCalls int
+	jobResultCalls int
+	jobCancelCalls int
 	lastDelegation input.Delegation
+	lastJobRequest app.JobRequest
 }
 
 func (f *fakeService) Delegate(ctx context.Context, delegation input.Delegation) (result.Result, error) {
@@ -305,4 +351,37 @@ func (f *fakeService) Launch(ctx context.Context, delegation input.Delegation) (
 		return f.launchFn(ctx, delegation)
 	}
 	return f.launchResult, f.launchErr
+}
+
+func (f *fakeService) JobStatus(ctx context.Context, request app.JobRequest) (result.Result, error) {
+	f.mu.Lock()
+	f.jobStatusCalls++
+	f.lastJobRequest = request
+	f.mu.Unlock()
+	if f.jobStatusFn != nil {
+		return f.jobStatusFn(ctx, request)
+	}
+	return f.jobStatusResult, f.jobStatusErr
+}
+
+func (f *fakeService) JobResult(ctx context.Context, request app.JobRequest) (result.Result, error) {
+	f.mu.Lock()
+	f.jobResultCalls++
+	f.lastJobRequest = request
+	f.mu.Unlock()
+	if f.jobResultFn != nil {
+		return f.jobResultFn(ctx, request)
+	}
+	return f.jobResultResult, f.jobResultErr
+}
+
+func (f *fakeService) CancelJob(ctx context.Context, request app.JobRequest) (result.Result, error) {
+	f.mu.Lock()
+	f.jobCancelCalls++
+	f.lastJobRequest = request
+	f.mu.Unlock()
+	if f.jobCancelFn != nil {
+		return f.jobCancelFn(ctx, request)
+	}
+	return f.jobCancelResult, f.jobCancelErr
 }
