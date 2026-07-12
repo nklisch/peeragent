@@ -1,7 +1,7 @@
 ---
 id: gate-patterns-inconsistency-agent-metadata
 kind: story
-stage: review
+stage: done
 tags: [refactor]
 parent: null
 depends_on: [gate-cruft-unused-agent-display-name]
@@ -40,3 +40,7 @@ Create one authoritative typed target registry for canonical id, prompt identity
 - Discrepancies from design: canonical target IDs serve as the registry's adapter dispatch metadata, avoiding a second duplicated adapter-key field; executor adapter calls remain explicitly in `internal/app`.
 - Adjacent issues parked: none.
 - Verification: focused tests, focused race tests, full tests, `go vet ./...`, and `go build ./...` all passed.
+
+## Review
+
+Approved by independent deep review of commit `289ac21` with direct parent verification of `execute.go`, `service.go`, and application metadata parity tests. All aliases/defaults, exact validation text, prompt identities, display names, target dispatch, and dependency direction remain unchanged. Independent focused race tests, vet, and build passed.
