@@ -1,7 +1,7 @@
 ---
 id: epic-mcp-server
 kind: epic
-stage: implementing
+stage: review
 tags: [infra]
 parent: null
 depends_on: []
@@ -74,3 +74,22 @@ A fresh-context GLM 5.2 review challenged SDK/plugin assumptions, cancellation c
 - retained separate status/result tools because compact polling should not return potentially large target details.
 
 Rejected as out of scope or contrary to the existing contract: renaming the established Alt Subagent text surface, removing reserved `blocked` status, and requiring byte-identical JSON whitespace rather than semantic result compatibility.
+
+## Implementation summary
+
+All three child features and seven child stories are at `stage: done`:
+
+- `epic-mcp-server-delegation` — shared application boundary, canonical input normalization, official MCP Go SDK v1.6.1, Go 1.25 baseline, stdio server, typed blocking/async `delegate`, generated schema and stdout-purity coverage.
+- `epic-mcp-server-job-control` — shared status/result/cancel services, disconnect-safe terminal cleanup, typed `job_status`, `job_result`, and destructive/idempotent `job_cancel`, concurrency and race coverage.
+- `epic-mcp-server-plugin-distribution` — host-specific Claude/Codex MCP configs, manifest wiring, packaged shim validation, CI triggers, MCP-first skills with wrapper fallback, and complete user/safety guidance.
+
+Implementation deviations were resolved in-item: SDK v1.6.1 requires Go 1.25 rather than the initially researched moving-branch minimum; child completion remains rooted in the CLI adapter but delegates terminal persistence to `internal/app`; local host CLIs cannot non-interactively enumerate bundled tools, so host server discovery is paired with exact four-tool packaged-protocol smoke evidence.
+
+Verification across implementation and review:
+
+- `scripts/validate.sh` passed end-to-end, including tests, build, packaging, release artifacts, deterministic MCP config validation, packaged protocol smoke, strict Claude plugin validation, docs checks, and shim smokes.
+- Full Go suite passed with 182+ tests across 12 packages; focused race tests passed for application, MCP, and CLI packages; `go vet ./...` and command builds passed.
+- Claude Code 2.1.201 accepted the plugin strictly; Codex CLI 0.144.1 installed the local marketplace plugin and discovered the bundled server.
+- Three independent fresh-context GLM 5.2 feature reviews approved the implementation. Accepted findings (misleading test name and extraction-residue wrappers) were fixed before child-feature approval; remaining comments were nits or disclosed host limitations.
+
+Effective worker capability: highest, selected for cross-cutting protocol, process-lifecycle, generated-contract, and plugin-distribution risk. Effective review weight: standard (autopilot default).
