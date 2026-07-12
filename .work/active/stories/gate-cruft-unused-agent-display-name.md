@@ -1,7 +1,7 @@
 ---
 id: gate-cruft-unused-agent-display-name
 kind: story
-stage: review
+stage: done
 tags: [cleanup]
 parent: null
 depends_on: []
@@ -43,3 +43,7 @@ Delete the unused function. Keep `agentID`, which remains live elsewhere. Run CL
 ## Verification
 - `go test ./cmd/peeragent`
 - `go build ./cmd/peeragent`
+
+## Review
+
+Approved by independent source review of commit `5f94c96`. The removed helper had no call sites; the live application helper and CLI `agentID` remain intact. CLI tests and build passed.
