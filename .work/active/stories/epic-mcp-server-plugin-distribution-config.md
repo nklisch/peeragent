@@ -1,7 +1,7 @@
 ---
 id: epic-mcp-server-plugin-distribution-config
 kind: story
-stage: implementing
+stage: review
 tags: [infra]
 parent: epic-mcp-server-plugin-distribution
 depends_on: []
@@ -26,3 +26,15 @@ Add host-specific Claude Code and Codex MCP config files, reference them from ea
 - [ ] Local Claude plugin load/reload and local Codex marketplace install each discover the bundled server and four tools; tested host versions are recorded.
 - [ ] The source integration test and one packaged-shim subprocess smoke pass initialize/list-tools checks.
 - [ ] MCP config changes trigger committed-binary CI.
+
+## Implementation notes
+
+- Execution capability: highest, selected by the autopilot caller because this changes two host manifest contracts, packaged executable resolution, deterministic validation, and the MCP protocol smoke boundary.
+- Review weight: standard (explicit caller override).
+- Dispatch rationale: direct-read only; the story, parent feature, foundation docs, existing manifests/package flow, host help output, and MCP tests fully identified the integration surface. No agent delegation was used.
+- Files changed: `.mcp.claude.json`, `.mcp.codex.json`, `.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`, `plugin/.mcp.claude.json`, `plugin/.mcp.codex.json`, `plugin/.claude-plugin/plugin.json`, `plugin/.codex-plugin/plugin.json`, `scripts/package-plugin.sh`, `scripts/validate-plugin-config.py`, `scripts/validate.sh`, `cmd/peeragent/main_mcp_test.go`, `.github/workflows/build-binaries.yml`.
+- Tests and validation: source MCP subprocess test now asserts initialize/tools-list responses expose exactly `delegate`, `job_status`, `job_result`, and `job_cancel`; the packaged shim smoke performs the same checks with clean protocol stdout; JSON/schema, manifest-pointer, host-root-variable, and source/package mirror checks are deterministic; `claude plugin validate --strict plugin` passed.
+- Host evidence: Claude Code `2.1.201` accepted the packaged Claude manifest through `claude plugin validate --strict plugin`. Codex CLI `0.144.1` installed the local marketplace plugin and `codex mcp list` discovered the enabled `peeragent` stdio server with `${PLUGIN_ROOT}/bin/peeragent mcp`.
+- Environment limitations: Claude has no non-interactive command that reports bundled MCP tool discovery; a live plugin session would require an authenticated prompt. Codex `0.144.1` exposes server discovery via `codex mcp list` but no command to enumerate the server's tools. The protocol tool list was therefore verified directly through the packaged shim. The committed `plugin/bin/linux-amd64/peeragent` binary predates this MCP source change and is owned by the existing binary-refresh workflow; local smoke used `PEERAGENT_BIN=$ROOT/dist/peeragent` through the packaged shim without modifying committed platform binaries.
+- Discrepancies from design: the design names `cmd/peeragent/mcp_stdio_test.go`; the repository's existing source integration test is `cmd/peeragent/main_mcp_test.go`, so that file was extended instead. The design's optional host validator is run for Claude; Codex has no equivalent validator command.
+- Adjacent issues parked: none.

@@ -25,6 +25,19 @@ test -f plugin/.codex-plugin/plugin.json
 test -f plugin/skills/peer/SKILL.md
 test -f plugin/skills/peer-review/SKILL.md
 
+step "MCP plugin configuration and packaged protocol smoke"
+# The committed platform binary is refreshed by build-binaries.yml after this
+# source change. Use the freshly built binary through the packaged shim here so
+# local validation exercises MCP before that asynchronous refresh lands.
+PEERAGENT_BIN="$ROOT/dist/peeragent" python3 scripts/validate-plugin-config.py
+
+if command -v claude >/dev/null 2>&1; then
+  step "Claude plugin validation"
+  claude plugin validate --strict plugin
+else
+  echo "Claude CLI not installed; skipped claude plugin validate"
+fi
+
 # Curated-tree sync enforcement lives in CI (.github/workflows/build-binaries.yml),
 # which runs on committed state. It is intentionally NOT here: validate.sh runs
 # mid-bump (scripts/bump.sh regenerates plugin/ for the new version before

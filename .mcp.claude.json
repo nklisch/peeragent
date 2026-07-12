@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "peeragent": {
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/peeragent",
+      "args": ["mcp"]
+    }
+  }
+}
