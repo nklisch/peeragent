@@ -1,7 +1,7 @@
 ---
 id: gate-cruft-gemini-print-timeout-field
 kind: story
-stage: review
+stage: done
 tags: [cleanup]
 parent: null
 depends_on: []
@@ -49,3 +49,7 @@ Remove the unused option field and replace the fallback branch with a package-le
 
 ## Verification
 - `go test ./internal/gemini`
+
+## Review
+
+Approved by independent source review of commit `57ea7f9`. No caller set the removed field, generated argv remains `--print-timeout 15m`, and all Gemini tests passed.
