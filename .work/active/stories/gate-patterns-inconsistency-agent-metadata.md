@@ -1,7 +1,7 @@
 ---
 id: gate-patterns-inconsistency-agent-metadata
 kind: story
-stage: drafting
+stage: implementing
 tags: [refactor]
 parent: null
 depends_on: [gate-cruft-unused-agent-display-name]
@@ -23,3 +23,11 @@ Agent prompt names and display names are separately switched in `internal/app/ex
 ## Reconciliation direction
 
 Create one authoritative typed target registry for canonical id, prompt identity, display name, and target adapter dispatch metadata. Derive validation/routing/display behavior where practical without changing observable CLI or MCP behavior.
+
+## Design
+
+- Add an `internal/agent` registry at the lowest dependency layer with canonical ids and aliases plus prompt/display metadata.
+- Derive `input.normalizeAgent`, application prompt/display names, and agent-id validation from the registry; keep executor calls in `internal/app` to avoid dependency inversion.
+- Preserve every accepted alias, user-facing name, default, and error message.
+- Add registry/normalization parity tests and run full/race verification.
+- Keep the change behavior-preserving; do not add targets or alter CLI/MCP schemas.
