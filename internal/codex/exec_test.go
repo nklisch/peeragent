@@ -4,11 +4,13 @@ import (
 	"context"
 	"reflect"
 	"testing"
+
+	"github.com/nklisch/peeragent/internal/testsupport"
 )
 
 func TestExecWithRunnerBuildsArgv(t *testing.T) {
 	stubLookPath(t)
-	run := &recordingRunner{result: Result{ExitCode: 0, Stdout: "ok"}}
+	run := &testsupport.RecordingRunner{Result: Result{ExitCode: 0, Stdout: "ok"}}
 
 	result, err := ExecWithRunner(context.Background(), run, Options{CWD: "/repo", Prompt: "do work"})
 	if err != nil {
@@ -17,8 +19,8 @@ func TestExecWithRunnerBuildsArgv(t *testing.T) {
 	if result.Stdout != "ok" {
 		t.Fatalf("Stdout = %q", result.Stdout)
 	}
-	if run.cwd != "/repo" {
-		t.Fatalf("cwd = %q", run.cwd)
+	if run.CWD != "/repo" {
+		t.Fatalf("cwd = %q", run.CWD)
 	}
 	wantArgs := []string{
 		"exec",
@@ -30,17 +32,17 @@ func TestExecWithRunnerBuildsArgv(t *testing.T) {
 		"-c", `model_reasoning_effort="high"`,
 		"do work",
 	}
-	if !reflect.DeepEqual(run.args, wantArgs) {
-		t.Fatalf("args = %#v, want %#v", run.args, wantArgs)
+	if !reflect.DeepEqual(run.Args, wantArgs) {
+		t.Fatalf("args = %#v, want %#v", run.Args, wantArgs)
 	}
-	if run.name == "" {
+	if run.Name == "" {
 		t.Fatal("expected codex path")
 	}
 }
 
 func TestExecWithRunnerBuildsFullAccessArgv(t *testing.T) {
 	stubLookPath(t)
-	run := &recordingRunner{result: Result{ExitCode: 0}}
+	run := &testsupport.RecordingRunner{Result: Result{ExitCode: 0}}
 
 	_, err := ExecWithRunner(context.Background(), run, Options{CWD: "/repo", Prompt: "do work", FullAccess: true})
 	if err != nil {
@@ -55,14 +57,14 @@ func TestExecWithRunnerBuildsFullAccessArgv(t *testing.T) {
 		"-c", `model_reasoning_effort="high"`,
 		"do work",
 	}
-	if !reflect.DeepEqual(run.args, wantArgs) {
-		t.Fatalf("args = %#v, want %#v", run.args, wantArgs)
+	if !reflect.DeepEqual(run.Args, wantArgs) {
+		t.Fatalf("args = %#v, want %#v", run.Args, wantArgs)
 	}
 }
 
 func TestExecWithRunnerBuildsProfileArgv(t *testing.T) {
 	stubLookPath(t)
-	run := &recordingRunner{result: Result{ExitCode: 0}}
+	run := &testsupport.RecordingRunner{Result: Result{ExitCode: 0}}
 
 	_, err := ExecWithRunner(context.Background(), run, Options{CWD: "/repo", Prompt: "do work", Profile: "peeragent"})
 	if err != nil {
@@ -80,14 +82,14 @@ func TestExecWithRunnerBuildsProfileArgv(t *testing.T) {
 		"-c", `model_reasoning_effort="high"`,
 		"do work",
 	}
-	if !reflect.DeepEqual(run.args, wantArgs) {
-		t.Fatalf("args = %#v, want %#v", run.args, wantArgs)
+	if !reflect.DeepEqual(run.Args, wantArgs) {
+		t.Fatalf("args = %#v, want %#v", run.Args, wantArgs)
 	}
 }
 
 func TestExecWithRunnerBuildsModelArgv(t *testing.T) {
 	stubLookPath(t)
-	run := &recordingRunner{result: Result{ExitCode: 0}}
+	run := &testsupport.RecordingRunner{Result: Result{ExitCode: 0}}
 
 	_, err := ExecWithRunner(context.Background(), run, Options{CWD: "/repo", Prompt: "do work", Model: "gpt-5.6-luna"})
 	if err != nil {
@@ -105,14 +107,14 @@ func TestExecWithRunnerBuildsModelArgv(t *testing.T) {
 		"-c", `model_reasoning_effort="high"`,
 		"do work",
 	}
-	if !reflect.DeepEqual(run.args, wantArgs) {
-		t.Fatalf("args = %#v, want %#v", run.args, wantArgs)
+	if !reflect.DeepEqual(run.Args, wantArgs) {
+		t.Fatalf("args = %#v, want %#v", run.Args, wantArgs)
 	}
 }
 
 func TestExecWithRunnerBuildsLowEffortArgv(t *testing.T) {
 	stubLookPath(t)
-	run := &recordingRunner{result: Result{ExitCode: 0}}
+	run := &testsupport.RecordingRunner{Result: Result{ExitCode: 0}}
 
 	_, err := ExecWithRunner(context.Background(), run, Options{CWD: "/repo", Prompt: "do work", Effort: "low"})
 	if err != nil {
@@ -129,14 +131,14 @@ func TestExecWithRunnerBuildsLowEffortArgv(t *testing.T) {
 		"-c", `model_reasoning_effort="low"`,
 		"do work",
 	}
-	if !reflect.DeepEqual(run.args, wantArgs) {
-		t.Fatalf("args = %#v, want %#v", run.args, wantArgs)
+	if !reflect.DeepEqual(run.Args, wantArgs) {
+		t.Fatalf("args = %#v, want %#v", run.Args, wantArgs)
 	}
 }
 
 func TestExecWithRunnerBuildsHighEffortArgv(t *testing.T) {
 	stubLookPath(t)
-	run := &recordingRunner{result: Result{ExitCode: 0}}
+	run := &testsupport.RecordingRunner{Result: Result{ExitCode: 0}}
 
 	_, err := ExecWithRunner(context.Background(), run, Options{CWD: "/repo", Prompt: "do work", Effort: "high"})
 	if err != nil {
@@ -153,14 +155,14 @@ func TestExecWithRunnerBuildsHighEffortArgv(t *testing.T) {
 		"-c", `model_reasoning_effort="high"`,
 		"do work",
 	}
-	if !reflect.DeepEqual(run.args, wantArgs) {
-		t.Fatalf("args = %#v, want %#v", run.args, wantArgs)
+	if !reflect.DeepEqual(run.Args, wantArgs) {
+		t.Fatalf("args = %#v, want %#v", run.Args, wantArgs)
 	}
 }
 
 func TestExecWithRunnerBuildsXHighEffortArgv(t *testing.T) {
 	stubLookPath(t)
-	run := &recordingRunner{result: Result{ExitCode: 0}}
+	run := &testsupport.RecordingRunner{Result: Result{ExitCode: 0}}
 
 	_, err := ExecWithRunner(context.Background(), run, Options{CWD: "/repo", Prompt: "do work", Effort: "xhigh"})
 	if err != nil {
@@ -177,14 +179,14 @@ func TestExecWithRunnerBuildsXHighEffortArgv(t *testing.T) {
 		"-c", `model_reasoning_effort="xhigh"`,
 		"do work",
 	}
-	if !reflect.DeepEqual(run.args, wantArgs) {
-		t.Fatalf("args = %#v, want %#v", run.args, wantArgs)
+	if !reflect.DeepEqual(run.Args, wantArgs) {
+		t.Fatalf("args = %#v, want %#v", run.Args, wantArgs)
 	}
 }
 
 func TestExecWithRunnerBuildsResumeArgv(t *testing.T) {
 	stubLookPath(t)
-	run := &recordingRunner{result: Result{ExitCode: 0}}
+	run := &testsupport.RecordingRunner{Result: Result{ExitCode: 0}}
 
 	_, err := ExecWithRunner(context.Background(), run, Options{CWD: "/repo", Prompt: "continue work", Model: "gpt-5.6-sol", Resume: "019e6be9-b530-7ef3-96aa-989712db6ebb"})
 	if err != nil {
@@ -202,14 +204,14 @@ func TestExecWithRunnerBuildsResumeArgv(t *testing.T) {
 		"019e6be9-b530-7ef3-96aa-989712db6ebb",
 		"continue work",
 	}
-	if !reflect.DeepEqual(run.args, wantArgs) {
-		t.Fatalf("args = %#v, want %#v", run.args, wantArgs)
+	if !reflect.DeepEqual(run.Args, wantArgs) {
+		t.Fatalf("args = %#v, want %#v", run.Args, wantArgs)
 	}
 }
 
 func TestExecWithRunnerNormalizesJSONL(t *testing.T) {
 	stubLookPath(t)
-	run := &recordingRunner{result: Result{ExitCode: 0, Stdout: `{"type":"thread.started","thread_id":"thread-1"}
+	run := &testsupport.RecordingRunner{Result: Result{ExitCode: 0, Stdout: `{"type":"thread.started","thread_id":"thread-1"}
 	{"type":"item.completed","item":{"type":"agent_message","text":"I am checking the repo."}}
 	{"type":"item.completed","item":{"type":"tool_call","text":"ignored"}}
 	{"type":"item.completed","item":{"type":"agent_message","text":"done"}}
@@ -227,13 +229,6 @@ func TestExecWithRunnerNormalizesJSONL(t *testing.T) {
 	}
 }
 
-type recordingRunner struct {
-	name   string
-	args   []string
-	cwd    string
-	result Result
-}
-
 func stubLookPath(t *testing.T) {
 	t.Helper()
 	previous := lookPath
@@ -243,11 +238,4 @@ func stubLookPath(t *testing.T) {
 	t.Cleanup(func() {
 		lookPath = previous
 	})
-}
-
-func (r *recordingRunner) Run(_ context.Context, name string, args []string, cwd string) (Result, error) {
-	r.name = name
-	r.args = args
-	r.cwd = cwd
-	return r.result, nil
 }

@@ -1,7 +1,7 @@
 ---
 id: gate-patterns-inconsistency-runner-test-double
 kind: story
-stage: implementing
+stage: review
 tags: [refactor]
 parent: null
 depends_on: []
@@ -30,3 +30,12 @@ Introduce a focused shared test-support package or helper that preserves package
 - Replace four duplicate runner structs/methods with the shared double while retaining local argv assertions and cleanup.
 - Do not move production code or target-specific fixtures.
 - Run all target adapter tests and the full suite.
+
+## Implementation Notes
+- Added `internal/testsupport.RecordingRunner` as the shared offline `executil.Runner` test double.
+- Updated Codex, Claude, Gemini, and Z.AI adapter tests to use the shared recorder and exported capture fields.
+- Retained each adapter's package-local `stubLookPath` and cleanup restoration because `lookPath` remains package-private.
+- Left production adapters, target fixtures, and argv assertions in their existing packages.
+
+## Verification
+- `go test ./internal/claude ./internal/codex ./internal/gemini ./internal/zai`
