@@ -1,7 +1,7 @@
 ---
 id: gate-docs-pi-package-repository-shape
 kind: story
-stage: drafting
+stage: implementing
 tags: [documentation]
 parent: null
 depends_on: []
@@ -33,3 +33,10 @@ The repository is also a first-class Pi package. Root `package.json` declares `@
 ## Required edit
 
 Roll current truth into the Repository Shape section and file listing, and add the Pi package manifest to the Components description in `docs/SPEC.md` where appropriate. Do not add historical prose.
+
+## Design
+
+- Update README's current repository-shape sentence to name Claude, Codex, and Pi.
+- Add `package.json` to the repository-shape tree with its Pi skills role.
+- Add the Pi package manifest to `docs/SPEC.md` Components.
+- Preserve rolling-foundation wording and run documentation validation.
