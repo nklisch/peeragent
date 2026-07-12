@@ -17,15 +17,19 @@ import (
 )
 
 type Options struct {
-	Executor   TargetExecutor
-	Launcher   JobLauncher
-	Executable func() (string, error)
+	Executor          TargetExecutor
+	Launcher          JobLauncher
+	Executable        func() (string, error)
+	WorkingDirectory  func() (string, error)
+	ProcessController ProcessController
 }
 
 type Service struct {
-	executor   TargetExecutor
-	launcher   JobLauncher
-	executable func() (string, error)
+	executor          TargetExecutor
+	launcher          JobLauncher
+	executable        func() (string, error)
+	workingDirectory  func() (string, error)
+	processController ProcessController
 }
 
 type TargetExecutor interface {
@@ -46,10 +50,18 @@ func NewService(opts Options) *Service {
 	if opts.Executable == nil {
 		opts.Executable = os.Executable
 	}
+	if opts.WorkingDirectory == nil {
+		opts.WorkingDirectory = os.Getwd
+	}
+	if opts.ProcessController == nil {
+		opts.ProcessController = processController{}
+	}
 	return &Service{
-		executor:   opts.Executor,
-		launcher:   opts.Launcher,
-		executable: opts.Executable,
+		executor:          opts.Executor,
+		launcher:          opts.Launcher,
+		executable:        opts.Executable,
+		workingDirectory:  opts.WorkingDirectory,
+		processController: opts.ProcessController,
 	}
 }
 
