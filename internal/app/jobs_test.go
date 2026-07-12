@@ -88,22 +88,23 @@ func TestJobResultReturnsRunningUntilResultExists(t *testing.T) {
 func TestJobLookupFailureIsStructuredExitCodeFour(t *testing.T) {
 	cwd := t.TempDir()
 	service := NewService(Options{})
+	const missingJobID = "20260712T123456Z-deadbeef"
 	for _, method := range []func() (result.Result, error){
 		func() (result.Result, error) {
-			return service.JobStatus(context.Background(), JobRequest{CWD: cwd, JobID: "missing"})
+			return service.JobStatus(context.Background(), JobRequest{CWD: cwd, JobID: missingJobID})
 		},
 		func() (result.Result, error) {
-			return service.JobResult(context.Background(), JobRequest{CWD: cwd, JobID: "missing"})
+			return service.JobResult(context.Background(), JobRequest{CWD: cwd, JobID: missingJobID})
 		},
 		func() (result.Result, error) {
-			return service.CancelJob(context.Background(), JobRequest{CWD: cwd, JobID: "missing"})
+			return service.CancelJob(context.Background(), JobRequest{CWD: cwd, JobID: missingJobID})
 		},
 	} {
 		got, err := method()
 		if err != nil {
 			t.Fatal(err)
 		}
-		if got.Status != result.StatusFailed || got.Metadata.ExitCode != 4 || got.Metadata.JobID != "missing" {
+		if got.Status != result.StatusFailed || got.Metadata.ExitCode != 4 || got.Metadata.JobID != missingJobID {
 			t.Fatalf("missing-job result = %#v", got)
 		}
 	}
@@ -130,6 +131,40 @@ func TestJobServicesRejectInvalidOrCancelledRequestsBeforeStoreAccess(t *testing
 	cancel()
 	if _, err := service.JobStatus(ctx, JobRequest{CWD: t.TempDir(), JobID: "job-1"}); !errors.Is(err, context.Canceled) {
 		t.Fatalf("cancelled context error = %v", err)
+	}
+}
+
+func TestJobServicesRejectMalformedIDsBeforeStoreAccess(t *testing.T) {
+	service := NewService(Options{
+		WorkingDirectory: func() (string, error) {
+			t.Fatal("working directory should not be requested for a malformed job id")
+			return "", nil
+		},
+	})
+	invalidIDs := []string{
+		"../escape",
+		"..",
+		".",
+		"/absolute/path",
+		"a/b",
+		`a\b`,
+		"not-a-job",
+		"20260712T123456Z-deadbeeg",
+		"20260712T12345Z-deadbeef",
+		"20261340T123456Z-deadbeef",
+		"20260712T123456Z-deadbeef\x00",
+		"20260712T123456Z-😀😀😀😀",
+	}
+	for _, id := range invalidIDs {
+		for _, call := range []func(context.Context, JobRequest) (result.Result, error){
+			service.JobStatus,
+			service.JobResult,
+			service.CancelJob,
+		} {
+			if _, err := call(context.Background(), JobRequest{CWD: t.TempDir(), JobID: id}); !errors.Is(err, jobs.ErrInvalidID) {
+				t.Errorf("job id %q error = %v, want ErrInvalidID", id, err)
+			}
+		}
 	}
 }
 

@@ -52,7 +52,10 @@ func (s Store) Create(cwd string, spec ExecSpec, prompt string) (Job, error) {
 		return Job{}, err
 	}
 	now := time.Now().UTC()
-	dir := s.jobDir(id)
+	dir, err := s.jobDir(id)
+	if err != nil {
+		return Job{}, err
+	}
 	job := Job{
 		ID:         id,
 		Status:     "running",
@@ -77,7 +80,11 @@ func (s Store) Create(cwd string, spec ExecSpec, prompt string) (Job, error) {
 }
 
 func (s Store) Load(id string) (Job, error) {
-	content, err := os.ReadFile(filepath.Join(s.jobDir(id), "job.json"))
+	dir, err := s.jobDir(id)
+	if err != nil {
+		return Job{}, err
+	}
+	content, err := os.ReadFile(filepath.Join(dir, "job.json"))
 	if err != nil {
 		return Job{}, err
 	}
@@ -89,15 +96,19 @@ func (s Store) Load(id string) (Job, error) {
 }
 
 func (s Store) Save(job Job) error {
+	dir, err := s.jobDir(job.ID)
+	if err != nil {
+		return err
+	}
 	job.UpdatedAt = time.Now().UTC()
 	content, err := json.MarshalIndent(job, "", "  ")
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(s.jobDir(job.ID), 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
-	return AtomicWriteFile(filepath.Join(s.jobDir(job.ID), "job.json"), append(content, '\n'), 0o644)
+	return AtomicWriteFile(filepath.Join(dir, "job.json"), append(content, '\n'), 0o644)
 }
 
 func (s Store) SaveGuarded(job Job) (string, error) {
@@ -112,14 +123,22 @@ func (s Store) SaveGuarded(job Job) (string, error) {
 }
 
 func (s Store) WritePrompt(id string, prompt string) error {
-	if err := os.MkdirAll(s.jobDir(id), 0o755); err != nil {
+	dir, err := s.jobDir(id)
+	if err != nil {
 		return err
 	}
-	return AtomicWriteFile(filepath.Join(s.jobDir(id), "prompt.txt"), []byte(prompt), 0o644)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	return AtomicWriteFile(filepath.Join(dir, "prompt.txt"), []byte(prompt), 0o644)
 }
 
 func (s Store) ReadPrompt(id string) (string, error) {
-	content, err := os.ReadFile(filepath.Join(s.jobDir(id), "prompt.txt"))
+	dir, err := s.jobDir(id)
+	if err != nil {
+		return "", err
+	}
+	content, err := os.ReadFile(filepath.Join(dir, "prompt.txt"))
 	if err != nil {
 		return "", err
 	}
@@ -127,14 +146,22 @@ func (s Store) ReadPrompt(id string) (string, error) {
 }
 
 func (s Store) WritePID(id string, pid int) error {
-	if err := os.MkdirAll(s.jobDir(id), 0o755); err != nil {
+	dir, err := s.jobDir(id)
+	if err != nil {
 		return err
 	}
-	return AtomicWriteFile(filepath.Join(s.jobDir(id), "pid"), []byte(strconv.Itoa(pid)+"\n"), 0o644)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	return AtomicWriteFile(filepath.Join(dir, "pid"), []byte(strconv.Itoa(pid)+"\n"), 0o644)
 }
 
 func (s Store) ReadPID(id string) (int, error) {
-	content, err := os.ReadFile(filepath.Join(s.jobDir(id), "pid"))
+	dir, err := s.jobDir(id)
+	if err != nil {
+		return 0, err
+	}
+	content, err := os.ReadFile(filepath.Join(dir, "pid"))
 	if err != nil {
 		return 0, err
 	}
@@ -142,7 +169,11 @@ func (s Store) ReadPID(id string) (int, error) {
 }
 
 func (s Store) RemovePID(id string) error {
-	err := os.Remove(filepath.Join(s.jobDir(id), "pid"))
+	dir, err := s.jobDir(id)
+	if err != nil {
+		return err
+	}
+	err = os.Remove(filepath.Join(dir, "pid"))
 	if os.IsNotExist(err) {
 		return nil
 	}
@@ -154,10 +185,14 @@ func (s Store) RemovePID(id string) error {
 // holder PID for diagnostics, and times out after jobLockTimeout rather than
 // stealing an existing lock.
 func (s Store) WithJobLock(id string, fn func() error) error {
-	if err := os.MkdirAll(s.jobDir(id), 0o755); err != nil {
+	dir, err := s.jobDir(id)
+	if err != nil {
 		return err
 	}
-	lockPath := filepath.Join(s.jobDir(id), "lock")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	lockPath := filepath.Join(dir, "lock")
 	deadline := time.Now().Add(jobLockTimeout)
 	for {
 		file, err := os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
@@ -184,8 +219,11 @@ func (s Store) WithJobLock(id string, fn func() error) error {
 	}
 }
 
-func (s Store) jobDir(id string) string {
-	return filepath.Join(s.Root, id)
+func (s Store) jobDir(id string) (string, error) {
+	if err := ValidateID(id); err != nil {
+		return "", err
+	}
+	return filepath.Join(s.Root, id), nil
 }
 
 func newID() (string, error) {

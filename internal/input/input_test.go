@@ -507,55 +507,79 @@ func TestParseAsync(t *testing.T) {
 }
 
 func TestParseJobRun(t *testing.T) {
-	req, err := Parse([]string{"--job-run", "job-1", "task"}, nil, fixedCWD)
+	req, err := Parse([]string{"--job-run", validJobID, "task"}, nil, fixedCWD)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if req.JobRunID != "job-1" {
+	if req.JobRunID != validJobID {
 		t.Fatalf("JobRunID = %q", req.JobRunID)
 	}
 }
 
 func TestParseJobRunAllowsEmptyTaskText(t *testing.T) {
-	req, err := Parse([]string{"--job-run", "job-1"}, nil, fixedCWD)
+	req, err := Parse([]string{"--job-run", validJobID}, nil, fixedCWD)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if req.TaskText != "" {
 		t.Fatalf("TaskText = %q", req.TaskText)
 	}
-	if req.JobRunID != "job-1" {
+	if req.JobRunID != validJobID {
 		t.Fatalf("JobRunID = %q", req.JobRunID)
 	}
 }
 
 func TestParseStatus(t *testing.T) {
-	req, err := Parse([]string{"--status", "job-1", "ignored"}, nil, fixedCWD)
+	req, err := Parse([]string{"--status", validJobID, "ignored"}, nil, fixedCWD)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if req.StatusJobID != "job-1" {
+	if req.StatusJobID != validJobID {
 		t.Fatalf("StatusJobID = %q", req.StatusJobID)
 	}
 }
 
 func TestParseResult(t *testing.T) {
-	req, err := Parse([]string{"--result", "job-1", "ignored"}, nil, fixedCWD)
+	req, err := Parse([]string{"--result", validJobID, "ignored"}, nil, fixedCWD)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if req.ResultJobID != "job-1" {
+	if req.ResultJobID != validJobID {
 		t.Fatalf("ResultJobID = %q", req.ResultJobID)
 	}
 }
 
 func TestParseCancel(t *testing.T) {
-	req, err := Parse([]string{"--cancel", "job-1"}, nil, fixedCWD)
+	req, err := Parse([]string{"--cancel", validJobID}, nil, fixedCWD)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if req.CancelJobID != "job-1" {
+	if req.CancelJobID != validJobID {
 		t.Fatalf("CancelJobID = %q", req.CancelJobID)
+	}
+}
+
+func TestParseRejectsMalformedJobIDsAtCLIInputBoundary(t *testing.T) {
+	invalidIDs := []string{
+		"../escape",
+		"..",
+		".",
+		"/absolute/path",
+		`a\b`,
+		"a/b",
+		"not-a-job",
+		"20260712T123456Z-deadbeeg",
+		"20260712T12345Z-deadbeef",
+		"20261340T123456Z-deadbeef",
+		"20260712T123456Z-deadbeef\x00",
+		"20260712T123456Z-😀😀😀😀",
+	}
+	for _, flag := range []string{"--job-run", "--status", "--result", "--cancel"} {
+		for _, id := range invalidIDs {
+			if _, err := Parse([]string{flag, id}, nil, fixedCWD); err == nil {
+				t.Errorf("Parse(%s, %q) accepted malformed id", flag, id)
+			}
+		}
 	}
 }
 
@@ -565,6 +589,8 @@ func TestParseRequiresTaskText(t *testing.T) {
 		t.Fatal("expected error")
 	}
 }
+
+const validJobID = "20260712T123456Z-deadbeef"
 
 func fixedCWD() (string, error) {
 	return "/repo", nil

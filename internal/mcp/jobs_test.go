@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 
@@ -12,6 +13,8 @@ import (
 	"github.com/nklisch/peeragent/internal/jobs"
 	"github.com/nklisch/peeragent/internal/result"
 )
+
+const validJobID = "20260712T123456Z-deadbeef"
 
 func TestJobToolsReturnStructuredResultsAndNormalizeRequests(t *testing.T) {
 	service := &fakeService{
@@ -32,7 +35,7 @@ func TestJobToolsReturnStructuredResultsAndNormalizeRequests(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			called, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
 				Name:      test.name,
-				Arguments: map[string]any{"job_id": " job-1 ", "cwd": " /repo "},
+				Arguments: map[string]any{"job_id": " " + validJobID + " ", "cwd": " /repo "},
 			})
 			if err != nil {
 				t.Fatal(err)
@@ -46,7 +49,7 @@ func TestJobToolsReturnStructuredResultsAndNormalizeRequests(t *testing.T) {
 			}
 		})
 	}
-	if service.lastJobRequest != (app.JobRequest{JobID: "job-1", CWD: "/repo"}) {
+	if service.lastJobRequest != (app.JobRequest{JobID: validJobID, CWD: "/repo"}) {
 		t.Fatalf("job request = %#v, want normalized request", service.lastJobRequest)
 	}
 	if service.jobStatusCalls != 1 || service.jobResultCalls != 1 || service.jobCancelCalls != 1 {
@@ -71,6 +74,57 @@ func TestJobToolsRejectEmptyIDBeforeApplicationService(t *testing.T) {
 	}
 	if service.jobStatusCalls != 0 || service.jobResultCalls != 0 || service.jobCancelCalls != 0 {
 		t.Fatalf("application service called for invalid ids: %#v", service)
+	}
+}
+
+func TestMCPJobToolsRejectMalformedIDsThroughApplicationBoundary(t *testing.T) {
+	cwd := filepath.Join(t.TempDir(), "repository")
+	service := app.NewService(app.Options{WorkingDirectory: func() (string, error) { return cwd, nil }})
+	session := connectTestClient(t, service)
+	invalidIDs := []string{
+		"../escape",
+		"..",
+		".",
+		"/absolute/path",
+		`a\b`,
+		"a/b",
+		"not-a-job",
+		"20260712T123456Z-deadbeeg",
+		"20260712T12345Z-deadbeef",
+		"20261340T123456Z-deadbeef",
+		"20260712T123456Z-deadbeef\x00",
+		"20260712T123456Z-😀😀😀😀",
+	}
+	for _, name := range []string{"job_status", "job_result", "job_cancel"} {
+		for _, id := range invalidIDs {
+			called, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+				Name:      name,
+				Arguments: map[string]any{"job_id": id, "cwd": cwd},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !called.IsError {
+				t.Fatalf("%s accepted malformed id %q: %#v", name, id, called)
+			}
+		}
+	}
+
+	for _, name := range []string{"job_status", "job_result", "job_cancel"} {
+		called, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+			Name:      name,
+			Arguments: map[string]any{"job_id": validJobID, "cwd": cwd},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if called.IsError {
+			t.Fatalf("%s rejected syntactically valid missing id: %#v", name, called)
+		}
+		got := decodeResult(t, called.StructuredContent)
+		if got.Metadata.ExitCode != 4 || got.Metadata.JobID != validJobID || got.Status != result.StatusFailed {
+			t.Fatalf("%s missing result = %#v, want structured exit 4", name, got)
+		}
 	}
 }
 

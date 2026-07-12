@@ -90,6 +90,9 @@ func (s *Service) normalizeJobRequest(ctx context.Context, raw JobRequest) (JobR
 	if raw.JobID == "" {
 		return JobRequest{}, errors.New("job id is required")
 	}
+	if err := jobs.ValidateID(raw.JobID); err != nil {
+		return JobRequest{}, err
+	}
 	raw.CWD = strings.TrimSpace(raw.CWD)
 	if raw.CWD == "" {
 		if s.workingDirectory == nil {

@@ -6,6 +6,8 @@ import (
 	"io"
 	"os"
 	"strings"
+
+	"github.com/nklisch/peeragent/internal/jobs"
 )
 
 type Request struct {
@@ -35,6 +37,9 @@ func Parse(args []string, stdin io.Reader, getwd func() (string, error)) (Reques
 
 	if parsed.help {
 		return Request{Help: true, JSON: parsed.json}, nil
+	}
+	if err := normalizeJobIDs(&parsed); err != nil {
+		return Request{}, err
 	}
 
 	parts := make([]string, 0, 3)
@@ -106,6 +111,31 @@ func Parse(args []string, stdin io.Reader, getwd func() (string, error)) (Reques
 		ResultJobID: parsed.resultJobID,
 		CancelJobID: parsed.cancelJobID,
 	}, nil
+}
+
+func normalizeJobIDs(parsed *parsedArgs) error {
+	for _, field := range []struct {
+		name  string
+		value *string
+	}{
+		{name: "--job-run", value: &parsed.jobRunID},
+		{name: "--status", value: &parsed.statusJobID},
+		{name: "--result", value: &parsed.resultJobID},
+		{name: "--cancel", value: &parsed.cancelJobID},
+	} {
+		if *field.value == "" {
+			continue
+		}
+		id := strings.TrimSpace(*field.value)
+		if id == "" {
+			return fmt.Errorf("%s requires a valid job id", field.name)
+		}
+		if err := jobs.ValidateID(id); err != nil {
+			return fmt.Errorf("%s: %w", field.name, err)
+		}
+		*field.value = id
+	}
+	return nil
 }
 
 func shouldReadStdin(stdin io.Reader, parsed parsedArgs) bool {

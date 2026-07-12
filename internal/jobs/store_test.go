@@ -1,6 +1,7 @@
 package jobs
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -105,7 +106,11 @@ func TestPIDRoundTrip(t *testing.T) {
 	if err := store.WritePID(job.ID, 12345); err != nil {
 		t.Fatal(err)
 	}
-	raw, err := os.ReadFile(filepath.Join(store.jobDir(job.ID), "pid"))
+	dir, err := store.jobDir(job.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, "pid"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -133,7 +138,11 @@ func TestReadPIDRejectsInvalidContent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := AtomicWriteFile(filepath.Join(store.jobDir(job.ID), "pid"), []byte("not-a-pid\n"), 0o644); err != nil {
+	dir, err := store.jobDir(job.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := AtomicWriteFile(filepath.Join(dir, "pid"), []byte("not-a-pid\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := store.ReadPID(job.ID); err == nil {
@@ -254,7 +263,11 @@ func TestWithJobLockRemovesLockFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	lockPath := filepath.Join(store.jobDir(job.ID), "lock")
+	dir, err := store.jobDir(job.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lockPath := filepath.Join(dir, "lock")
 
 	called := false
 	if err := store.WithJobLock(job.ID, func() error {
@@ -286,12 +299,85 @@ func TestAtomicWritesLeaveNoTmpFilesAfterSuccess(t *testing.T) {
 	if err := store.WritePrompt(job.ID, "next"); err != nil {
 		t.Fatal(err)
 	}
-	matches, err := filepath.Glob(filepath.Join(store.jobDir(job.ID), "*.tmp"))
+	dir, err := store.jobDir(job.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	matches, err := filepath.Glob(filepath.Join(dir, "*.tmp"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(matches) != 0 {
 		t.Fatalf("unexpected tmp files: %v", matches)
+	}
+}
+
+func TestValidateIDAcceptsGeneratedIDsAndRejectsMalformedIDs(t *testing.T) {
+	generated, err := newID()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateID(generated); err != nil {
+		t.Fatalf("generated id %q rejected: %v", generated, err)
+	}
+
+	for _, id := range []string{
+		"",
+		"../escape",
+		"..",
+		".",
+		"/absolute/path",
+		`a\b`,
+		"a/b",
+		"20260712T123456Z-deadbeef/child",
+		"20260712T123456Z-deadbeeg",
+		"20260712T123456Z-DEADBEEF",
+		"20260712T12345Z-deadbeef",
+		"20260712T123456Z-deadbee",
+		"20260712T123456-deadbeef",
+		"20260712T123456Z-deadbeefx",
+		"20261340T123456Z-deadbeef",
+		"20260230T123456Z-deadbeef",
+		"20260712T123456Z-😀😀😀😀",
+		"20260712T123456Z-deadbeef\x00",
+	} {
+		if err := ValidateID(id); !errors.Is(err, ErrInvalidID) {
+			t.Errorf("ValidateID(%q) = %v, want ErrInvalidID", id, err)
+		}
+	}
+}
+
+func TestStoreRejectsInvalidJobIDsBeforeFilesystemAccess(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "jobs")
+	store := Store{Root: root}
+	invalidIDs := []string{"../escape", "..", ".", "/absolute/path", "a/b", `a\b`, "not-a-job", "20260712T123456Z-deadbeef\x00"}
+	for _, id := range invalidIDs {
+		t.Run("id", func(t *testing.T) {
+			if _, err := store.jobDir(id); !errors.Is(err, ErrInvalidID) {
+				t.Fatalf("jobDir(%q) = %v, want ErrInvalidID", id, err)
+			}
+			operations := []func() error{
+				func() error { _, err := store.Load(id); return err },
+				func() error { return store.Save(Job{ID: id}) },
+				func() error { _, err := store.SaveGuarded(Job{ID: id}); return err },
+				func() error { return store.WritePrompt(id, "prompt") },
+				func() error { _, err := store.ReadPrompt(id); return err },
+				func() error { return store.WritePID(id, 123) },
+				func() error { _, err := store.ReadPID(id); return err },
+				func() error { return store.RemovePID(id) },
+				func() error {
+					return store.WithJobLock(id, func() error { t.Fatal("invalid id reached lock callback"); return nil })
+				},
+			}
+			for _, operation := range operations {
+				if err := operation(); !errors.Is(err, ErrInvalidID) {
+					t.Errorf("operation error = %v, want ErrInvalidID", err)
+				}
+			}
+			if _, err := os.Stat(root); !os.IsNotExist(err) {
+				t.Fatalf("invalid id created or probed store root: stat error = %v", err)
+			}
+		})
 	}
 }
 
@@ -301,7 +387,11 @@ func TestAtomicSaveFailureLeavesExistingJobJSON(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	jobPath := filepath.Join(store.jobDir(job.ID), "job.json")
+	dir, err := store.jobDir(job.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	jobPath := filepath.Join(dir, "job.json")
 	before, err := os.ReadFile(jobPath)
 	if err != nil {
 		t.Fatal(err)

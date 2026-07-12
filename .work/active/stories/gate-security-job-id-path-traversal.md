@@ -1,7 +1,7 @@
 ---
 id: gate-security-job-id-path-traversal
 kind: story
-stage: implementing
+stage: review
 tags: [security]
 parent: null
 depends_on: []
@@ -47,3 +47,17 @@ Validate externally supplied job ids against peeragent's generated id grammar be
 - MCP handlers continue delegating to application normalization rather than duplicating grammar.
 - Cover valid generated ids, traversal, absolute paths, both separators, dot segments, wrong timestamp/hex lengths, Unicode, and NUL at store and application/MCP boundaries.
 - Return a tool/CLI input error without leaking target file contents; preserve exit-code-4 only for a syntactically valid but missing job.
+
+## Implementation Notes
+
+- Added the authoritative `jobs.ValidateID` grammar: an exact UTC timestamp (`YYYYMMDDTHHMMSSZ`) followed by eight lowercase hexadecimal bytes. Timestamp parsing rejects impossible dates; separators, dot segments, absolute paths, Unicode, NUL, and malformed lengths/hex are rejected before any job-store path join.
+- `jobs.Store` validates through `jobDir` for every id-bearing operation. Application normalization and CLI input normalization reuse the same validator; MCP continues to delegate validation to the application boundary.
+- Existing missing-job behavior remains a structured exit-code-4 result for syntactically valid ids. Invalid ids return input errors and do not create or probe the store root.
+
+## Verification
+
+- Focused tests: `go test ./internal/jobs ./internal/app ./internal/input ./internal/mcp ./cmd/peeragent`
+- Race tests: `go test -race ./internal/jobs ./internal/app ./internal/mcp ./internal/input ./cmd/peeragent`
+- Full tests: `go test ./...`
+- Static/build checks: `go vet ./...`; `go build ./...`
+- All checks passed. Story advanced from `implementing` to `review`; review owns approval.
