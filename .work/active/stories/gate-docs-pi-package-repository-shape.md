@@ -1,7 +1,7 @@
 ---
 id: gate-docs-pi-package-repository-shape
 kind: story
-stage: review
+stage: done
 tags: [documentation]
 parent: null
 depends_on: []
@@ -48,4 +48,8 @@ Roll current truth into the Repository Shape section and file listing, and add t
 
 ## Verification
 - `git diff --check -- README.md docs/SPEC.md`
-- `scripts/validate.sh` reached and passed the documentation examples checks, then failed at the pre-existing shim smoke expectation (`--status missing-job` returns exit 2 after job-id validation, while the script expects exit 4).
+- `scripts/validate.sh` reached and passed the documentation examples checks, then exposed a stale shim smoke fixture (`missing-job` is no longer a valid id); repaired under the job-id validation gate before release finalization.
+
+## Review
+
+Approved by independent source review of commit `bd7e82d`. README and SPEC now match root `package.json`, its `./plugin/skills` entrypoint, and the on-disk marketplace layout. No historical prose or unrelated drift was introduced.
