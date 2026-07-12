@@ -1,7 +1,7 @@
 ---
 id: gate-tests-process-launch-cleanup
 kind: story
-stage: review
+stage: done
 tags: [testing]
 parent: null
 depends_on: []
@@ -51,3 +51,7 @@ Also cover the release-failure cleanup branch through an injectable process seam
 - Discrepancies from design: none; the command factory seam avoids executable-permission failure injection while retaining production argv construction and detach attributes.
 - Adjacent issues parked: none.
 - Verification: focused process-launch cleanup tests passed with `go test ./internal/app -run 'TestProcessLauncher(KillsChildWhenPIDPersistenceFails|KillsChildAndRemovesPIDWhenReleaseFails)$' -count=1`; `go test -race ./internal/app ./internal/jobs`, `go test ./...`, `go vet ./...`, and `go build -o /tmp/peeragent-release-0.5.0 ./cmd/peeragent` all passed, and the temporary build artifact was removed.
+
+## Review
+
+Approved by independent source review of commit `047ef15`. The reviewer verified real long-lived process groups, cleanup on both failure branches, PID ordering/removal, deterministic unexported seams, Unix-specific honesty, and regression sensitivity. Final focused race verification passed.
