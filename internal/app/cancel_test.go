@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"os"
+	"path/filepath"
+	"reflect"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -51,6 +54,67 @@ func TestCancelJobPersistsCancelledStateAndCleansPIDThroughPort(t *testing.T) {
 	}
 	if controller.calls() != 1 || controller.pid != 4242 || controller.termGrace != cancelTermGrace || controller.killGrace != cancelKillGrace {
 		t.Fatalf("controller call = %#v", controller)
+	}
+}
+
+func TestCancelJobReportsCorruptResultAsInfrastructureError(t *testing.T) {
+	cwd := t.TempDir()
+	store := jobs.NewStore(cwd)
+	job, err := store.Create(cwd, testJobSpec(), "do work")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.WritePID(job.ID, 4242); err != nil {
+		t.Fatal(err)
+	}
+	beforeJob, err := os.ReadFile(filepath.Join(store.Root, job.ID, "job.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	const corruptResult = "{not valid result json"
+	if err := os.WriteFile(job.ResultPath, []byte(corruptResult), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	controller := &fakeProcessController{}
+	service := NewService(Options{ProcessController: controller})
+
+	got, err := service.CancelJob(context.Background(), JobRequest{CWD: cwd, JobID: job.ID})
+	if err == nil || !strings.Contains(err.Error(), "decode async job result") {
+		t.Fatalf("error = %v, want corrupt-result decode error", err)
+	}
+	if !reflect.DeepEqual(got, result.Result{}) {
+		t.Fatalf("result = %#v, want no fabricated cancellation result", got)
+	}
+	if controller.calls() != 0 {
+		t.Fatalf("controller calls = %d, corrupt result must not be signalled", controller.calls())
+	}
+	afterJob, err := os.ReadFile(filepath.Join(store.Root, job.ID, "job.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(afterJob, beforeJob) {
+		t.Fatalf("job.json changed after corrupt result: before=%q after=%q", beforeJob, afterJob)
+	}
+	afterResult, err := os.ReadFile(job.ResultPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(afterResult) != corruptResult {
+		t.Fatalf("result.json changed after corrupt result: %q", afterResult)
+	}
+	loaded, err := store.Load(job.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.Status != "running" {
+		t.Fatalf("job status = %q, want running", loaded.Status)
+	}
+	pid, err := store.ReadPID(job.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pid != 4242 {
+		t.Fatalf("pid = %d, want unchanged pid 4242", pid)
 	}
 }
 
