@@ -5,7 +5,7 @@ stage: done
 tags: [infra]
 parent: epic-mcp-server
 depends_on: [epic-mcp-server-delegation]
-release_binding: null
+release_binding: 0.5.0
 gate_origin: null
 created: 2026-07-12
 updated: 2026-07-12

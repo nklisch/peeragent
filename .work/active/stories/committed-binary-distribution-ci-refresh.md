@@ -5,7 +5,7 @@ stage: done
 tags: [infra]
 parent: committed-binary-distribution
 depends_on: [committed-binary-distribution-packaging]
-release_binding: null
+release_binding: 0.5.0
 gate_origin: null
 created: 2026-05-31
 updated: 2026-05-31

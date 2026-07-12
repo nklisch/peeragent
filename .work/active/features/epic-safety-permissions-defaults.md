@@ -5,7 +5,7 @@ stage: done
 tags: [security, infra]
 parent: epic-safety-permissions
 depends_on: []
-release_binding: null
+release_binding: 0.5.0
 gate_origin: null
 created: 2026-05-25
 updated: 2026-05-25

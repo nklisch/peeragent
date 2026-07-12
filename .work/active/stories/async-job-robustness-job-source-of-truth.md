@@ -5,7 +5,7 @@ stage: done
 tags: [infra]
 parent: async-job-robustness
 depends_on: [async-job-robustness-stdin-gate]
-release_binding: null
+release_binding: 0.5.0
 gate_origin: null
 created: 2026-05-27
 updated: 2026-05-27

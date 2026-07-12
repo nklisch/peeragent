@@ -5,7 +5,7 @@ stage: done
 tags: [docs]
 parent: epic-mcp-server-plugin-distribution
 depends_on: [epic-mcp-server-plugin-distribution-config]
-release_binding: null
+release_binding: 0.5.0
 gate_origin: null
 created: 2026-07-12
 updated: 2026-07-12
