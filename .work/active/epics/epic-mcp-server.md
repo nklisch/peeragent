@@ -69,7 +69,7 @@ A fresh-context GLM 5.2 review challenged SDK/plugin assumptions, cancellation c
 - added manual install/discovery acceptance for both plugin hosts;
 - required post-commit cancellation cleanup to survive MCP caller disconnection;
 - fixed the application-service constructor contract and simplified process-control injection;
-- made MCP use of canonical validation, stdout/exit boundaries, Go 1.23 audit, cross-repository `cwd` risk, and race/concurrency tests explicit;
+- made MCP use of canonical validation, stdout/exit boundaries, Go toolchain audit, cross-repository `cwd` risk, and race/concurrency tests explicit;
 - reduced duplicate subprocess smoke coverage to one packaged execution plus structural checks for both configs;
 - retained separate status/result tools because compact polling should not return potentially large target details.
 

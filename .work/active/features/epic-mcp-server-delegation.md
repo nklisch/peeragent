@@ -29,7 +29,7 @@ This feature also establishes the server entry mode and the internal application
 
 ## Design decisions
 
-- **SDK**: Use the official `github.com/modelcontextprotocol/go-sdk/mcp` SDK at v1.6.1. Its typed `AddTool` API generates and validates input/output schemas, supports structured content, provides in-memory test transports, and is the protocol owner's maintained implementation. This requires raising the module baseline from Go 1.22 to Go 1.23, matching the SDK's declared minimum. Verified 2026-07-12 against the [v1.6.1 release](https://github.com/modelcontextprotocol/go-sdk/releases/tag/v1.6.1), repository `go.mod`, `examples/server/hello/main.go`, `examples/server/toolschemas/main.go`, and `mcp/{server,tool}.go`: the concrete APIs used below are `mcp.NewServer`, generic `mcp.AddTool`, `mcp.StdioTransport`, `mcp.NewInMemoryTransports`, `ServerOptions.Instructions`, and typed structured output.
+- **SDK**: Use the official `github.com/modelcontextprotocol/go-sdk/mcp` SDK at v1.6.1. Its typed `AddTool` API generates and validates input/output schemas, supports structured content, provides in-memory test transports, and is the protocol owner's maintained implementation. This requires raising the module baseline from Go 1.22 to Go 1.25, matching the v1.6.1 tag's declared minimum. Verified 2026-07-12 against the [v1.6.1 release](https://github.com/modelcontextprotocol/go-sdk/releases/tag/v1.6.1), repository `go.mod`, `examples/server/hello/main.go`, `examples/server/toolschemas/main.go`, and `mcp/{server,tool}.go`: the concrete APIs used below are `mcp.NewServer`, generic `mcp.AddTool`, `mcp.StdioTransport`, `mcp.NewInMemoryTransports`, `ServerOptions.Instructions`, and typed structured output.
 - **Tool shape**: Expose one `delegate` tool with an `async` boolean rather than separate blocking and launch tools. This mirrors the existing CLI contract and keeps target/model/access fields in one schema.
 - **Failure semantics**: A valid peeragent `failed`, `blocked`, `cancelled`, or `running` result is structured tool output, not an MCP protocol error. Invalid arguments remain invalid-params errors; server/infrastructure failures become MCP tool errors.
 - **Working directory**: `cwd` is optional and defaults to the MCP server process working directory. Normalize it once at the application boundary before execution or job creation.
@@ -167,7 +167,7 @@ Use `mcp.NewInMemoryTransports` in tests to initialize a real client session, li
 
 ## Risks
 
-- **Go baseline**: Official SDK v1.6.1 requires Go 1.23. CI derives its toolchain from `go.mod`, but implementation must also audit workflows, build scripts, and installation docs for independent 1.22 assumptions and state the new minimum.
+- **Go baseline**: Official SDK v1.6.1 requires Go 1.25. CI derives its toolchain from `go.mod`, but implementation must also audit workflows, build scripts, and installation docs for independent 1.22 assumptions and state the new minimum.
 - **Main-package extraction**: Directly moving behavior can alter exit codes or races. Keep compatibility tests green after each application-service move rather than rewriting tests around new behavior.
 - **SDK schema details**: Typed schema generation is authoritative, but optional fields and descriptions must be inspected in a real list-tools response; customize only where generated constraints are insufficient.
 - **Timeouts**: Blocking agent work can outlive host MCP defaults. Async guidance is a product constraint, not something the server can override for every host.
