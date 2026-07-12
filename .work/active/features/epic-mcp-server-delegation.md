@@ -1,7 +1,7 @@
 ---
 id: epic-mcp-server-delegation
 kind: feature
-stage: implementing
+stage: review
 tags: [infra]
 parent: epic-mcp-server
 depends_on: []
@@ -171,3 +171,13 @@ Use `mcp.NewInMemoryTransports` in tests to initialize a real client session, li
 - **Main-package extraction**: Directly moving behavior can alter exit codes or races. Keep compatibility tests green after each application-service move rather than rewriting tests around new behavior.
 - **SDK schema details**: Typed schema generation is authoritative, but optional fields and descriptions must be inspected in a real list-tools response; customize only where generated constraints are insufficient.
 - **Timeouts**: Blocking agent work can outlive host MCP defaults. Async guidance is a product constraint, not something the server can override for every host.
+
+## Implementation summary
+- Execution capability: highest, selected by the autopilot caller because this feature crosses the CLI boundary, target process execution, async jobs, generated MCP schemas, and stdio protocol framing.
+- Review weight: standard (project default).
+- Child implementation status: `epic-mcp-server-delegation-application-services` and `epic-mcp-server-delegation-stdio-server` are both at `stage: review`; every child is terminal-or-review.
+- Delivered the canonical input normalizer, shared blocking/async application service, official MCP Go SDK v1.6.1 integration, Go 1.25 baseline, typed `delegate` tool, in-memory protocol coverage, cancellation coverage, and subprocess stdout-purity coverage.
+- The CLI remains the composition root and owns output formatting/process exit; MCP uses the same application service and preserves structured peeragent results.
+- Verification: focused application/MCP tests, `go test -race ./internal/mcp`, `go test ./...` (159 tests across 12 packages), and `go build -o /tmp/peeragent-mcp ./cmd/peeragent` all passed.
+- Design correction: the corrected story resolved SDK v1.6.1's declared Go 1.25 minimum by raising `go.mod` and documenting Go 1.25 as the supported source-build minimum.
+- Adjacent issues parked: none.
