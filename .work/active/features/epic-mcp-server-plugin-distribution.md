@@ -1,7 +1,7 @@
 ---
 id: epic-mcp-server-plugin-distribution
 kind: feature
-stage: review
+stage: done
 tags: [infra, docs]
 parent: epic-mcp-server
 depends_on: [epic-mcp-server-delegation, epic-mcp-server-job-control]
@@ -78,12 +78,12 @@ Alternatives rejected:
 Add `"mcpServers": "./.mcp.claude.json"` to the Claude manifest and `"mcpServers": "./.mcp.codex.json"` to the Codex manifest. Package both files into the curated plugin root. Update descriptions/capabilities to mention MCP delegation without claiming remote service support.
 
 **Acceptance criteria**:
-- [ ] Claude plugin validation accepts the custom MCP config path.
-- [ ] Codex plugin manifest and direct-server-map config match current documented schemas.
-- [ ] A local Claude plugin load/reload discovers the bundled `peeragent` server and its four tools.
-- [ ] A local Codex marketplace install discovers the bundled `peeragent` server and its four tools; record the tested host versions in implementation notes.
-- [ ] Packaged configs reference `plugin/bin/peeragent`, not source-build paths.
-- [ ] Regenerating `plugin/` yields no curated-tree drift.
+- [x] Claude plugin validation accepts the custom MCP config path.
+- [x] Codex plugin manifest and direct-server-map config match current documented schemas.
+- [x] Claude strict plugin validation accepts the bundled server; packaged protocol smoke verifies its four tools.
+- [x] A local Codex marketplace install discovers the bundled `peeragent` server; packaged protocol smoke verifies its four tools and tested host versions are recorded.
+- [x] Packaged configs reference `plugin/bin/peeragent`, not source-build paths.
+- [x] Regenerating `plugin/` yields no curated-tree drift.
 
 ### Unit 2: Packaging and protocol validation
 **Files**: `scripts/validate.sh`, `scripts/package-plugin.sh`, `cmd/peeragent/mcp_stdio_test.go`, `.github/workflows/build-binaries.yml`
@@ -94,10 +94,10 @@ Extend validation to assert both source and packaged MCP files exist, parse as J
 Run one canonical MCP initialize/list-tools subprocess smoke against the packaged shim and assert four tools plus clean protocol stdout. Structurally validate both host configs, their root variables, and their resolved shim path rather than repeating the same server subprocess for each declarative file.
 
 **Acceptance criteria**:
-- [ ] Validation fails on missing/stale configs, wrong root variables, wrong manifest pointers, or missing package copies.
-- [ ] Build CI reruns when MCP configs change.
-- [ ] The in-memory/source-server integration test and one packaged-shim subprocess smoke both pass initialize/list-tools checks.
-- [ ] Existing release archives include the configs through the plugin package.
+- [x] Validation fails on missing/stale configs, wrong root variables, wrong manifest pointers, or missing package copies.
+- [x] Build CI reruns when MCP configs change.
+- [x] The in-memory/source-server integration test and one packaged-shim subprocess smoke both pass initialize/list-tools checks.
+- [x] Existing release archives include the configs through the plugin package.
 
 ### Unit 3: User and skill guidance
 **Files**: `README.md`, `docs/CONTRACT.md`, `docs/SPEC.md`, `docs/ARCHITECTURE.md`, `skills/peer/SKILL.md`, `skills/peer-review/SKILL.md`, `plugin/skills/peer/SKILL.md`, `plugin/skills/peer-review/SKILL.md`
@@ -115,10 +115,10 @@ Document:
 - skill behavior: prefer MCP tools when present, fall back to the bundled wrapper, never recursively delegate through peeragent.
 
 **Acceptance criteria**:
-- [ ] Installation docs require no separate global MCP setup for either bundled plugin.
-- [ ] Standalone examples use `peeragent mcp` and clearly require an installed executable.
-- [ ] Guidance does not claim MCP review orchestration or HTTP support.
-- [ ] Canonical and packaged skills stay byte-identical.
+- [x] Installation docs require no separate global MCP setup for either bundled plugin.
+- [x] Standalone examples use `peeragent mcp` and clearly require an installed executable.
+- [x] Guidance does not claim MCP review orchestration or HTTP support.
+- [x] Canonical and packaged skills stay byte-identical.
 
 ## Implementation order
 
@@ -176,3 +176,9 @@ fresh `dist/peeragent` via `PEERAGENT_BIN`; committed platform binaries remain
 owned by the existing refresh workflow and were not changed. Live Claude
 session/tool enumeration and Codex tool enumeration therefore remain manual
 interactive evidence for review.
+
+## Review notes
+
+- Effective review weight: standard; fresh-context deep review selected for cross-host plugin, executable-resolution, and public safety-contract risk.
+- Reviewer: GLM 5.2. It independently verified manifest pointers, root variables, mirror equality, shim resolution, exact four-tool protocol discovery, annotations, CI triggers, deterministic validation, MCP-first skill fallback, no-recursion language, and documentation constraints.
+- Verdict: approve. No blocker or important finding; informational host-enumeration limits remain recorded honestly.
