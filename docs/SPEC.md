@@ -68,10 +68,11 @@ The project contains:
 - `cmd/peeragent/` and internal Go packages for the wrapper implementation.
 - An MCP stdio adapter that exposes shared application services without writing
   non-protocol output to stdout.
-- Host-specific bundled MCP configuration referenced by both plugin manifests:
-  `.mcp.claude.json` uses `${CLAUDE_PLUGIN_ROOT}` and `.mcp.codex.json` uses
-  `${PLUGIN_ROOT}`. The configs execute `bin/peeragent mcp` and are copied into
-  the curated `plugin/` tree.
+- Host-compatible bundled MCP configuration referenced by both plugin manifests:
+  `.mcp.claude.json` uses `${CLAUDE_PLUGIN_ROOT}`, while Codex uses `.mcp.json`
+  with `cwd: "."` and the plugin-relative command `./bin/peeragent`. The
+  configs execute `bin/peeragent mcp` and are copied into the curated `plugin/`
+  tree.
 - `docs/` for foundation documents.
 
 ## Invocation Modes

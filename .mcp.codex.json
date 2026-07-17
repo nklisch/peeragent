@@ -1,6 +1,0 @@
-{
-  "peeragent": {
-    "command": "${PLUGIN_ROOT}/bin/peeragent",
-    "args": ["mcp"]
-  }
-}

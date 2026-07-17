@@ -87,10 +87,10 @@ explaining the outcome to you.
 
 Installing and enabling the Claude Code or Codex plugin also enables the local
 `peeragent` MCP server. No separate global MCP configuration is required. The
-plugin manifest points at a host-specific config so Claude Code resolves
-`${CLAUDE_PLUGIN_ROOT}/bin/peeragent` and Codex resolves
-`${PLUGIN_ROOT}/bin/peeragent`; the two root variables are intentionally not
-interchangeable.
+plugin manifests point at host-compatible configs. Claude Code resolves
+`${CLAUDE_PLUGIN_ROOT}/bin/peeragent`; Codex starts `./bin/peeragent` from the
+plugin root (`cwd: "."`). Codex's plugin contract requires the bundled config
+to be named `.mcp.json`.
 
 The server exposes four tools:
 
@@ -171,9 +171,9 @@ If the server is listed but tools do not appear, restart the host and confirm
 that the plugin's platform binary is executable. Run `peeragent mcp` only with
 an MCP client or protocol inspector: stdout is reserved for JSON-RPC frames and
 human-readable diagnostics go to stderr. The packaged configs and manifests
-are `.mcp.claude.json`, `.mcp.codex.json`, `.claude-plugin/plugin.json`, and
-`.codex-plugin/plugin.json`; do not substitute one host's root variable for the
-other.
+are `.mcp.claude.json`, `.mcp.json`, `.claude-plugin/plugin.json`, and
+`.codex-plugin/plugin.json`. Keep Claude's plugin-root command and Codex's
+plugin-relative command in their respective configs.
 
 ## Agent Equivalence And Defaults
 
@@ -412,6 +412,8 @@ package.json                            # Pi package manifest, loads ./plugin/sk
 .agents/plugins/marketplace.json       # Codex marketplace entry, source ./plugin
 plugin/.claude-plugin/plugin.json      # Claude plugin manifest
 plugin/.codex-plugin/plugin.json       # Codex plugin manifest
+plugin/.mcp.claude.json                # Claude MCP config
+plugin/.mcp.json                       # Codex MCP config
 plugin/skills/peer/SKILL.md
 plugin/skills/peer-review/SKILL.md
 plugin/bin/peeragent

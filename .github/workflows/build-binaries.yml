@@ -58,7 +58,7 @@ jobs:
           scripts/package-plugin.sh
           if ! git diff --exit-code -- \
             plugin/.claude-plugin plugin/.codex-plugin plugin/.mcp.claude.json \
-            plugin/.mcp.codex.json plugin/skills plugin/bin/peeragent; then
+            plugin/.mcp.json plugin/skills plugin/bin/peeragent; then
             echo "committed plugin/ curated tree is stale; run scripts/package-plugin.sh and commit plugin/" >&2
             exit 1
           fi

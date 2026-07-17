@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.5.1
+
+### Fixes
+- Repair Codex plugin MCP packaging so the bundled server uses the standard `.mcp.json` contract and starts from the plugin root.
+- Validate the packaged Codex MCP configuration with the real plugin-relative working directory.
+
 ## v0.5.0
 
 ### Features

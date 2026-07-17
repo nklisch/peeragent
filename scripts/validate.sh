@@ -24,6 +24,7 @@ scripts/package-plugin.sh
 test -x plugin/bin/peeragent
 test -f plugin/.claude-plugin/plugin.json
 test -f plugin/.codex-plugin/plugin.json
+test -f plugin/.mcp.json
 test -f plugin/skills/peer/SKILL.md
 test -f plugin/skills/peer-review/SKILL.md
 

@@ -35,7 +35,7 @@ performs the implementation, research, or review work.
 .codex-plugin/
   plugin.json
 .mcp.claude.json
-.mcp.codex.json
+.mcp.json
 skills/
   peer/
     SKILL.md
@@ -64,15 +64,17 @@ The plugin-level contract is the skill set, bundled MCP configuration, and the
 `peeragent` executable. The executable has two inbound adapters: the existing
 CLI and a local stdio MCP server. Both call the same application services and
 return the same domain result semantics. Claude Code and Codex manifests point
-to host-specific MCP configuration files so each can resolve the packaged
-binary with its own plugin-root variable without a brittle cross-host shim.
+to their host-compatible MCP configuration files: Claude uses its plugin-root
+variable, while Codex uses the plugin-relative command required by its plugin
+contract without a brittle cross-host shim.
 
 Installing and enabling either bundled plugin makes the `peeragent` MCP server
 available without a separate global MCP entry. Claude Code reads
-`.mcp.claude.json` through `${CLAUDE_PLUGIN_ROOT}`; Codex reads
-`.mcp.codex.json` through `${PLUGIN_ROOT}`. Each config contains one local
-stdio server and starts `bin/peeragent mcp`. The configs are deliberately
-separate because host-root interpolation is not portable between ecosystems.
+`.mcp.claude.json` through `${CLAUDE_PLUGIN_ROOT}`. Codex reads `.mcp.json` and
+starts the plugin-relative `./bin/peeragent` with `cwd: "."`. Each config
+contains one local stdio server and starts `bin/peeragent mcp`. The configs are
+deliberately separate because host-root interpolation is not portable between
+ecosystems.
 
 Host approval policy remains authoritative. `delegate` can change the checkout
 and `job_cancel` is destructive; `job_status` and `job_result` are read-only.

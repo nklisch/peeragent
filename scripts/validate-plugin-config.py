@@ -45,15 +45,18 @@ def validate_manifest(path: Path, config_name: str) -> None:
         )
 
 
-def validate_server_config(path: Path, root_variable: str, claude: bool) -> None:
+def validate_server_config(
+    path: Path, expected_command: str, expected_cwd: str | None = None
+) -> None:
     config = load_json(path)
-    expected_top_level = {"mcpServers"} if claude else {"peeragent"}
-    require_keys(config, expected_top_level, f"{path.relative_to(ROOT)} root")
-    servers = config["mcpServers"] if claude else config
+    require_keys(config, {"mcpServers"}, f"{path.relative_to(ROOT)} root")
+    servers = config["mcpServers"]
     require_keys(servers, {"peeragent"}, f"{path.relative_to(ROOT)} servers")
     server = servers["peeragent"]
-    require_keys(server, {"command", "args"}, f"{path.relative_to(ROOT)} peeragent server")
-    expected_command = f"${{{root_variable}}}/bin/peeragent"
+    expected_keys = {"command", "args"}
+    if expected_cwd is not None:
+        expected_keys.add("cwd")
+    require_keys(server, expected_keys, f"{path.relative_to(ROOT)} peeragent server")
     if server["command"] != expected_command:
         fail(
             f"{path.relative_to(ROOT)} command is {server['command']!r}, "
@@ -61,6 +64,11 @@ def validate_server_config(path: Path, root_variable: str, claude: bool) -> None
         )
     if server["args"] != ["mcp"]:
         fail(f"{path.relative_to(ROOT)} args must be ['mcp'], got {server['args']!r}")
+    if expected_cwd is not None and server["cwd"] != expected_cwd:
+        fail(
+            f"{path.relative_to(ROOT)} cwd is {server['cwd']!r}, "
+            f"expected {expected_cwd!r}"
+        )
 
 
 def validate_mirror(source: Path, packaged: Path) -> None:
@@ -102,7 +110,7 @@ def protocol_smoke() -> None:
     try:
         process = subprocess.Popen(
             [str(shim), "mcp"],
-            cwd=ROOT,
+            cwd=shim.parent.parent,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -170,22 +178,28 @@ def protocol_smoke() -> None:
 def main() -> int:
     try:
         source_claude_config = ROOT / ".mcp.claude.json"
-        source_codex_config = ROOT / ".mcp.codex.json"
+        source_codex_config = ROOT / ".mcp.json"
         packaged_claude_config = ROOT / "plugin" / ".mcp.claude.json"
-        packaged_codex_config = ROOT / "plugin" / ".mcp.codex.json"
+        packaged_codex_config = ROOT / "plugin" / ".mcp.json"
 
         validate_manifest(ROOT / ".claude-plugin" / "plugin.json", "./.mcp.claude.json")
-        validate_manifest(ROOT / ".codex-plugin" / "plugin.json", "./.mcp.codex.json")
+        validate_manifest(ROOT / ".codex-plugin" / "plugin.json", "./.mcp.json")
         validate_manifest(
             ROOT / "plugin" / ".claude-plugin" / "plugin.json", "./.mcp.claude.json"
         )
         validate_manifest(
-            ROOT / "plugin" / ".codex-plugin" / "plugin.json", "./.mcp.codex.json"
+            ROOT / "plugin" / ".codex-plugin" / "plugin.json", "./.mcp.json"
         )
-        validate_server_config(source_claude_config, "CLAUDE_PLUGIN_ROOT", claude=True)
-        validate_server_config(source_codex_config, "PLUGIN_ROOT", claude=False)
-        validate_server_config(packaged_claude_config, "CLAUDE_PLUGIN_ROOT", claude=True)
-        validate_server_config(packaged_codex_config, "PLUGIN_ROOT", claude=False)
+        validate_server_config(
+            source_claude_config, "${CLAUDE_PLUGIN_ROOT}/bin/peeragent"
+        )
+        validate_server_config(source_codex_config, "./bin/peeragent", expected_cwd=".")
+        validate_server_config(
+            packaged_claude_config, "${CLAUDE_PLUGIN_ROOT}/bin/peeragent"
+        )
+        validate_server_config(
+            packaged_codex_config, "./bin/peeragent", expected_cwd="."
+        )
 
         validate_mirror(source_claude_config, packaged_claude_config)
         validate_mirror(source_codex_config, packaged_codex_config)

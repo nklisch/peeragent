@@ -7,7 +7,7 @@
   },
   "license": "MIT",
   "skills": "./skills/",
-  "mcpServers": "./.mcp.codex.json",
+  "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "Peeragent",
     "shortDescription": "Delegate work to a peer coding agent",
