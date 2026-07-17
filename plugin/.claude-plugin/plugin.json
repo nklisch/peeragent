@@ -1,6 +1,6 @@
 {
   "name": "peeragent",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Delegate arbitrary task work from Claude Code to a peer local coding agent (Codex, Claude, Gemini, Z.AI GLM 5.2) through skills or the bundled local MCP server.",
   "author": {
     "name": "nklisch"
