@@ -1,0 +1,11 @@
+{
+  "name": "peeragent",
+  "version": "0.6.0",
+  "description": "Delegate arbitrary task work from Antigravity to a peer local coding agent (Codex, Claude, Gemini, Z.AI GLM 5.2) through the bundled peer skill.",
+  "author": {
+    "name": "nklisch"
+  },
+  "license": "MIT",
+  "repository": "https://github.com/nklisch/peeragent",
+  "homepage": "https://github.com/nklisch/peeragent"
+}
