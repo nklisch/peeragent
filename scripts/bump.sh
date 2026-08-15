@@ -5,7 +5,7 @@ set -eu
 #
 # Usage:
 #   scripts/bump.sh <new-version>
-#   scripts/bump.sh <new-version> --message "Add peer-review skill"
+#   scripts/bump.sh <new-version> --message "Update delegated models"
 #   scripts/bump.sh <new-version> --no-push
 #
 # Edits the two plugin manifests, root Pi package manifest, and README release
@@ -37,7 +37,7 @@ Options:
 
 Examples:
   scripts/bump.sh 0.1.5
-  scripts/bump.sh 0.2.0 --message "Add peer-review skill"
+  scripts/bump.sh 0.2.0 --message "Update delegated models"
   scripts/bump.sh 0.1.5 --no-push
 EOF
 }

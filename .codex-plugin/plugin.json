@@ -1,13 +1,12 @@
 {
   "name": "peeragent",
-  "version": "0.5.1",
-  "description": "Delegate arbitrary task work from Codex to a peer local coding agent (Claude, Codex, Gemini, Z.AI GLM 5.2) through skills or the bundled local MCP server.",
+  "version": "0.6.0",
+  "description": "Delegate arbitrary task work from Codex to a peer local coding agent (Claude, Codex, Gemini, Z.AI GLM 5.2) through the bundled peer skill.",
   "author": {
     "name": "nklisch"
   },
   "license": "MIT",
   "skills": "./skills/",
-  "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "Peeragent",
     "shortDescription": "Delegate work to a peer coding agent",
@@ -15,8 +14,7 @@
     "developerName": "nklisch",
     "category": "Productivity",
     "capabilities": [
-      "Write",
-      "MCP"
+      "Write"
     ],
     "defaultPrompt": [
       "Delegate this task to a peer agent.",

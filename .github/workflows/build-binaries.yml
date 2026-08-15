@@ -12,7 +12,6 @@ on:
       - "skills/**"
       - ".claude-plugin/**"
       - ".codex-plugin/**"
-      - ".mcp*.json"
       - "scripts/package-plugin.sh"
       - "scripts/build-committed.sh"
       - ".github/workflows/build-binaries.yml"
@@ -26,7 +25,6 @@ on:
       - "skills/**"
       - ".claude-plugin/**"
       - ".codex-plugin/**"
-      - ".mcp*.json"
       - "scripts/package-plugin.sh"
       - "scripts/build-committed.sh"
       - ".github/workflows/build-binaries.yml"
@@ -57,8 +55,8 @@ jobs:
         run: |
           scripts/package-plugin.sh
           if ! git diff --exit-code -- \
-            plugin/.claude-plugin plugin/.codex-plugin plugin/.mcp.claude.json \
-            plugin/.mcp.json plugin/skills plugin/bin/peeragent; then
+            plugin/.claude-plugin plugin/.codex-plugin \
+            plugin/skills plugin/bin/peeragent; then
             echo "committed plugin/ curated tree is stale; run scripts/package-plugin.sh and commit plugin/" >&2
             exit 1
           fi

@@ -26,6 +26,7 @@ type Request struct {
 	JobRunID    string
 	StatusJobID string
 	ResultJobID string
+	WaitJobID   string
 	CancelJobID string
 	Help        bool
 }
@@ -70,7 +71,7 @@ func Parse(args []string, stdin io.Reader, getwd func() (string, error)) (Reques
 
 	taskText := strings.Join(parts, "\n\n")
 	controlRequest := parsed.statusJobID != "" || parsed.resultJobID != "" ||
-		parsed.cancelJobID != "" || parsed.jobRunID != ""
+		parsed.waitJobID != "" || parsed.cancelJobID != "" || parsed.jobRunID != ""
 	delegation := Delegation{
 		TaskText:   taskText,
 		CWD:        parsed.cwd,
@@ -110,6 +111,7 @@ func Parse(args []string, stdin io.Reader, getwd func() (string, error)) (Reques
 		JobRunID:    parsed.jobRunID,
 		StatusJobID: parsed.statusJobID,
 		ResultJobID: parsed.resultJobID,
+		WaitJobID:   parsed.waitJobID,
 		CancelJobID: parsed.cancelJobID,
 	}, nil
 }
@@ -122,6 +124,7 @@ func normalizeJobIDs(parsed *parsedArgs) error {
 		{name: "--job-run", value: &parsed.jobRunID},
 		{name: "--status", value: &parsed.statusJobID},
 		{name: "--result", value: &parsed.resultJobID},
+		{name: "--wait", value: &parsed.waitJobID},
 		{name: "--cancel", value: &parsed.cancelJobID},
 	} {
 		if *field.value == "" {
@@ -151,6 +154,7 @@ func shouldReadStdin(stdin io.Reader, parsed parsedArgs) bool {
 		parsed.jobRunID == "" &&
 		parsed.statusJobID == "" &&
 		parsed.resultJobID == "" &&
+		parsed.waitJobID == "" &&
 		parsed.cancelJobID == ""
 }
 
@@ -182,6 +186,7 @@ type parsedArgs struct {
 	jobRunID    string
 	statusJobID string
 	resultJobID string
+	waitJobID   string
 	cancelJobID string
 	help        bool
 	positionals []string
@@ -268,6 +273,12 @@ func parseArgs(args []string) (parsedArgs, error) {
 				return parsedArgs{}, errors.New("--result requires a job id")
 			}
 			parsed.resultJobID = args[i]
+		case "--wait":
+			i++
+			if i >= len(args) {
+				return parsedArgs{}, errors.New("--wait requires a job id")
+			}
+			parsed.waitJobID = args[i]
 		case "--cancel":
 			i++
 			if i >= len(args) {
@@ -335,21 +346,30 @@ func normalizeEffort(agent string, effort string) (string, error) {
 		}
 	case "gemini":
 		if effort == "" {
-			return "", nil
+			return "high", nil
 		}
-		return "", errors.New("--effort is supported only for codex, claude, or zai")
+		switch effort {
+		case "low", "medium", "high":
+			return effort, nil
+		default:
+			return "", errors.New("--effort for gemini must be low, medium, or high")
+		}
 	default:
-		return "", errors.New("--effort is supported only for codex, claude, or zai")
+		return "", errors.New("--effort is supported only for codex, gemini, claude, or zai")
 	}
 }
 
 func normalizeModel(agent string, model string) (string, error) {
 	model = strings.ToLower(strings.TrimSpace(model))
 	if model == "" {
-		if agent == "zai" {
+		switch agent {
+		case "gemini":
+			return "gemini-3.7-flash", nil
+		case "zai":
 			return "glm-5.2", nil
+		default:
+			return "", nil
 		}
-		return "", nil
 	}
 	switch agent {
 	case "codex":
@@ -372,10 +392,16 @@ func normalizeModel(agent string, model string) (string, error) {
 		}
 	case "gemini":
 		switch model {
-		case "gemini", "gemini-3.5", "3.5":
-			return "gemini-3.5", nil
+		case "gemini", "flash", "gemini-3.7", "3.7", "gemini-3.7-flash":
+			return "gemini-3.7-flash", nil
+		case "gemini-3.6", "3.6", "gemini-3.6-flash":
+			return "gemini-3.6-flash", nil
+		case "gemini-3.5", "3.5", "gemini-3.5-flash":
+			return "gemini-3.5-flash", nil
+		case "pro", "gemini-pro", "gemini-3.1", "3.1", "gemini-3.1-pro":
+			return "gemini-3.1-pro", nil
 		default:
-			return "", errors.New("--model for gemini is fixed to gemini-3.5")
+			return "", errors.New("--model for gemini must be flash, pro, or a supported gemini-<version>-<family> id")
 		}
 	case "zai":
 		switch model {

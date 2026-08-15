@@ -12,8 +12,6 @@ mkdir -p "$PLUGIN/.claude-plugin" "$PLUGIN/.codex-plugin" "$PLUGIN/bin" "$PLUGIN
 
 cp "$ROOT/.claude-plugin/plugin.json" "$PLUGIN/.claude-plugin/plugin.json"
 cp "$ROOT/.codex-plugin/plugin.json" "$PLUGIN/.codex-plugin/plugin.json"
-cp "$ROOT/.mcp.claude.json" "$PLUGIN/.mcp.claude.json"
-cp "$ROOT/.mcp.json" "$PLUGIN/.mcp.json"
 cp "$ROOT/bin/peeragent" "$PLUGIN/bin/peeragent"
 chmod +x "$PLUGIN/bin/peeragent"
 

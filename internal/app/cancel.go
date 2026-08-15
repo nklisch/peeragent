@@ -18,7 +18,7 @@ const (
 
 // ProcessController is the narrow process-control port used after a
 // cancellation transition commits. Its contract intentionally has no caller
-// context: a disconnected MCP request must not strand a detached child after
+// context: an interrupted CLI request must not strand a detached child after
 // cancelled state is durable.
 type ProcessController interface {
 	TerminateAndWait(pid int, termGrace, killGrace time.Duration) error
@@ -134,7 +134,7 @@ func (s *Service) CancelJob(ctx context.Context, raw JobRequest) (result.Result,
 	var controllerErr error
 	if pid > 0 {
 		// This call intentionally does not receive ctx. Once cancellation is
-		// persisted, TERM/KILL cleanup must finish after an MCP disconnect.
+		// persisted, TERM/KILL cleanup must finish after caller interruption.
 		controllerErr = s.processController.TerminateAndWait(pid, cancelTermGrace, cancelKillGrace)
 	}
 	removeErr := store.RemovePID(job.ID)

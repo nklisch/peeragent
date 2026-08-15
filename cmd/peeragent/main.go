@@ -11,19 +11,17 @@ import (
 	"github.com/nklisch/peeragent/internal/executil"
 	"github.com/nklisch/peeragent/internal/input"
 	"github.com/nklisch/peeragent/internal/jobs"
-	"github.com/nklisch/peeragent/internal/mcp"
 	"github.com/nklisch/peeragent/internal/result"
 )
 
 var applicationService = app.NewService(app.Options{})
 
+const jobWaitInterval = 500 * time.Millisecond
+
 func main() {
 	if len(os.Args) > 1 && os.Args[1] == "mcp" {
-		if err := mcp.RunStdio(context.Background(), applicationService); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-		return
+		fmt.Fprintln(os.Stderr, "peeragent MCP mode is not supported; invoke the bundled peer skill instead")
+		os.Exit(2)
 	}
 	if err := run(os.Args[1:]); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -36,7 +34,7 @@ const usageText = `peeragent — delegate a task pass to another local coding as
 Usage:
   peeragent [flags] <task text>
   peeragent --prompt-file <path> [flags]
-  peeragent --status|--result|--cancel <job-id> [flags]
+  peeragent --status|--result|--wait|--cancel <job-id> [flags]
 
 Flags:
   --agent <codex|claude|gemini|zai>
@@ -44,22 +42,25 @@ Flags:
   --model <name>                  Model override (codex: luna|terra|sol,
                                   GPT-5.6 recommended for all Codex work;
                                   claude: fable|sonnet|opus|haiku;
-                                  gemini: gemini-3.5; zai: glm-5.2 only).
+                                  gemini: flash|pro|supported family id;
+                                  zai: glm-5.2 only).
   --effort <low|medium|high|xhigh>
                                   Reasoning effort (codex default high, accepts
-                                  all four; zai default high, accepts medium+;
-                                  claude default xhigh, accepts high|xhigh;
-                                  unused by gemini).
+                                  all four; gemini default high, accepts
+                                  low|medium|high; zai default high, accepts medium+;
+                                  claude default xhigh, accepts high|xhigh).
   --profile <name>                Codex profile override.
   --resume <agent-session>        Resume a prior target-agent session when supported.
-  --sandbox                       Use the default bounded target CLI mode.
+  --sandbox                       Use the default target mode (Gemini still
+                                  auto-approves tools but sandboxes terminals).
   --full-access                   Run the target CLI without sandboxing.
   --worktree                      Reserved; returns a clear failure today.
   --cwd <path>                    Repo directory the target runs in.
   --prompt-file <path>            Read task text from a file.
   --async                         Start a background job and return its id.
   --status <job-id>               Show status of a background job.
-  --result <job-id>               Print a background job's final result.
+  --result <job-id>               Print a background job's current/final result.
+  --wait <job-id>                 Wait for and print a job's terminal result.
   --cancel <job-id>               Best-effort cancel a background job.
   --json | --text                 Output format (default --json).
   -h, --help                      Show this help.
@@ -90,6 +91,9 @@ func run(args []string) error {
 	}
 	if req.ResultJobID != "" {
 		return showJobResult(req)
+	}
+	if req.WaitJobID != "" {
+		return waitForJobResult(req)
 	}
 	if req.CancelJobID != "" {
 		return cancelJob(req)
@@ -162,6 +166,25 @@ func showJobResult(req input.Request) error {
 		return err
 	}
 	return writeJobControlResult(req, res)
+}
+
+func waitForJobResult(req input.Request) error {
+	ticker := time.NewTicker(jobWaitInterval)
+	defer ticker.Stop()
+
+	for {
+		res, err := applicationService.JobResult(context.Background(), app.JobRequest{
+			CWD:   req.CWD,
+			JobID: req.WaitJobID,
+		})
+		if err != nil {
+			return err
+		}
+		if res.Status != result.StatusRunning {
+			return writeJobControlResult(req, res)
+		}
+		<-ticker.C
+	}
 }
 
 func cancelJob(req input.Request) error {
@@ -361,4 +384,3 @@ func agentID(req input.Request) string {
 	}
 	return req.Agent
 }
-

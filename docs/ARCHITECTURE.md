@@ -8,8 +8,8 @@ review work.
 
 ```text
 Host assistant session
-  -> host skill or MCP client
-    -> CLI adapter or stdio MCP adapter
+  -> host skill
+    -> peeragent CLI adapter
       -> shared peeragent application services
         -> target CLI / async job store
           -> current repository working tree
@@ -34,12 +34,8 @@ performs the implementation, research, or review work.
   plugin.json
 .codex-plugin/
   plugin.json
-.mcp.claude.json
-.mcp.json
 skills/
   peer/
-    SKILL.md
-  peer-review/
     SKILL.md
 bin/
   peeragent
@@ -53,50 +49,40 @@ internal/
   gemini/
   input/
   jobs/
-  mcp/       # stdio protocol adapter
   prompt/
   result/
   zai/
 docs/
 ```
 
-The plugin-level contract is the skill set, bundled MCP configuration, and the
-`peeragent` executable. The executable has two inbound adapters: the existing
-CLI and a local stdio MCP server. Both call the same application services and
-return the same domain result semantics. Claude Code and Codex manifests point
-to their host-compatible MCP configuration files: Claude uses its plugin-root
-variable, while Codex uses the plugin-relative command required by its plugin
-contract without a brittle cross-host shim.
+The plugin-level contract is the `peer` skill and bundled `peeragent`
+executable. Claude Code, Codex, and Pi discover the skill, which resolves and
+invokes the plugin-relative wrapper. The wrapper calls shared application services and
+returns one domain result contract for blocking delegation and explicit async
+job controls.
 
-Installing and enabling either bundled plugin makes the `peeragent` MCP server
-available without a separate global MCP entry. Claude Code reads
-`.mcp.claude.json` through `${CLAUDE_PLUGIN_ROOT}`. Codex reads `.mcp.json` and
-starts the plugin-relative `./bin/peeragent` with `cwd: "."`. Each config
-contains one local stdio server and starts `bin/peeragent mcp`. The configs are
-deliberately separate because host-root interpolation is not portable between
-ecosystems.
-
-Host approval policy remains authoritative. `delegate` can change the checkout
-and `job_cancel` is destructive; `job_status` and `job_result` are read-only.
-The skills prefer these MCP tools when the server is available and fall back to
-the bundled wrapper for older hosts or standalone skill use. The host, not the
-MCP adapter, owns iterative peer-review orchestration.
+The plugin intentionally does not register an MCP server. A generic MCP tool
+call has no portable completion notification once delegation is detached:
+blocking calls compete with host tool timeouts, while async MCP calls depend on
+the model polling status and later fetching the result. The skill-driven CLI
+path can instead use the host's native background monitors or completion
+wake-ups and retrieve a durable peeragent job result. Those lifecycle signals
+are host facilities rather than a protocol feature peeragent can emulate.
 
 ## Skill Role
 
-Each skill tells the host:
+The `peer` skill tells the host:
 
 - When implementation, research, or review delegation is appropriate.
 - Which target agent it invokes.
 - How to pass arbitrary task text to the wrapper.
 - Which flags are available.
-- That blocking mode is the default.
-- That MCP `delegate` with `async: true` is preferred for work likely to exceed
-  the host tool timeout, followed by `job_status` and `job_result`.
-- That the wrapper result must be read before responding.
+- That `--async` is preferred for substantive work, with native host monitors
+  or completion wake-ups used when available.
+- That the terminal job result must be read before the host concludes.
 - That the host remains responsible for continuing the user conversation.
 
-The skills are deliberately thin. They do not ask the host to manually inspect
+The skill is deliberately thin. It does not ask the host to manually inspect
 the repository before every delegation, re-plan the target's work, or operate a
 large command suite.
 
@@ -122,24 +108,6 @@ The wrapper's CLI adapter:
 - Emits a concise result for the host.
 - Stores async job metadata when async mode is used.
 
-## MCP Adapter Role
-
-`peeragent mcp` is a stdio transport and protocol adapter. It owns MCP
-initialization, tool schemas, request decoding, protocol error mapping, and
-stdout purity. It delegates execution and job operations to shared application
-services also used by the CLI; it does not invoke the CLI parser in-process or
-spawn peeragent recursively.
-
-The adapter exposes blocking delegation and the async lifecycle: launch, status,
-result, and cancellation. Tool input schemas derive from the same authoritative
-request contract used by CLI validation, while tool results preserve the
-existing peeragent result fields. Protocol errors and valid peeragent failure
-results remain distinct.
-
-Because stdout carries protocol frames, diagnostics and target process output
-must never be written there by server infrastructure. Diagnostics go to stderr;
-target output remains captured by the existing execution and logging paths.
-
 ## Prompt Construction
 
 The wrapper sends the target agent a task prompt that preserves the requested
@@ -159,20 +127,24 @@ rigid schema on the delegated task request.
 
 ## Permission Model
 
-Default execution uses the current checkout with the target CLI's bounded mode
-where one is available.
+Default execution starts in the current checkout with the strongest autonomous
+mode each target can provide without removing its available sandbox.
 
 Full-access execution is explicit. The wrapper exposes it as `--full-access` and
-labels it in the result. Some targets do not have a separate full-access argv:
-Gemini's default is `agy --print` scoped with `--add-dir`, and Z.AI runs through
-Pi print mode with Pi's normal local tool environment.
+labels it in the result. Gemini print mode cannot answer permission prompts, so
+both Gemini paths use `--dangerously-skip-permissions` for autonomous tool use.
+The default also enables agy's terminal sandbox; full access removes that
+terminal containment. Antigravity's sandbox does not confine direct file tools,
+so Gemini is a trusted-local-agent target in either mode. Z.AI has no separate
+full-access argv and runs through Pi print mode with Pi's normal local tool
+environment.
 
 Worktree execution is recognized but not implemented yet.
 
 ## Blocking Flow
 
 ```text
-1. Host invokes a skill with task text.
+1. Host invokes the `peer` skill with task text.
 2. The skill calls `peeragent --agent <target>`.
 3. The wrapper runs the target CLI in the current working directory.
 4. The target edits, runs commands, and returns a final message.
@@ -191,7 +163,9 @@ Worktree execution is recognized but not implemented yet.
 4. The child loads the execution spec and prompt from the job directory, runs
    the target CLI, writes `result.json`, updates `job.json`, and removes `pid`.
 5. The wrapper returns a job id and log location.
-6. The host checks status or result through `--status` or `--result`.
+6. The host starts `peeragent --wait <id>` through native monitor/completion
+   facilities when available. The attached waiter prints the terminal result;
+   `--status` and `--result` remain fallbacks.
 ```
 
 Async jobs are local to the repository under `.peeragent/jobs/`.
@@ -205,11 +179,10 @@ untouched.
 ## Extension Points
 
 The architecture supports these extensions without changing the user-facing
-skills or MCP tool semantics:
+skill or CLI result semantics:
 
-- Additional MCP transports behind an explicit security and lifecycle design.
+- Native host-agent adapters when a host exposes reliable completion events.
 - Structured output parsing when target CLIs provide reliable schemas.
 - Optional worktree mode.
-- Optional review-after-implementation hooks.
 - Richer async status and cancellation.
 - Target-specific config profiles.

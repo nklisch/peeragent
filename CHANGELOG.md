@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.6.0
+
+### Features
+- Default Gemini delegation to Gemini 3.7 Flash at high effort, with selectable Flash/Pro families and native Antigravity model and effort flags.
+- Capture Antigravity structured output and conversation IDs for reliable results and resume support.
+- Run Gemini autonomously with edit auto-approval, tool auto-approval, and terminal sandboxing; `--full-access` additionally removes terminal isolation.
+- Add `--wait <job-id>` so native host background monitors can stay attached to an async peeragent job and receive its terminal result.
+
+### Removed
+- Remove the bundled MCP adapter and plugin registration. Detached MCP work has no portable completion wake-up, while blocking MCP calls compete with host timeouts; the plugin now uses the bundled CLI completion boundary.
+- Remove the opinionated `peer-review` orchestration skill. The general `peer` skill remains the single way to give hosts access to other local agents.
+
 ## v0.5.1
 
 ### Fixes

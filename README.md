@@ -43,12 +43,12 @@ codex plugin add peeragent@peeragent
 Pi:
 
 ```sh
-pi install git:github.com/nklisch/peeragent@v0.5.1
+pi install git:github.com/nklisch/peeragent@v0.6.0
 ```
 
-The Pi package loads the same `peer` and `peer-review` skills from `plugin/skills`
-so their wrapper resolution lands on the bundled `plugin/bin/peeragent` shim and
-committed platform binaries.
+The Pi package loads the `peer` skill from `plugin/skills`, so its wrapper
+resolution lands on the bundled `plugin/bin/peeragent` shim and committed
+platform binaries.
 
 On the four supported platforms (linux amd64/arm64, darwin amd64/arm64),
 the plugin runs immediately with no download and no Go toolchain required —
@@ -65,10 +65,9 @@ select a present binary.
 
 ## Using It
 
-The plugin exposes two skills, available in both Claude Code and Codex:
+The plugin exposes one skill in Claude Code, Codex, and Pi:
 
 - `/peer`: delegate a focused task pass to a peer local coding agent
-- `/peer-review`: iterative cross-model peer review of recent work
 
 Example prompts:
 
@@ -77,109 +76,34 @@ Example prompts:
 /peer --agent claude --model fable --effort xhigh Refactor the result formatter and update its tests.
 /peer --agent gemini Inspect the CLI docs and patch stale usage text.
 /peer --agent zai --effort xhigh Ask GLM 5.2 to audit the retry edge cases.
-/peer-review
 ```
 
 The host assistant remains responsible for reading the wrapper result and
-explaining the outcome to you.
+explaining the outcome to you. For substantive work, the skill prefers
+`--async`, starts `--wait <job-id>` through native background monitors or
+completion wake-ups when available, and reads the terminal result.
 
-## Bundled MCP Server
+## Why Peeragent Uses Skills And A CLI
 
-Installing and enabling the Claude Code or Codex plugin also enables the local
-`peeragent` MCP server. No separate global MCP configuration is required. The
-plugin manifests point at host-compatible configs. Claude Code resolves
-`${CLAUDE_PLUGIN_ROOT}/bin/peeragent`; Codex starts `./bin/peeragent` from the
-plugin root (`cwd: "."`). Codex's plugin contract requires the bundled config
-to be named `.mcp.json`.
+Peeragent deliberately uses a host skill that invokes the bundled CLI instead of
+registering an MCP server. The skill prefers `--async` for substantive work and
+runs `--wait <job-id>` through native host monitoring or completion wake-ups
+when available. Short tasks can remain blocking; `--status`, `--result`, and
+`--wait` provide explicit job controls.
 
-The server exposes four tools:
-
-- `delegate` runs a short task in blocking mode or starts a tracked job with
-  `async: true`.
-- `job_status` polls a repository-local async job.
-- `job_result` retrieves its structured result and target details.
-- `job_cancel` marks a job cancelled and terminates its detached process group.
-
-Prefer the async workflow for implementation, research, or review work likely
-to exceed the host MCP tool timeout: call `delegate` with `async: true`, poll
-with `job_status`, and call `job_result` when complete. `delegate` and
-`job_cancel` can write to the checkout and should remain approval-gated in the
-host. `job_status` and `job_result` are read-only and are reasonable candidates
-for automatic approval. These annotations reinforce host policy; they are not
-a security boundary. For Codex, plugin-scoped enablement is visible with
-`codex plugin list` after `codex plugin add peeragent@peeragent`; approve
-`delegate` and `job_cancel` when the host asks, while allowing read-only status
-and result calls according to your normal MCP policy. Claude Code uses the
-equivalent plugin lifecycle (`claude plugin list`, `claude plugin enable`) and
-its normal tool permission prompts for the same approval distinction.
-
-The server uses the current repository by default. Omit `cwd` unless the user
-explicitly requests work in another checkout; setting it is intentional
-cross-repository reach and must be repeated for job status, result, or cancel.
-Set `full_access: true` only after explicit user approval. It disables the
-target's bounded mode and can modify or delete files beyond normal sandbox
-limits. MCP provides no review-orchestration tool, HTTP transport, or arbitrary
-MCP proxy; `/peer-review` remains host-side orchestration.
-
-### Standalone MCP setup
-
-For an MCP host without the plugin, install an executable first and make
-`peeragent` available on `PATH` (or replace it with an absolute path). Then use
-the host's stdio MCP configuration, for example:
-
-```json
-{
-  "mcpServers": {
-    "peeragent": {
-      "command": "peeragent",
-      "args": ["mcp"]
-    }
-  }
-}
-```
-
-Codex's equivalent command is:
-
-```sh
-codex mcp add peeragent -- peeragent mcp
-```
-
-A standalone server does not download an executable, provide target-agent
-credentials, or open a network listener. The installed executable still needs
-the local target CLI and authentication described below.
-
-### Plugin reload and troubleshooting
-
-After changing plugin files, restart the host session; Claude Code plugin
-changes also require a reload/restart before MCP configuration is rescanned.
-For Claude Code, check the package without starting a model session with:
-
-```sh
-claude plugin validate --strict plugin
-```
-
-For Codex, verify that the installed plugin is enabled and that its bundled
-server is listed:
-
-```sh
-codex plugin list
-codex mcp list
-codex mcp get peeragent
-```
-
-If the server is listed but tools do not appear, restart the host and confirm
-that the plugin's platform binary is executable. Run `peeragent mcp` only with
-an MCP client or protocol inspector: stdout is reserved for JSON-RPC frames and
-human-readable diagnostics go to stderr. The packaged configs and manifests
-are `.mcp.claude.json`, `.mcp.json`, `.claude-plugin/plugin.json`, and
-`.codex-plugin/plugin.json`. Keep Claude's plugin-root command and Codex's
-plugin-relative command in their respective configs.
+MCP is not registered because it provides request/response tools, not a portable
+completion wake-up for detached work. Blocking calls compete with host MCP
+timeouts; async MCP calls return before completion and depend on the model
+remembering to poll. The CLI instead provides an attached `--wait` process that
+a host's native monitor can observe. Native host agent channels can provide lifecycle
+notifications, but that is a host capability rather than something a generic
+peeragent MCP server can reproduce.
 
 ## Agent Equivalence And Defaults
 
 Peeragent does not automatically replace a host assistant's normal sub-agent
 pattern. If you want that behavior, add a project instruction to `CLAUDE.md` or
-`AGENTS.md` telling the host when to delegate through these skills.
+`AGENTS.md` telling the host when to delegate through `/peer`.
 
 Use GPT-5.6 for Codex work. Luna is the fast default, Sol is the direct jump
 for demanding work, and Terra is an optional bridge when Luna is not enough but
@@ -194,12 +118,11 @@ Sol is more than the task needs:
 | Fable-tier | `--agent codex --model sol --effort high` (or `xhigh`) | `--agent claude --model fable --effort high` (or `xhigh`) |
 
 Most callers can jump directly from Luna to Sol rather than routing through
-Terra. Gemini through Antigravity is treated as fixed Gemini 3.5 for this wrapper. The
-`--model gemini-3.5` spelling is accepted when you want to be explicit, but the
-wrapper does not pass a model flag to `agy` because `agy --print` does not
-expose a non-interactive model option today. Z.AI through Pi is fixed to
-`glm-5.2`; `--model glm-5.2` is accepted for explicit metadata, and no other
-Z.AI models are surfaced by peeragent.
+Terra. Gemini through Antigravity defaults to Gemini 3.7 Flash at high effort.
+Peeragent passes both `--model` and `--effort` to current `agy`; `flash` selects
+3.7 Flash, while `pro` selects 3.1 Pro. Z.AI through Pi is fixed to `glm-5.2`;
+`--model glm-5.2` is accepted for explicit metadata, and no other Z.AI models
+are surfaced by peeragent.
 
 Claude Code project snippet:
 
@@ -214,11 +137,10 @@ updates, build fixes, research passes, and review passes in this repository.
   Luna at `xhigh` when there is lots of work. Jump to Sol at `low|medium` for an
   Opus-tier pass or `high|xhigh` for a Fable-tier pass; Terra is an optional bridge.
 - Use `/peer --agent claude --model fable` for the strongest Claude pass.
-- Use `/peer --agent gemini` for a Gemini 3.5 pass through Antigravity.
+- Use `/peer --agent gemini` for a Gemini 3.7 Flash pass through Antigravity.
 - Use `/peer --agent zai` for a Z.AI GLM 5.2 pass through Pi.
 - Use `--effort xhigh` when the work is dense or the stakes are high.
 - Research-only and review-only delegation are allowed.
-- Use `/peer-review` for iterative cross-model review of recent work.
 - Do not use peeragent for planning-only orchestration work.
 ```
 
@@ -233,12 +155,11 @@ updates, build fixes, research passes, and review passes in this repository.
 
 - Use `/peer --agent claude --model fable --effort xhigh` for the strongest
   Claude pass; Opus, Sonnet, and Haiku remain available for lower tiers.
-- Use `/peer --agent gemini` for a Gemini 3.5 pass through Antigravity.
+- Use `/peer --agent gemini` for a Gemini 3.7 Flash pass through Antigravity.
 - Use `/peer --agent zai` for a Z.AI GLM 5.2 pass through Pi.
 - For Codex, use GPT-5.6 Luna at `high` for routine work or `xhigh` for lots of
   work. Jump directly to Sol at `low|medium` for an Opus-tier pass or
   `high|xhigh` for a Fable-tier pass. Terra is an optional middle bridge.
-- Use `/peer-review` for iterative cross-model review of recent work.
 - Do not use peeragent for planning-only orchestration work.
 ```
 
@@ -296,8 +217,9 @@ use `metadata.agent_session` to resume the target session.
 
 ## Models, Effort, Profiles, And Access
 
-Codex, Claude, and Z.AI GLM 5.2 support `--effort`. Codex defaults to `high`
-and accepts `low`, `medium`, `high`, and `xhigh`. Z.AI defaults to `high` and
+Codex, Gemini, Claude, and Z.AI GLM 5.2 support `--effort`. Codex defaults to
+`high` and accepts `low`, `medium`, `high`, and `xhigh`. Gemini defaults to
+`high` and accepts `low`, `medium`, and `high`. Z.AI defaults to `high` and
 accepts `medium`, `high`, and `xhigh`. Claude defaults to `xhigh` and accepts
 only `high` or `xhigh` through peeragent:
 
@@ -309,21 +231,22 @@ bin/peeragent --agent codex --model sol --effort xhigh "Run a Fable-tier migrati
 bin/peeragent --agent codex --model terra --effort high "Use the optional middle tier."
 bin/peeragent --agent claude --model fable --effort xhigh "Untangle the hardest integration test."
 bin/peeragent --agent claude --model opus --effort xhigh "Run an Opus pass."
+bin/peeragent --agent gemini --model flash --effort high "Run a Gemini 3.7 Flash pass."
 bin/peeragent --agent zai --effort xhigh "Review the cross-module migration for hidden regressions."
 ```
 
 Codex accepts the short aliases `luna`, `terra`, and `sol` and passes their
 canonical `gpt-5.6-*` model IDs to the Codex CLI. Claude supports `--model
-fable`, `--model sonnet`, `--model opus`, and `--model haiku`. Gemini
-accepts only `--model gemini-3.5`; this records the fixed Gemini target but does
-not add an `agy` model flag because `agy --print` does not expose a
-non-interactive model option. Use Antigravity's own `/model` flow outside this
-wrapper if you want to change its global default. Z.AI accepts only
-`--model glm-5.2`; peeragent intentionally does not surface the other Z.AI
-models that Pi may list.
+fable`, `--model sonnet`, `--model opus`, and `--model haiku`. Gemini accepts
+`flash` (the default Gemini 3.7 Flash), `pro` (Gemini 3.1 Pro), and explicit
+supported family IDs for 3.7, 3.6, and 3.5 Flash or 3.1 Pro. Flash accepts
+`low|medium|high`; Pro accepts `low|high`. Peeragent passes the normalized model
+and effort to `agy`. Z.AI accepts only `--model glm-5.2`;
+peeragent intentionally does not surface the other Z.AI models that Pi may
+list.
 
 ```sh
-bin/peeragent --agent gemini --model gemini-3.5 "Implement the requested change."
+bin/peeragent --agent gemini --model flash --effort high "Implement the requested change."
 bin/peeragent --agent zai --model glm-5.2 "Implement the requested change."
 ```
 
@@ -345,22 +268,29 @@ If the Pi smoke test fails, configure Pi with `ZAI_API_KEY` or `/login` for the
 ZAI provider, then retry. Peeragent's Z.AI target always uses `glm-5.2`; it does
 not expose the other Z.AI models Pi may know about.
 
-Default execution stays inside the current checkout using the bounded mode each
-target CLI exposes:
+Default execution uses each target CLI's autonomous mode in the current
+checkout:
 
 ```text
 codex exec --json --cd <repo> --sandbox workspace-write ...
-agy --print --add-dir <repo> ...
+agy --output-format json --model gemini-3.7-flash --effort high \
+  --mode accept-edits --sandbox --dangerously-skip-permissions \
+  --add-dir <repo> --print <prompt>
 claude --print --output-format json --permission-mode auto --add-dir <repo> ...
 pi --provider zai --model glm-5.2 --thinking <effort> --no-session -p ...
 ```
 
-You can pass `--sandbox` explicitly to select that same default bounded mode
-where the target CLI has one. Gemini is the exception: `agy` has no usable
-sandbox in print mode, so its bounded default is `agy --print` scoped only by
-`--add-dir`. Pi similarly exposes no separate peeragent sandbox flag; run the
-Z.AI target only in repositories where you trust a Pi print-mode agent to use
-its normal local tools.
+You can pass `--sandbox` explicitly to select that same default mode where the
+target CLI has one. Gemini needs `--dangerously-skip-permissions` in print mode
+so it can run shell commands and tests without an unavailable interactive
+prompt. Peeragent combines that auto-approval with Antigravity's terminal
+sandbox and `accept-edits` mode. The sandbox contains spawned terminal
+processes, but it does not confine Antigravity's direct file tools;
+`--dangerously-skip-permissions` can approve writes outside the workspace. Treat
+a Gemini delegation as a trusted local agent even without peeragent's
+`--full-access`; that flag additionally removes terminal isolation. Pi exposes
+no separate peeragent sandbox flag, so its delegation requires the same trusted
+repository and machine context.
 
 Use full access only for a trusted repo and an explicit reason:
 
@@ -379,13 +309,20 @@ For longer work, start a background job:
 bin/peeragent --agent gemini --async "Refactor the result formatter and run tests."
 ```
 
-Check status:
+Wait for the terminal result, preferably through the host harness's native
+background monitor:
+
+```sh
+bin/peeragent --wait <job-id>
+```
+
+Check status without waiting:
 
 ```sh
 bin/peeragent --status <job-id>
 ```
 
-Fetch the result:
+Fetch the current or final result:
 
 ```sh
 bin/peeragent --result <job-id>
@@ -412,16 +349,13 @@ package.json                            # Pi package manifest, loads ./plugin/sk
 .agents/plugins/marketplace.json       # Codex marketplace entry, source ./plugin
 plugin/.claude-plugin/plugin.json      # Claude plugin manifest
 plugin/.codex-plugin/plugin.json       # Codex plugin manifest
-plugin/.mcp.claude.json                # Claude MCP config
-plugin/.mcp.json                       # Codex MCP config
 plugin/skills/peer/SKILL.md
-plugin/skills/peer-review/SKILL.md
 plugin/bin/peeragent
 ```
 
-The root also keeps the same manifests, skills, and shim for local development.
-Run `scripts/package-plugin.sh` after changing plugin metadata, skills, or the
-shim so `plugin/` stays in sync.
+The root also keeps the same manifests, skill, and shim for local development.
+Run `scripts/package-plugin.sh` after changing plugin metadata, the skill, or
+the shim so `plugin/` stays in sync.
 
 ## Releasing
 
@@ -432,7 +366,7 @@ published as downloadable archives for manual install.
 Build release archives locally:
 
 ```sh
-make release VERSION=0.5.1
+make release VERSION=0.6.0
 ```
 
 That writes:
@@ -497,6 +431,20 @@ then set `PEERAGENT_BIN` to the installed binary. For source checkouts,
 If an async lookup fails, make sure the job id came from the same repository and
 that `.peeragent/jobs/<job-id>/job.json` still exists.
 
+### Gemini permissions and autonomy
+
+Peeragent runs Gemini with `--dangerously-skip-permissions` because Antigravity
+print mode cannot pause for tool approval. Without auto-approval, ordinary test
+and build commands are soft-denied and autonomous coding is not viable. The
+default also passes `--sandbox`, which contains terminal processes. Direct file
+tools are not contained by that terminal sandbox and can write outside the
+workspace when permissions are skipped, so use Gemini only with repositories
+and task prompts you trust. `--full-access` removes the remaining terminal
+sandbox.
+
+Peeragent's current `agy` integration expects Antigravity CLI 1.1.12 or newer
+because that release fixed `--mode` handling in headless runs.
+
 ### Gemini auth times out every call
 
 Antigravity (`agy`) stores its OAuth token in the system keyring (Keychain on
@@ -532,7 +480,8 @@ Fix on Linux:
    fi
    ```
 
-If the keyring is impractical (CI, locked-down hosts), set
-`ANTIGRAVITY_API_KEY` from <https://aistudio.google.com/apikey> instead —
-that bypasses libsecret entirely but routes through AI Studio's quota
-rather than your Antigravity subscription.
+If the keyring is impractical (CI or locked-down hosts), Antigravity CLI 1.1.13
+and newer can use `GEMINI_API_KEY` directly. Set `modelProvider` to `"gemini"`
+in `~/.gemini/antigravity-cli/settings.json`, export `GEMINI_API_KEY`, and
+optionally set `GOOGLE_GEMINI_BASE_URL` for a custom endpoint. This uses the
+Gemini API route rather than an Antigravity subscription session.

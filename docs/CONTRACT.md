@@ -2,59 +2,27 @@
 
 ## Skill Interface
 
-Skills accept arbitrary task text from the host or user.
+The `peer` skill accepts arbitrary task text from the host or user.
 
-The plugin exposes the same two skills to Claude Code and Codex hosts:
+The plugin exposes the same skill to Claude Code, Codex, and Pi hosts:
 
 ```text
 /peer <task text>
-/peer-review [review context]
 ```
 
 The task text is treated as delegated task intent, not as shell syntax. The
 wrapper is responsible for preserving the text safely when invoking the target
 agent.
 
-## MCP Interface
+## Delegation Lifecycle
 
-`peeragent mcp` is a local stdio MCP server. The Claude Code and Codex plugin
-packages enable it automatically through their host-specific manifests; plugin
-users do not need a separate global MCP entry. Non-plugin hosts must have an
-installed `peeragent` executable and configure a stdio server that runs
-`peeragent mcp` (or an absolute path to that executable):
-
-```json
-{
-  "mcpServers": {
-    "peeragent": {
-      "command": "peeragent",
-      "args": ["mcp"]
-    }
-  }
-}
-```
-
-The server exposes exactly four tools:
-
-- `delegate`: run one focused delegation, or set `async: true` to return a
-  tracked job id without waiting for the target agent.
-- `job_status`: read compact status for a repository-local async job.
-- `job_result`: read the structured result after a job completes.
-- `job_cancel`: explicitly cancel a job, marking it terminal and terminating
-  its detached process group on supported platforms.
-
-Use async delegation for work likely to exceed the host tool timeout, then poll
-`job_status` and retrieve `job_result`. `delegate` and `job_cancel` are
-write/destructive operations and should remain approval-gated by the host;
-status and result are read-only. `full_access` is an explicit opt-in that
-disables the target's bounded mode. `cwd` is optional and defaults to the
-server working directory; setting it is intentional cross-repository reach and
-should be omitted unless the user asks for it. Job-control calls for a job
-started with another `cwd` must provide that same directory.
-
-MCP is a local stdio adapter only. It does not provide HTTP transport, arbitrary
-MCP forwarding, or an MCP peer-review orchestration tool. The host skills keep
-that review loop.
+The skill invokes the wrapper directly and reads its terminal result before
+concluding. It prefers `--async` for substantive work, then runs `--wait
+<job-id>` through native host monitors or completion wake-ups when available;
+short tasks may remain blocking.
+The plugin does not register an MCP server because detached MCP calls have no
+portable completion notification of their own. CLI job ids keep status and
+result retrieval explicit.
 
 ## Wrapper Interface
 
@@ -63,6 +31,7 @@ peeragent [options] <task text>
 peeragent [options] --prompt-file <path>
 peeragent --status <job-id>
 peeragent --result <job-id>
+peeragent --wait <job-id>
 peeragent --cancel <job-id>
 ```
 
@@ -78,20 +47,23 @@ Options:
 - `--agent <codex|gemini|claude|zai>`: Select the target agent. Defaults to
   `codex`. The `zai` target is fixed to Z.AI GLM 5.2 through Pi.
 - `--async`: Start the target in the background and return a job id.
-- `--sandbox`: Use the default bounded target CLI mode. This is also the
-  default when no access flag is supplied.
-- `--full-access`: Run the target with full local access.
+- `--sandbox`: Use the default target mode. For Gemini this enables terminal
+  containment while tool permissions remain auto-approved for headless autonomy.
+- `--full-access`: Remove target sandboxing. Gemini still auto-approves tools in
+  either mode; full access additionally removes its terminal sandbox.
 - `--worktree`: Reserved for future isolated worktree execution.
 - `--effort <low|medium|high|xhigh>`: Set target reasoning effort. Codex
-  defaults to `high` and accepts all four levels. Z.AI defaults to `high` and
-  accepts `medium`, `high`, or `xhigh`; Claude defaults to `xhigh` and accepts
-  `high` or `xhigh`. Z.AI maps effort to Pi `--thinking`.
-- `--model <luna|terra|sol|fable|sonnet|opus|haiku|gemini-3.5|glm-5.2>`:
-  Select a GPT-5.6 Codex tier or Claude alias, explicitly record the fixed
-  Gemini 3.5 target, or explicitly record the fixed Z.AI GLM 5.2 target. Codex
-  also accepts the canonical `gpt-5.6-*` IDs. Gemini model selection is not
-  passed to `agy` because `agy --print` does not expose a non-interactive model
-  flag. Z.AI accepts only `glm-5.2`; no other Z.AI models are surfaced.
+  defaults to `high` and accepts all four levels. Gemini defaults to `high` and
+  accepts `low`, `medium`, or `high`. Z.AI defaults to `high` and accepts
+  `medium`, `high`, or `xhigh`; Claude defaults to `xhigh` and accepts `high` or
+  `xhigh`. Gemini passes effort to `agy`; Z.AI maps it to Pi `--thinking`.
+- `--model <luna|terra|sol|fable|sonnet|opus|haiku|flash|pro|glm-5.2>`:
+  Select a GPT-5.6 Codex tier, Claude alias, Gemini family, or explicitly record
+  the fixed Z.AI GLM 5.2 target. Codex also accepts canonical `gpt-5.6-*` IDs.
+  Gemini defaults to `gemini-3.7-flash`; `flash`, `pro`, and supported explicit
+  Gemini family IDs normalize to an `agy --model` value. Flash accepts
+  `low|medium|high`, while Pro accepts `low|high`. Z.AI accepts only
+  `glm-5.2`; no other Z.AI models are surfaced.
 - `--profile <name>`: Pass a Codex configuration profile.
 - `--resume <agent-session>`: Resume a prior target-agent session when the
   target supports it. Use this for continuity inside one review loop; omit it
@@ -101,7 +73,9 @@ Options:
 - `--json`: Emit JSON output. This is the default.
 - `--text`: Emit human-readable text output.
 - `--status <job-id>`: Inspect an async job.
-- `--result <job-id>`: Fetch an async job result.
+- `--result <job-id>`: Fetch an async job's current or terminal result.
+- `--wait <job-id>`: Stay attached until an async job has a terminal result,
+  making it suitable for native host process monitors.
 - `--cancel <job-id>`: Cancel an async job by marking terminal state. On Unix,
   it sends SIGTERM to the async process group, then sends SIGKILL after a
   5-second grace period when the group is still running.
@@ -173,8 +147,14 @@ codex exec --json --cd <repo> --sandbox workspace-write \
 Default Gemini:
 
 ```text
-agy --print --add-dir <repo> --print-timeout 15m ...
+agy --output-format json --model gemini-3.7-flash --effort high \
+  --mode accept-edits --sandbox --dangerously-skip-permissions \
+  --add-dir <repo> --print-timeout 15m --print <prompt>
 ```
+
+`--print` is a string-valued flag in current `agy`, so peeragent emits it after
+all other options. Putting it first causes the next option to be consumed as the
+prompt and silently drops the intended model, sandbox, and permission settings.
 
 Default Claude:
 
@@ -192,28 +172,31 @@ For Codex, the short aliases `luna`, `terra`, and `sol` normalize to and pass
 through as `gpt-5.6-luna`, `gpt-5.6-terra`, and `gpt-5.6-sol`. The canonical
 IDs are also accepted. For Claude, the wrapper passes `--model <alias>` to
 Claude Code; accepted aliases are `fable`, `sonnet`, `opus`, and `haiku`.
-When `--model gemini-3.5` is provided for Gemini, the wrapper records that model
-in metadata but leaves the `agy` argv unchanged. When `--model glm-5.2` is
-provided for Z.AI, the wrapper records the fixed target and passes that model
-to Pi; other Z.AI model names are rejected.
+For Gemini, `flash` normalizes to `gemini-3.7-flash`, `pro` normalizes to
+`gemini-3.1-pro`, and the wrapper passes the model and effort to `agy`. When
+`--model glm-5.2` is provided for Z.AI, the wrapper records the fixed target and
+passes that model to Pi; other Z.AI model names are rejected.
 
-Full access maps to each target's explicit bypass flag where one exists. Pi has
-no separate peeragent sandbox/full-access toggle; its target uses Pi print mode
-with the normal local Pi tool environment.
+Full access maps to each target's explicit bypass flag where one exists. Gemini
+already auto-approves tools in its default print-mode invocation because no
+interactive approver exists; full access removes the terminal sandbox. That
+sandbox does not contain direct file tools, so Gemini requires trusted local
+context in both modes. Pi has no separate peeragent sandbox/full-access toggle;
+its target uses Pi print mode with the normal local Pi tool environment.
 
 Resume maps to each target's native resume surface:
 
 ```text
 codex exec resume <session-id> ...
-agy --print --conversation <conversation-id> ...
+agy --conversation <conversation-id> --print <prompt>
 claude --print --resume <session-id> ...
 pi --provider zai --model glm-5.2 --session <session-id> -p ...
 ```
 
-Codex and Claude sessions are captured from machine-readable target output.
-Gemini/Antigravity and Pi can resume a caller-supplied session id, but the
-wrapper does not scrape logs to infer new Gemini or Pi session ids. Fresh Z.AI
-calls use `--no-session` by default.
+Codex, Claude, and Gemini sessions are captured from machine-readable target
+output. Gemini resumes the captured `conversation_id` through `--conversation`.
+Pi can resume a caller-supplied session id, but the wrapper does not scrape logs
+to infer new Pi session ids. Fresh Z.AI calls use `--no-session` by default.
 
 Default result output is compact. For Codex JSONL output, peeragent records the
 latest completed `agent_message` as the visible stdout detail instead of joining

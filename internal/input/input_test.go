@@ -293,12 +293,15 @@ func TestParseDefaultsEffortXHighForClaude(t *testing.T) {
 	}
 }
 
-func TestParseDefaultsNoEffortForGemini(t *testing.T) {
+func TestParseDefaultsGeminiModelAndEffort(t *testing.T) {
 	req, err := Parse([]string{"--agent", "gemini", "task"}, nil, fixedCWD)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if req.Effort != "" {
+	if req.Model != "gemini-3.7-flash" {
+		t.Fatalf("Model = %q", req.Model)
+	}
+	if req.Effort != "high" {
 		t.Fatalf("Effort = %q", req.Effort)
 	}
 }
@@ -377,8 +380,29 @@ func TestParseRejectsMediumEffortForClaude(t *testing.T) {
 	}
 }
 
-func TestParseRejectsEffortForGemini(t *testing.T) {
-	_, err := Parse([]string{"--agent", "gemini", "--effort", "high", "task"}, nil, fixedCWD)
+func TestParseGeminiEfforts(t *testing.T) {
+	for _, effort := range []string{"low", "medium", "high"} {
+		t.Run(effort, func(t *testing.T) {
+			req, err := Parse([]string{"--agent", "gemini", "--effort", effort, "task"}, nil, fixedCWD)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if req.Effort != effort {
+				t.Fatalf("Effort = %q", req.Effort)
+			}
+		})
+	}
+}
+
+func TestParseRejectsXHighEffortForGemini(t *testing.T) {
+	_, err := Parse([]string{"--agent", "gemini", "--effort", "xhigh", "task"}, nil, fixedCWD)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestParseRejectsMediumEffortForGeminiPro(t *testing.T) {
+	_, err := Parse([]string{"--agent", "gemini", "--model", "pro", "--effort", "medium", "task"}, nil, fixedCWD)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -449,18 +473,29 @@ func TestParseRejectsUnsupportedClaudeModel(t *testing.T) {
 	}
 }
 
-func TestParseGeminiFixedModel(t *testing.T) {
-	req, err := Parse([]string{"--agent", "gemini", "--model", "3.5", "task"}, nil, fixedCWD)
-	if err != nil {
-		t.Fatal(err)
+func TestParseGeminiModels(t *testing.T) {
+	tests := map[string]string{
+		"flash":            "gemini-3.7-flash",
+		"3.7":              "gemini-3.7-flash",
+		"gemini-3.6-flash": "gemini-3.6-flash",
+		"3.5":              "gemini-3.5-flash",
+		"pro":              "gemini-3.1-pro",
 	}
-	if req.Model != "gemini-3.5" {
-		t.Fatalf("Model = %q", req.Model)
+	for input, want := range tests {
+		t.Run(input, func(t *testing.T) {
+			req, err := Parse([]string{"--agent", "gemini", "--model", input, "task"}, nil, fixedCWD)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if req.Model != want {
+				t.Fatalf("Model = %q, want %q", req.Model, want)
+			}
+		})
 	}
 }
 
 func TestParseRejectsUnsupportedGeminiModel(t *testing.T) {
-	_, err := Parse([]string{"--agent", "gemini", "--model", "pro", "task"}, nil, fixedCWD)
+	_, err := Parse([]string{"--agent", "gemini", "--model", "ultra", "task"}, nil, fixedCWD)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -568,6 +603,16 @@ func TestParseResult(t *testing.T) {
 	}
 }
 
+func TestParseWait(t *testing.T) {
+	req, err := Parse([]string{"--wait", validJobID}, nil, fixedCWD)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if req.WaitJobID != validJobID {
+		t.Fatalf("WaitJobID = %q", req.WaitJobID)
+	}
+}
+
 func TestParseCancel(t *testing.T) {
 	req, err := Parse([]string{"--cancel", validJobID}, nil, fixedCWD)
 	if err != nil {
@@ -593,7 +638,7 @@ func TestParseRejectsMalformedJobIDsAtCLIInputBoundary(t *testing.T) {
 		"20260712T123456Z-deadbeef\x00",
 		"20260712T123456Z-😀😀😀😀",
 	}
-	for _, flag := range []string{"--job-run", "--status", "--result", "--cancel"} {
+	for _, flag := range []string{"--job-run", "--status", "--result", "--wait", "--cancel"} {
 		for _, id := range invalidIDs {
 			if _, err := Parse([]string{flag, id}, nil, fixedCWD); err == nil {
 				t.Errorf("Parse(%s, %q) accepted malformed id", flag, id)

@@ -15,7 +15,7 @@ import (
 
 // JobRequest identifies a repository-local asynchronous job. CWD is optional
 // at the application boundary; an empty value resolves through the service's
-// working-directory port so CLI and MCP callers share the same lookup rules.
+// working-directory port so every CLI job operation shares the same lookup rules.
 type JobRequest struct {
 	CWD   string
 	JobID string
@@ -42,8 +42,8 @@ func (s *Service) JobStatus(ctx context.Context, raw JobRequest) (result.Result,
 }
 
 // JobResult returns the persisted terminal result, or running while the child
-// has not produced result.json yet. Result JSON is decoded here so MCP never
-// has to read job files directly and corrupt storage remains distinguishable
+// has not produced result.json yet. Result JSON is decoded here so job-state
+// interpretation remains centralized and corrupt storage stays distinguishable
 // from an ordinary in-flight job.
 func (s *Service) JobResult(ctx context.Context, raw JobRequest) (result.Result, error) {
 	req, err := s.normalizeJobRequest(ctx, raw)

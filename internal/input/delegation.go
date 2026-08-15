@@ -20,9 +20,9 @@ type Delegation struct {
 	Resume     string
 }
 
-// NormalizeDelegation applies the boundary defaults and validation shared by
-// the CLI and MCP adapters. Keeping this at one boundary prevents an adapter
-// from accidentally accepting a target/model combination the other rejects.
+// NormalizeDelegation applies boundary defaults and validation for direct and
+// persisted delegation requests. Keeping this at one boundary prevents async
+// jobs from accepting a target/model combination the CLI rejects.
 func NormalizeDelegation(raw Delegation, getwd func() (string, error)) (Delegation, error) {
 	raw.TaskText = strings.TrimSpace(raw.TaskText)
 	if raw.TaskText == "" {
@@ -58,6 +58,9 @@ func NormalizeDelegation(raw Delegation, getwd func() (string, error)) (Delegati
 		return Delegation{}, err
 	}
 	raw.Model = model
+	if raw.Agent == "gemini" && raw.Model == "gemini-3.1-pro" && raw.Effort == "medium" {
+		return Delegation{}, errors.New("--effort for Gemini 3.1 Pro must be low or high")
+	}
 	raw.Profile = strings.TrimSpace(raw.Profile)
 	raw.Resume = strings.TrimSpace(raw.Resume)
 	return raw, nil

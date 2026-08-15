@@ -24,15 +24,10 @@ scripts/package-plugin.sh
 test -x plugin/bin/peeragent
 test -f plugin/.claude-plugin/plugin.json
 test -f plugin/.codex-plugin/plugin.json
-test -f plugin/.mcp.json
+! test -e plugin/.mcp.json
+! test -e plugin/.mcp.claude.json
 test -f plugin/skills/peer/SKILL.md
-test -f plugin/skills/peer-review/SKILL.md
-
-step "MCP plugin configuration and packaged protocol smoke"
-# The committed platform binary is refreshed by build-binaries.yml after this
-# source change. Use the freshly built binary through the packaged shim here so
-# local validation exercises MCP before that asynchronous refresh lands.
-PEERAGENT_BIN="$ROOT/dist/peeragent" python3 scripts/validate-plugin-config.py
+! test -e plugin/skills/peer-review
 
 if command -v claude >/dev/null 2>&1; then
   step "Claude plugin validation"
@@ -96,9 +91,13 @@ grep -q './plugin' .claude-plugin/marketplace.json
 grep -q './plugin' .agents/plugins/marketplace.json
 grep -q '"skills": "./skills/"' .codex-plugin/plugin.json
 grep -q '"defaultPrompt"' .codex-plugin/plugin.json
+if grep -q '"mcpServers"' .claude-plugin/plugin.json .codex-plugin/plugin.json; then
+  echo "stale MCP plugin registration found"
+  exit 1
+fi
 grep -q 'name: peer' skills/peer/SKILL.md
 grep -q 'allowed-tools: Bash' skills/peer/SKILL.md
-grep -q 'name: peer-review' skills/peer-review/SKILL.md
+! test -e skills/peer-review
 
 step "skill metadata constraints"
 for skill in skills/*/SKILL.md plugin/skills/*/SKILL.md; do
@@ -149,11 +148,12 @@ grep -q -- '--model terra' README.md
 grep -q -- '--model sol' README.md
 grep -q -- '--model fable' README.md
 grep -q -- '--model opus' README.md
-grep -q -- '--model gemini-3.5' README.md
+grep -q -- '--model flash' README.md
 grep -q -- '--model glm-5.2' README.md
 grep -q -- '--async' README.md
 grep -q -- '--status <job-id>' README.md
 grep -q -- '--result <job-id>' README.md
+grep -q -- '--wait <job-id>' README.md
 grep -q -- '--cancel <job-id>' README.md
 grep -q -- '--full-access' README.md
 
@@ -168,7 +168,7 @@ if grep -R -F -- '--result [job-id]' README.md docs skills; then
 fi
 
 if grep -R -E -- '--agent (claude|zai)[^|`]*--effort low|--model (fable|sonnet|opus|haiku|glm-5\.2)[^|`]*--effort low' README.md docs skills; then
-  echo "low effort is supported only for Codex"
+  echo "low effort is supported only for Codex and Gemini"
   exit 1
 fi
 
@@ -182,8 +182,8 @@ if grep -R -F -- '--ask-for-approval' README.md docs skills cmd internal; then
   exit 1
 fi
 
-if grep -R -F -- '--model pro' README.md docs skills; then
-  echo "unsupported Gemini model example found"
+if grep -R -F -- 'fixed Gemini 3.5' README.md docs skills; then
+  echo "stale fixed Gemini model description found"
   exit 1
 fi
 

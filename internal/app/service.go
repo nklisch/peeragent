@@ -1,6 +1,6 @@
 // Package app contains peeragent's inbound-adapter-independent application
 // services. It returns typed results and errors; formatting and process exit
-// decisions remain in cmd/peeragent and the MCP adapter.
+// decisions remain in cmd/peeragent.
 package app
 
 import (

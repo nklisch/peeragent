@@ -4,21 +4,13 @@
 
 The repository, bundled wrapper, and plugin name are `peeragent`.
 
-The host-facing skills are:
+The host-facing skill is:
 
 ```text
 /peer <task text>
-/peer-review [review context]
 ```
 
-MCP-capable hosts may instead start `peeragent mcp` as a local stdio server and
-invoke its delegation and async-job tools. The Claude Code and Codex plugin
-packages bundle this server as an MCP component with host-specific plugin-root
-resolution, so installing the plugin does not require separate global MCP
-configuration. The MCP adapter and CLI share the same request validation,
-execution, job store, and result contracts.
-
-Both skills call the same wrapper with an explicit target when the user or host
+The skill calls the wrapper with an explicit target when the user or host
 selects one:
 
 ```text
@@ -57,42 +49,18 @@ The project contains:
 
 - `.claude-plugin/plugin.json` for Claude Code plugin metadata.
 - `.codex-plugin/plugin.json` for Codex plugin metadata.
-- `package.json` for the Pi package manifest, which loads the bundled skills from
-  `./plugin/skills`.
-- `skills/` for host-facing skills. The Codex plugin manifest points here so
+- `package.json` for the Pi package manifest, which loads the bundled `peer`
+  skill from `./plugin/skills`.
+- `skills/` for the host-facing skill. The Codex plugin manifest points here so
   Codex can target Claude, Gemini, or Z.AI GLM 5.2, and Claude Code also
   discovers the same directory.
 - `bin/peeragent` as the executable shim host agents call.
 - `plugin/bin/<target>/peeragent` — committed prebuilt binaries for each
   supported platform, included in the marketplace plugin artifact.
 - `cmd/peeragent/` and internal Go packages for the wrapper implementation.
-- An MCP stdio adapter that exposes shared application services without writing
-  non-protocol output to stdout.
-- Host-compatible bundled MCP configuration referenced by both plugin manifests:
-  `.mcp.claude.json` uses `${CLAUDE_PLUGIN_ROOT}`, while Codex uses `.mcp.json`
-  with `cwd: "."` and the plugin-relative command `./bin/peeragent`. The
-  configs execute `bin/peeragent mcp` and are copied into the curated `plugin/`
-  tree.
 - `docs/` for foundation documents.
 
 ## Invocation Modes
-
-### MCP stdio
-
-`peeragent mcp` runs a Model Context Protocol server over stdin/stdout. It
-supports protocol initialization and tool discovery, blocking delegation,
-async delegation launch, job status, result retrieval, and cancellation. It
-does not listen on a network socket, forward arbitrary MCP server configuration
-to target agents, or encode the iterative `/peer-review` workflow.
-
-Installing and enabling either bundled plugin makes the server available under
-`peeragent` without a separate global MCP setup. Host approval controls still
-apply: `delegate` may edit the checkout and `job_cancel` terminates a detached
-job, while `job_status` and `job_result` are read-only. Hosts should use
-`async: true` for work likely to outlast their tool timeout, then poll status and
-retrieve the result. `full_access` and an alternate `cwd` are explicit options;
-`cwd` should be omitted unless the user requests intentional cross-repository
-reach.
 
 ### Blocking
 
@@ -101,20 +69,24 @@ the target agent completes.
 
 ### Async
 
-Async invocation is explicit. The wrapper starts a tracked local job, records
-logs and status, and returns a job id. The host can later inspect the task
-through `--status`, `--result`, or `--cancel`.
+Async invocation is explicit at the CLI and preferred by the `peer` skill for
+substantive work. The wrapper starts a tracked local job, records logs and
+status, and returns a job id. The host should run `--wait <job-id>` through
+native monitor or completion facilities when available; the attached waiter
+prints the terminal result. `--status`, `--result`, and `--cancel` remain
+explicit controls.
 
 ### Sandbox
 
-Sandbox execution is the default bounded target CLI mode. The caller may pass
-`--sandbox` explicitly to choose the same mode that is used when no access flag
-is supplied. Each target maps this to its own bounded mode (see below). Gemini
-through Antigravity is the exception: `agy` has no usable sandbox flag in print
-mode (it loops until timeout), so its bounded default is `agy --print` scoped
-only by `--add-dir`. Pi is also an exception: it has no peeragent-specific
-sandbox/full-access toggle, so the Z.AI target runs in Pi print mode with Pi's
-normal local tool environment.
+Sandbox execution is the default target CLI mode. The caller may pass
+`--sandbox` explicitly to choose the same mode used when no access flag is
+supplied. Gemini combines the native terminal sandbox, `accept-edits`, and
+`--dangerously-skip-permissions`: print mode cannot answer permission prompts,
+so auto-approval is required to run tests autonomously. Antigravity's sandbox
+contains terminal processes but not its direct file tools, which may write
+outside the workspace when permissions are skipped. Pi has no
+peeragent-specific sandbox/full-access toggle and runs with Pi's normal local
+tool environment.
 
 ### Full Access
 
@@ -133,7 +105,9 @@ Target invocations (Codex shown with a selected GPT-5.6 tier):
 codex exec --json --cd <repo> --sandbox workspace-write \
   --model gpt-5.6-<luna|terra|sol> \
   -c approval_policy="on-request" -c approvals_reviewer="auto_review" ...
-agy --print --add-dir <repo> ...
+agy --output-format json --model gemini-3.7-flash --effort high \
+  --mode accept-edits --sandbox --dangerously-skip-permissions \
+  --add-dir <repo> --print <prompt>
 claude --print --output-format json --permission-mode auto --add-dir <repo> ...
 pi --provider zai --model glm-5.2 --thinking <effort> --no-session -p ...
 ```
@@ -142,7 +116,7 @@ Full-access target invocations:
 
 ```text
 codex exec --json --dangerously-bypass-approvals-and-sandbox ...
-agy --print --dangerously-skip-permissions ...
+agy --dangerously-skip-permissions --print <prompt>
 claude --print --dangerously-skip-permissions ...
 ```
 
@@ -157,13 +131,15 @@ path, Luna at xhigh handles larger workloads, Terra is an optional middle
 bridge, Sol at low or medium is roughly Opus-tier, and Sol at high or xhigh is
 roughly Fable-tier. Callers can jump directly from Luna to Sol.
 
-Z.AI GLM 5.2 defaults to `high` and maps `medium`, `high`, and `xhigh` to Pi
-`--thinking`. Claude reasoning effort defaults to `xhigh` and exposes `high`
-and `xhigh`. Claude supports `--model fable`, `--model sonnet`, `--model opus`,
-and `--model haiku`, which pass through to Claude Code. Gemini is treated as
-fixed Gemini 3.5; `--model gemini-3.5` is accepted for explicit metadata, but
-the wrapper does not pass a model flag to `agy` because `agy --print` does not
-expose a non-interactive model option. Z.AI is treated as fixed `glm-5.2`;
+Gemini defaults to Gemini 3.7 Flash at `high` effort and accepts `low`,
+`medium`, and `high`. `flash` selects Gemini 3.7 Flash and `pro` selects Gemini
+3.1 Pro; explicit supported Flash family IDs for 3.5 through 3.7 are also
+accepted. Pro supports `low` and `high`, not `medium`. Peeragent passes the
+normalized model and effort to `agy`. Z.AI GLM
+5.2 defaults to `high` and maps `medium`, `high`, and `xhigh` to Pi `--thinking`.
+Claude reasoning effort defaults to `xhigh` and exposes `high` and `xhigh`.
+Claude supports `--model fable`, `--model sonnet`, `--model opus`, and `--model
+haiku`, which pass through to Claude Code. Z.AI is treated as fixed `glm-5.2`;
 peeragent rejects every other Z.AI model name even if Pi lists it.
 
 ## Session Continuity
@@ -179,10 +155,10 @@ can anchor later passes.
 
 Codex exposes session ids through JSONL output and resumes with
 `codex exec resume`. Claude exposes session ids through JSON output and resumes
-with `--resume`. Antigravity exposes `--conversation` for a known conversation
-id, and Pi exposes `--session` for a known session id, but the wrapper does not
-scrape logs to capture new Gemini or Pi session ids. Fresh Z.AI calls use
-`--no-session`.
+with `--resume`. Antigravity's JSON print envelope exposes a `conversation_id`,
+which peeragent captures and resumes with `--conversation`. Pi exposes
+`--session` for a known session id, but the wrapper does not scrape logs to
+capture new Pi session ids. Fresh Z.AI calls use `--no-session`.
 
 ## Output Requirements
 
@@ -221,9 +197,6 @@ approval classifier is a security guarantee.
 
 The project does not provide:
 
-- A remote or Streamable HTTP MCP service.
-- An arbitrary MCP proxy for target agents.
-- A first-class MCP tool for iterative peer-review orchestration.
 - A full agent job dashboard.
 - A replacement for Codex, Claude Code, Antigravity CLI, or Pi.
 - A replacement for host-agent permissions.

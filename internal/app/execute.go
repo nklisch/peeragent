@@ -33,6 +33,7 @@ func (targetExecutor) Execute(ctx context.Context, delegation input.Delegation) 
 			CWD:        delegation.CWD,
 			Prompt:     agentPrompt,
 			FullAccess: delegation.FullAccess,
+			Effort:     delegation.Effort,
 			Model:      delegation.Model,
 			Resume:     delegation.Resume,
 		})

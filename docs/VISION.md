@@ -6,8 +6,10 @@ harness without leaving the current repository workflow.
 
 The host assistant remains the primary collaborator in the session. When a task
 benefits from a different autonomous coding agent or model family, the host
-invokes an Alt Subagent skill, passes arbitrary task text, waits by default, and
-resumes with a compact result. The target agent works in the same checkout and
+invokes the `peer` skill, passes arbitrary task text, and resumes with a compact
+result. Substantive work launches asynchronously and uses native host completion
+facilities to observe the attached `--wait` process when available; short
+passes may remain blocking. The target agent works in the same checkout and
 may edit files directly according to its local permission model.
 
 ## Primary Users
@@ -20,11 +22,9 @@ one or more alternate local agent CLIs installed:
 - Claude Code CLI
 - Pi CLI configured for Z.AI GLM 5.2
 
-Claude and Codex are also users of this project. Skills give each host a clear
-delegation contract: when to call another agent, what to send, how to interpret
-results, and how to continue after the target agent returns. MCP-capable coding
-hosts can use the same delegation contract through peeragent's local stdio MCP
-server without requiring a host-specific skill.
+Claude, Codex, and Pi are also users of this project. Skills give each host a
+clear delegation contract: when to call another agent, what to send, how to
+interpret results, and how to continue after the target agent returns.
 
 ## Problem
 
@@ -43,11 +43,9 @@ becoming a general multi-agent control panel.
 Alt Subagent is a plugin-ready repository containing:
 
 - A bundled `peeragent` CLI wrapper.
-- A local stdio MCP server exposing delegation and async job controls, bundled
-  into both the Claude Code and Codex plugins.
-- A `/peer` skill for focused delegation.
-- A `/peer-review` skill for iterative cross-model review.
-- Shared request and result contracts across CLI, MCP, and host skills.
+- A `/peer` skill for focused delegation, including implementation, research,
+  and review tasks.
+- A shared request and result contract across the CLI and host skill.
 
 The wrapper invokes the selected local CLI with predictable defaults, captures
 the outcome, and returns a concise result to the host.
@@ -58,7 +56,7 @@ the outcome, and returns a concise result to the host.
 - Explicit target agent selection.
 - Direct task execution, not patch-only output.
 - Safe defaults before full access.
-- Blocking first, async as an explicit mode.
+- Async delegation for substantive work; blocking for short passes.
 - Compact machine-readable results.
 - Host assistant remains responsible for user communication.
 
@@ -72,9 +70,7 @@ agents, or reconcile ambiguous outputs.
 
 Concrete success criteria:
 
-- Claude and Codex can invoke `/peer` or `/peer-review`.
-- MCP-capable hosts can discover and invoke peeragent delegation and async job
-  tools through a local stdio server.
+- Claude, Codex, and Pi can invoke the `peer` skill.
 - The wrapper can target `codex`, `gemini`, `claude`, or `zai`.
 - The `zai` target uses Pi with only Z.AI `glm-5.2` surfaced.
 - Target agents run in the current repository by default.
@@ -84,7 +80,9 @@ Concrete success criteria:
 
 ## Non-Goals
 
-Alt Subagent is not a dashboard, a general multi-agent orchestrator, a remote
-MCP service, an arbitrary MCP proxy, a mandatory worktree manager, or a
-patch-only generator. It does not replace native interfaces, host-agent
-permissions, or human review for high-risk changes.
+Alt Subagent is not a dashboard, a general multi-agent orchestrator, an MCP
+server, a mandatory worktree manager, or a patch-only generator. MCP is not a
+fit for the completion boundary because detached tools have no portable wake-up
+mechanism and blocking tools compete with host timeouts. It does not replace
+native interfaces, host-agent permissions, or human review for high-risk
+changes.

@@ -24,5 +24,5 @@ Do not put async lifecycle, persistence, shared access policy, or host orchestra
 ## Common violations
 
 - Switching on target names in multiple consumers rather than deriving behavior from one authoritative target registry.
-- Leaking target-specific flags into `internal/app` or MCP handlers.
+- Leaking target-specific flags into `internal/app` or CLI job-control handlers.
 - Calling a real CLI in unit tests instead of using `ExecWithRunner`.

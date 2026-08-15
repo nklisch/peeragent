@@ -24,22 +24,6 @@ spots — implementation, research, review, debugging, refactors, doc
 updates, build fixes. Not just "implementation" despite the historical
 name.
 
-## MCP-first behavior
-
-If the host exposes the bundled `peeragent` MCP server, prefer its `delegate`
-tool over shelling out to this skill's wrapper. Pass the task as `task`, select
-`agent` when needed, and omit `cwd` unless the user explicitly asks for a
-cross-repository checkout. For work likely to exceed the host tool timeout, set
-`async: true`, poll `job_status`, and retrieve the completed result with
-`job_result`. Ask for explicit user intent before using `full_access: true` or
-`job_cancel`; both can change or terminate work.
-
-If the MCP server is unavailable, use the bundled-wrapper procedure below. Do
-not assume a globally installed `peeragent` command. Whether the MCP tool or
-wrapper is used, never recursively delegate through peeragent's `peer` or
-`peer-review` skill, MCP `delegate`, or wrapper from the delegated task. The
-peer is the endpoint of this handoff.
-
 ## Default Behavior
 
 Do not assume `peeragent` is on `PATH`. Resolve the bundled wrapper before
@@ -64,15 +48,17 @@ execution mode for that wrapper invocation. Pure local `--status` and
 separate from peeragent's `--full-access` flag: do not pass `--full-access`
 unless the user explicitly asked for that target permission mode.
 
-Pass the user's task text to the wrapper:
+Pass the user's task text to the wrapper. Prefer an asynchronous delegation for
+substantive work:
 
 ```bash
-<resolved-peeragent-bin> --agent <codex|claude|gemini|zai> [--model <name>] "$ARGUMENTS"
+<resolved-peeragent-bin> --async --agent <codex|claude|gemini|zai> [--model <name>] "$ARGUMENTS"
 ```
 
-`--agent` defaults to `codex` if omitted. The wrapper runs in the current
-repository, blocks until the peer finishes, and returns JSON. Read the
-JSON before responding to the user.
+`--agent` defaults to `codex` if omitted. Read the launch JSON, retain its
+`job_id` and repository `cwd`, and follow the asynchronous lifecycle below.
+Use a blocking call only for a genuinely short pass or when the host cannot
+reliably complete the async lifecycle.
 
 ## Picking The Target
 
@@ -106,10 +92,11 @@ jump directly from Luna to Sol.
 | Fable-tier | `--model sol --effort high` or `xhigh` | `--model fable --effort high` or `xhigh` |
 
 Claude also retains Opus, Sonnet, and Haiku aliases. Claude rejects `--effort medium`;
-peeragent exposes only `high|xhigh` for Claude. Gemini ignores `--effort` and
-`--model` beyond accepting `--model gemini-3.5` as a no-op for explicit
-metadata. Z.AI maps `--effort medium|high|xhigh` to Pi `--thinking` and accepts
-only `--model glm-5.2`; no other Z.AI model is surfaced.
+peeragent exposes only `high|xhigh` for Claude. Gemini defaults to Gemini 3.7
+Flash at high effort and passes both model and effort to `agy`; Flash accepts
+`low|medium|high`, while `--model pro` accepts `low|high`. Z.AI maps
+`--effort medium|high|xhigh` to Pi `--thinking` and accepts only `--model
+glm-5.2`; no other Z.AI model is surfaced.
 
 Quickly test whether the Z.AI target is configured before delegating:
 
@@ -129,9 +116,32 @@ task text is arbitrary natural language, not shell syntax. Don't split
 the request into many wrapper calls unless the user explicitly asked for
 separate passes.
 
-Default is blocking. Wait for the command to return, then summarize the
-result using the wrapper's `status`, `summary`, `changed_files`,
-`verification`, and `details` fields.
+## Async Lifecycle
+
+Prefer `--async` for normal implementation, research, and review passes so a
+long-running peer does not consume or exceed the launch tool call. After the
+launch returns a job id, start peeragent's attached waiter:
+
+```bash
+<resolved-peeragent-bin> --wait <job-id> [--cwd <same-cwd>]
+```
+
+When the host harness provides native background jobs, monitors, or completion
+wake-ups, run that `--wait` command through the native facility and rely on its
+completion notification. The waiter remains attached to the detached peer job
+and prints the terminal result when it finishes, giving the harness a real
+process to monitor. Do not hand-roll a sleep loop or manually poll while the
+monitor is active.
+
+If the harness has no monitor facility, run `--wait` in the foreground when its
+tool timeout is sufficient. Otherwise check `--status <job-id>` only at
+reasonable checkpoints and call `--result` once the job is terminal. Never
+tight-poll. Do not give the user a final success or failure report until you
+have read the terminal result, unless the user explicitly asked only to launch
+the job.
+
+For a short blocking call, wait for the command to return and apply the same
+result handling directly.
 
 The default `details` payload is compact. For Codex targets, peeragent surfaces
 the final completed agent message instead of the full stream of interim assistant
@@ -144,16 +154,16 @@ evidence of a hung process; keep waiting unless the wrapper exits, reports
 failure, or there is concrete evidence the process is stuck.
 
 Include a no-recursion instruction in every handoff. Tell the peer
-explicitly **not** to reach for peeragent's own `peer` or `peer-review`
-skills — and not to run the `peeragent` wrapper — to delegate the work back
+explicitly **not** to reach for peeragent's `peer` skill — and not to run the
+`peeragent` wrapper — to delegate the work back
 out to another local coding agent. That would loop host → peer → host and
 burn budget. The peer is the endpoint of this delegation. It may freely use
 its own harness's internal sub-agents (Codex/Claude/Gemini built-in task or
 sub-agent tooling, or Pi-native extensions if available) for parallel or
 focused passes; the prohibition is only
 on recursive peeragent calls. A short line in the prompt is enough, e.g.
-"Do this work directly — do not call the peeragent peer/peer-review skills
-to hand it off again; use your own harness's sub-agents if you need help."
+"Do this work directly — do not call the peeragent peer skill to hand it off
+again; use your own harness's sub-agents if you need help."
 
 ## Result Handling
 
@@ -170,8 +180,8 @@ to hand it off again; use your own harness's sub-agents if you need help."
     `PEERAGENT_BIN`. If the
     platform is misdetected, `PEERAGENT_TARGET_OVERRIDE=<goos>-<goarch>`
     selects a present binary. Do not retry in a loop.
-- `status: running` — only with `--async`; report the job id and how to
-  check it.
+- `status: running` — keep monitoring the async job; report only an interim
+  update if useful, then retrieve its terminal result before concluding.
 - `status: cancelled` — only after `--cancel`; report cleanly.
 
 Do not claim success unless the wrapper reports `success`.
@@ -186,17 +196,19 @@ Use advanced modes only when the request calls for them:
 - `--profile <name>` — Codex profile override.
 - `--model <name>` — Codex GPT-5.6 aliases (`luna`, `terra`, `sol`) or their
   canonical `gpt-5.6-*` IDs; Claude aliases (`fable`, `sonnet`, `opus`,
-  `haiku`); explicit Gemini `gemini-3.5`; or explicit Z.AI `glm-5.2`. No other
-  Z.AI models are accepted.
+  `haiku`); Gemini `flash`, `pro`, or a supported explicit family ID; or Z.AI
+  `glm-5.2`. No other Z.AI models are accepted.
 - `--resume <agent-session>` — continue a prior target-agent session when
   the previous result included `metadata.agent_session`. Use it for continuity
   inside one multi-pass workflow; omit it for an independent second opinion.
 - `--cwd <path>` — repo directory the peer runs in.
 - `--prompt-file <path>` — read large prompts from a file.
-- `--async` — start the peer as a background job; the wrapper returns a
-  `job_id` immediately with `status: running`.
+- `--async` — preferred for substantive work; starts a background job and
+  returns a `job_id` immediately with `status: running`.
 - `--status <job-id>` — check an async job.
-- `--result <job-id>` — fetch a finished async job's final result.
+- `--result <job-id>` — fetch an async job's current or final result.
+- `--wait <job-id>` — stay attached until an async job has a terminal result;
+  run this through native harness monitors when available.
 - `--cancel <job-id>` — best-effort cancel.
 - `--text` / `--json` — output format; JSON is default.
 
@@ -212,9 +224,7 @@ Use advanced modes only when the request calls for them:
   user. The peer is the worker; you are the narrator.
 - Treat the working tree as shared space — the peer may edit files you
   are also editing. Re-read before re-edit.
-- No recursive peeragent. The handoff prompt must tell the peer not to
-  call peeragent's `peer`/`peer-review` skills (or the `peeragent` wrapper)
-  back out to another agent. The peer's own internal harness sub-agents are
-  fine; recursive peeragent delegation is not.
-- For review work, prefer `/peer-review` (the looping cross-model review
-  skill) over a one-shot `peer` call.
+- No recursive peeragent. The handoff prompt must tell the peer not to call
+  peeragent's `peer` skill (or the `peeragent` wrapper) back out to another
+  agent. The peer's own internal harness sub-agents are fine; recursive
+  peeragent delegation is not.

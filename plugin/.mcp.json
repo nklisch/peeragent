@@ -1,9 +1,0 @@
-{
-  "mcpServers": {
-    "peeragent": {
-      "command": "./bin/peeragent",
-      "args": ["mcp"],
-      "cwd": "."
-    }
-  }
-}
