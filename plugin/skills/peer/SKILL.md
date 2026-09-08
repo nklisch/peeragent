@@ -79,9 +79,10 @@ vice versa.
 
 ## Effort And Model
 
-Use GPT-5.6 for all Codex work. Luna is the routine fast path; Sol is the
-flagship jump for difficult work. Terra is a useful bridge, but most calls can
-jump directly from Luna to Sol.
+Use GPT-5.6 for routine Codex work. Luna is the routine fast path; Sol is the
+top of the GPT-5.6 line. GPT-6 Astra is the flagship jump above Sol for the
+most difficult work. Terra is a useful bridge, but most calls can jump
+directly from Luna to Sol or Astra.
 
 | Desired pass | Codex recommendation | Claude equivalent |
 | --- | --- | --- |
@@ -90,6 +91,7 @@ jump directly from Luna to Sol.
 | Optional bridge | `--model terra --effort high` or `xhigh` | Between general and flagship |
 | Opus-tier | `--model sol --effort low` or `medium` | `--model opus --effort xhigh` |
 | Fable-tier | `--model sol --effort high` or `xhigh` | `--model fable --effort high` or `xhigh` |
+| GPT-6 flagship | `--model astra --effort high` or `xhigh` | Above Fable-tier |
 
 Claude also retains Opus, Sonnet, and Haiku aliases. Claude rejects `--effort medium`;
 peeragent exposes only `high|xhigh` for Claude. Gemini defaults to Gemini 3.7
@@ -194,8 +196,8 @@ Use advanced modes only when the request calls for them:
   ask the user first if the wrapper reports full access is needed.
 - `--worktree` — reserved; returns a clear failure today.
 - `--profile <name>` — Codex profile override.
-- `--model <name>` — Codex GPT-5.6 aliases (`luna`, `terra`, `sol`) or their
-  canonical `gpt-5.6-*` IDs; Claude aliases (`fable`, `sonnet`, `opus`,
+- `--model <name>` — Codex aliases (`astra`, `luna`, `terra`, `sol`) or their
+  canonical `gpt-6-astra` and `gpt-5.6-*` IDs; Claude aliases (`fable`, `sonnet`, `opus`,
   `haiku`); Gemini `flash`, `pro`, or a supported explicit family ID; or Z.AI
   `glm-5.2`. No other Z.AI models are accepted.
 - `--resume <agent-session>` — continue a prior target-agent session when

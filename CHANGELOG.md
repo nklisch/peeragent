@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.7.0
+
+### Features
+- Add GPT-6 Astra support for Codex: `astra` alias and `gpt-6-astra` canonical
+  model id, positioned as the flagship tier above GPT-5.6 Sol.
+
+### Fixes
+- Version the Antigravity plugin manifest (`plugin/plugin.json`) with releases:
+  `scripts/bump.sh` now bumps it alongside the other manifests and
+  `scripts/validate.sh` fails when its version drifts from the release
+  version.
+
 ## v0.6.0
 
 ### Features

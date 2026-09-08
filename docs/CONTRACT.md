@@ -57,9 +57,10 @@ Options:
   accepts `low`, `medium`, or `high`. Z.AI defaults to `high` and accepts
   `medium`, `high`, or `xhigh`; Claude defaults to `xhigh` and accepts `high` or
   `xhigh`. Gemini passes effort to `agy`; Z.AI maps it to Pi `--thinking`.
-- `--model <luna|terra|sol|fable|sonnet|opus|haiku|flash|pro|glm-5.2>`:
-  Select a GPT-5.6 Codex tier, Claude alias, Gemini family, or explicitly record
-  the fixed Z.AI GLM 5.2 target. Codex also accepts canonical `gpt-5.6-*` IDs.
+- `--model <astra|luna|terra|sol|fable|sonnet|opus|haiku|flash|pro|glm-5.2>`:
+  Select a GPT-6 Astra or GPT-5.6 Codex tier, Claude alias, Gemini family, or
+  explicitly record the fixed Z.AI GLM 5.2 target. Codex also accepts canonical
+  `gpt-6-astra` and `gpt-5.6-*` IDs.
   Gemini defaults to `gemini-3.7-flash`; `flash`, `pro`, and supported explicit
   Gemini family IDs normalize to an `agy --model` value. Flash accepts
   `low|medium|high`, while Pro accepts `low|high`. Z.AI accepts only
@@ -136,11 +137,11 @@ clone, or sandbox copy unless explicitly requested.
 
 ## Target Invocation
 
-Codex (when a recommended GPT-5.6 model is selected):
+Codex (when a Codex model is selected):
 
 ```text
 codex exec --json --cd <repo> --sandbox workspace-write \
-  --model gpt-5.6-<luna|terra|sol> \
+  --model <gpt-6-astra|gpt-5.6-<luna|terra|sol>> \
   -c approval_policy="on-request" -c approvals_reviewer="auto_review" ...
 ```
 
@@ -168,8 +169,9 @@ Default Z.AI GLM 5.2 through Pi:
 pi --provider zai --model glm-5.2 --thinking <effort> --no-session -p ...
 ```
 
-For Codex, the short aliases `luna`, `terra`, and `sol` normalize to and pass
-through as `gpt-5.6-luna`, `gpt-5.6-terra`, and `gpt-5.6-sol`. The canonical
+For Codex, the short aliases `astra`, `luna`, `terra`, and `sol` normalize to
+and pass through as `gpt-6-astra`, `gpt-5.6-luna`, `gpt-5.6-terra`, and
+`gpt-5.6-sol`. The canonical
 IDs are also accepted. For Claude, the wrapper passes `--model <alias>` to
 Claude Code; accepted aliases are `fable`, `sonnet`, `opus`, and `haiku`.
 For Gemini, `flash` normalizes to `gemini-3.7-flash`, `pro` normalizes to

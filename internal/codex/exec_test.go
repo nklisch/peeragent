@@ -112,6 +112,31 @@ func TestExecWithRunnerBuildsModelArgv(t *testing.T) {
 	}
 }
 
+func TestExecWithRunnerBuildsGPT6AstraModelArgv(t *testing.T) {
+	stubLookPath(t)
+	run := &testsupport.RecordingRunner{Result: Result{ExitCode: 0}}
+
+	_, err := ExecWithRunner(context.Background(), run, Options{CWD: "/repo", Prompt: "do work", Model: "gpt-6-astra"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	wantArgs := []string{
+		"exec",
+		"--json",
+		"--cd", "/repo",
+		"--sandbox", "workspace-write",
+		"-c", `approval_policy="on-request"`,
+		"-c", `approvals_reviewer="auto_review"`,
+		"--model", "gpt-6-astra",
+		"-c", `model_reasoning_effort="high"`,
+		"do work",
+	}
+	if !reflect.DeepEqual(run.Args, wantArgs) {
+		t.Fatalf("args = %#v, want %#v", run.Args, wantArgs)
+	}
+}
+
 func TestExecWithRunnerBuildsLowEffortArgv(t *testing.T) {
 	stubLookPath(t)
 	run := &testsupport.RecordingRunner{Result: Result{ExitCode: 0}}

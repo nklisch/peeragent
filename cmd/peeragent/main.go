@@ -39,9 +39,9 @@ Usage:
 Flags:
   --agent <codex|claude|gemini|zai>
                                   Target assistant (default codex).
-  --model <name>                  Model override (codex: luna|terra|sol,
-                                  GPT-5.6 recommended for all Codex work;
-                                  claude: fable|sonnet|opus|haiku;
+  --model <name>                  Model override (codex: astra|luna|terra|sol,
+                                  GPT-5.6 for routine work, GPT-6 Astra
+                                  flagship; claude: fable|sonnet|opus|haiku;
                                   gemini: flash|pro|supported family id;
                                   zai: glm-5.2 only).
   --effort <low|medium|high|xhigh>

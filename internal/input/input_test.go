@@ -520,6 +520,9 @@ func TestParseRejectsUnsupportedZAIModel(t *testing.T) {
 
 func TestParseCodexModels(t *testing.T) {
 	tests := map[string]string{
+		"astra":         "gpt-6-astra",
+		"gpt6-astra":    "gpt-6-astra",
+		"gpt-6-astra":   "gpt-6-astra",
 		"luna":          "gpt-5.6-luna",
 		"gpt5.6-luna":   "gpt-5.6-luna",
 		"gpt-5.6-luna":  "gpt-5.6-luna",

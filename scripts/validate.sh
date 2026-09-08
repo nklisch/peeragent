@@ -84,6 +84,7 @@ grep -q '"name": "peeragent"' .claude-plugin/plugin.json
 grep -q '"name": "peeragent"' .codex-plugin/plugin.json
 grep -q '"name": "@nklisch/pi-peeragent"' package.json
 grep -q '"version": "'"$VERSION"'"' package.json
+grep -q '"version": "'"$VERSION"'"' plugin/plugin.json
 grep -q '"./plugin/skills"' package.json
 grep -q '"name": "peeragent"' .claude-plugin/marketplace.json
 grep -q '"name": "peeragent"' .agents/plugins/marketplace.json
@@ -146,6 +147,7 @@ grep -q -- '--effort xhigh' README.md
 grep -q -- '--model luna' README.md
 grep -q -- '--model terra' README.md
 grep -q -- '--model sol' README.md
+grep -q -- '--model astra' README.md
 grep -q -- '--model fable' README.md
 grep -q -- '--model opus' README.md
 grep -q -- '--model flash' README.md

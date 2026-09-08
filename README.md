@@ -105,9 +105,10 @@ Peeragent does not automatically replace a host assistant's normal sub-agent
 pattern. If you want that behavior, add a project instruction to `CLAUDE.md` or
 `AGENTS.md` telling the host when to delegate through `/peer`.
 
-Use GPT-5.6 for Codex work. Luna is the fast default, Sol is the direct jump
-for demanding work, and Terra is an optional bridge when Luna is not enough but
-Sol is more than the task needs:
+Use GPT-5.6 for routine Codex work and jump to GPT-6 Astra for the most
+demanding passes. Luna is the fast default, Sol is the top of the GPT-5.6 line,
+Astra is the GPT-6 flagship above Sol, and Terra is an optional bridge when
+Luna is not enough but Sol is more than the task needs:
 
 | Desired delegated pass | Recommended Codex target | Rough Claude tier |
 | --- | --- | --- |
@@ -116,6 +117,7 @@ Sol is more than the task needs:
 | Middle bridge | `--agent codex --model terra --effort high` (or `xhigh`) | Between the general and flagship tiers |
 | Opus-tier | `--agent codex --model sol --effort low` (or `medium`) | `--agent claude --model opus --effort xhigh` |
 | Fable-tier | `--agent codex --model sol --effort high` (or `xhigh`) | `--agent claude --model fable --effort high` (or `xhigh`) |
+| GPT-6 flagship | `--agent codex --model astra --effort high` (or `xhigh`) | Above Fable-tier |
 
 Most callers can jump directly from Luna to Sol rather than routing through
 Terra. Gemini through Antigravity defaults to Gemini 3.7 Flash at high effort.
@@ -135,7 +137,8 @@ updates, build fixes, research passes, and review passes in this repository.
 
 - Use `/peer --agent codex --model luna --effort high` for routine work and
   Luna at `xhigh` when there is lots of work. Jump to Sol at `low|medium` for an
-  Opus-tier pass or `high|xhigh` for a Fable-tier pass; Terra is an optional bridge.
+  Opus-tier pass or `high|xhigh` for a Fable-tier pass; Terra is an optional
+  bridge. Use GPT-6 Astra at `high|xhigh` for the most demanding passes.
 - Use `/peer --agent claude --model fable` for the strongest Claude pass.
 - Use `/peer --agent gemini` for a Gemini 3.7 Flash pass through Antigravity.
 - Use `/peer --agent zai` for a Z.AI GLM 5.2 pass through Pi.
@@ -159,7 +162,8 @@ updates, build fixes, research passes, and review passes in this repository.
 - Use `/peer --agent zai` for a Z.AI GLM 5.2 pass through Pi.
 - For Codex, use GPT-5.6 Luna at `high` for routine work or `xhigh` for lots of
   work. Jump directly to Sol at `low|medium` for an Opus-tier pass or
-  `high|xhigh` for a Fable-tier pass. Terra is an optional middle bridge.
+  `high|xhigh` for a Fable-tier pass. Terra is an optional middle bridge. Use
+  GPT-6 Astra at `high|xhigh` for the most demanding passes.
 - Do not use peeragent for planning-only orchestration work.
 ```
 
@@ -229,14 +233,16 @@ bin/peeragent --agent codex --model luna --effort xhigh "Work through the large 
 bin/peeragent --agent codex --model sol --effort medium "Run an Opus-tier review."
 bin/peeragent --agent codex --model sol --effort xhigh "Run a Fable-tier migration."
 bin/peeragent --agent codex --model terra --effort high "Use the optional middle tier."
+bin/peeragent --agent codex --model astra --effort xhigh "Run the GPT-6 flagship pass."
 bin/peeragent --agent claude --model fable --effort xhigh "Untangle the hardest integration test."
 bin/peeragent --agent claude --model opus --effort xhigh "Run an Opus pass."
 bin/peeragent --agent gemini --model flash --effort high "Run a Gemini 3.7 Flash pass."
 bin/peeragent --agent zai --effort xhigh "Review the cross-module migration for hidden regressions."
 ```
 
-Codex accepts the short aliases `luna`, `terra`, and `sol` and passes their
-canonical `gpt-5.6-*` model IDs to the Codex CLI. Claude supports `--model
+Codex accepts the short aliases `astra`, `luna`, `terra`, and `sol` and passes
+their canonical `gpt-6-astra` and `gpt-5.6-*` model IDs to the Codex CLI. Claude
+supports `--model
 fable`, `--model sonnet`, `--model opus`, and `--model haiku`. Gemini accepts
 `flash` (the default Gemini 3.7 Flash), `pro` (Gemini 3.1 Pro), and explicit
 supported family IDs for 3.7, 3.6, and 3.5 Flash or 3.1 Pro. Flash accepts
@@ -349,6 +355,7 @@ package.json                            # Pi package manifest, loads ./plugin/sk
 .agents/plugins/marketplace.json       # Codex marketplace entry, source ./plugin
 plugin/.claude-plugin/plugin.json      # Claude plugin manifest
 plugin/.codex-plugin/plugin.json       # Codex plugin manifest
+plugin/plugin.json                     # Antigravity plugin manifest
 plugin/skills/peer/SKILL.md
 plugin/bin/peeragent
 ```

@@ -99,11 +99,11 @@ repository and machine context.
 The default execution uses the same checkout and working tree as the host. It
 does not create a git worktree or sandboxed copy.
 
-Target invocations (Codex shown with a selected GPT-5.6 tier):
+Target invocations (Codex shown with a selected model tier):
 
 ```text
 codex exec --json --cd <repo> --sandbox workspace-write \
-  --model gpt-5.6-<luna|terra|sol> \
+  --model <gpt-6-astra|gpt-5.6-<luna|terra|sol>> \
   -c approval_policy="on-request" -c approvals_reviewer="auto_review" ...
 agy --output-format json --model gemini-3.7-flash --effort high \
   --mode accept-edits --sandbox --dangerously-skip-permissions \
@@ -124,12 +124,14 @@ Pi has no separate full-access argv; `--full-access` is recorded in metadata but
 Z.AI still runs through the same Pi print-mode surface.
 
 Codex reasoning effort defaults to `high`; the wrapper exposes `low`, `medium`,
-`high`, and `xhigh` for Codex. Its `luna`, `terra`, and `sol` aliases normalize
-to the corresponding `gpt-5.6-*` IDs and pass through to the Codex CLI. GPT-5.6
-is the recommended family for all Codex work: Luna at high is the routine fast
-path, Luna at xhigh handles larger workloads, Terra is an optional middle
-bridge, Sol at low or medium is roughly Opus-tier, and Sol at high or xhigh is
-roughly Fable-tier. Callers can jump directly from Luna to Sol.
+`high`, and `xhigh` for Codex. Its `astra`, `luna`, `terra`, and `sol` aliases
+normalize to the corresponding `gpt-6-astra` and `gpt-5.6-*` IDs and pass
+through to the Codex CLI. GPT-5.6 is the recommended family for routine Codex
+work: Luna at high is the routine fast path, Luna at xhigh handles larger
+workloads, Terra is an optional middle bridge, Sol at low or medium is roughly
+Opus-tier, and Sol at high or xhigh is roughly Fable-tier. GPT-6 Astra is the
+flagship tier above Sol for the most demanding passes. Callers can jump
+directly from Luna to Sol or Astra.
 
 Gemini defaults to Gemini 3.7 Flash at `high` effort and accepts `low`,
 `medium`, and `high`. `flash` selects Gemini 3.7 Flash and `pro` selects Gemini
