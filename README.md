@@ -43,7 +43,7 @@ codex plugin add peeragent@peeragent
 Pi:
 
 ```sh
-pi install git:github.com/nklisch/peeragent@v0.7.0
+pi install git:github.com/nklisch/peeragent@v0.8.0
 ```
 
 The Pi package loads the `peer` skill from `plugin/skills`, so its wrapper
@@ -377,7 +377,7 @@ published as downloadable archives for manual install.
 Build release archives locally:
 
 ```sh
-make release VERSION=0.7.0
+make release VERSION=0.8.0
 ```
 
 That writes:
