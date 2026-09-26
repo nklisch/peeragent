@@ -376,14 +376,18 @@ func normalizeModel(agent string, model string) (string, error) {
 		switch model {
 		case "astra", "gpt6-astra", "gpt-6-astra":
 			return "gpt-6-astra", nil
-		case "luna", "gpt5.6-luna", "gpt-5.6-luna":
+		case "luna", "gpt6-luna", "gpt-6-luna":
+			return "gpt-6-luna", nil
+		case "gpt5.6-luna", "gpt-5.6-luna":
 			return "gpt-5.6-luna", nil
 		case "terra", "gpt5.6-terra", "gpt-5.6-terra":
 			return "gpt-5.6-terra", nil
-		case "sol", "gpt5.6-sol", "gpt-5.6-sol":
+		case "sol", "gpt6-sol", "gpt-6-sol":
+			return "gpt-6-sol", nil
+		case "gpt5.6-sol", "gpt-5.6-sol":
 			return "gpt-5.6-sol", nil
 		default:
-			return "", errors.New("--model for codex must be astra, luna, terra, sol, or the corresponding gpt-5.6-* or gpt-6-astra model id")
+			return "", errors.New("--model for codex must be astra, luna, terra, sol, or a supported gpt-6-<astra|luna|sol> or gpt-5.6-<luna|terra|sol> model id")
 		}
 	case "claude":
 		switch model {

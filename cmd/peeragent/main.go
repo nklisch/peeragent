@@ -40,7 +40,7 @@ Flags:
   --agent <codex|claude|gemini|zai>
                                   Target assistant (default codex).
   --model <name>                  Model override (codex: astra|luna|terra|sol,
-                                  GPT-5.6 for routine work, GPT-6 Astra
+                                  GPT-6 for routine work, GPT-6 Astra
                                   flagship; claude: fable|sonnet|opus|haiku;
                                   gemini: flash|pro|supported family id;
                                   zai: glm-5.2 only).

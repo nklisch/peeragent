@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.8.0
+
+### Features
+- Add GPT-6 Sol and Luna model IDs for Codex. The `sol` and `luna` aliases
+  now select GPT-6; explicit GPT-5.6 model IDs remain supported.
+
 ## v0.7.0
 
 ### Features

@@ -105,8 +105,11 @@ Peeragent does not automatically replace a host assistant's normal sub-agent
 pattern. If you want that behavior, add a project instruction to `CLAUDE.md` or
 `AGENTS.md` telling the host when to delegate through `/peer`.
 
-Use GPT-5.6 for routine Codex work and jump to GPT-6 Astra for the most
-demanding passes. Luna is the fast default, Sol is the top of the GPT-5.6 line,
+The `luna` and `sol` aliases select GPT-6; `terra` selects GPT-5.6.
+Explicit `gpt-5.6-luna` and `gpt-5.6-sol` IDs remain supported.
+
+Use GPT-6 for routine Codex work and jump to GPT-6 Astra for the most
+demanding passes. Luna is the fast default, Sol is the higher-capability GPT-6 tier,
 Astra is the GPT-6 flagship above Sol, and Terra is an optional bridge when
 Luna is not enough but Sol is more than the task needs:
 
@@ -160,7 +163,7 @@ updates, build fixes, research passes, and review passes in this repository.
   Claude pass; Opus, Sonnet, and Haiku remain available for lower tiers.
 - Use `/peer --agent gemini` for a Gemini 3.7 Flash pass through Antigravity.
 - Use `/peer --agent zai` for a Z.AI GLM 5.2 pass through Pi.
-- For Codex, use GPT-5.6 Luna at `high` for routine work or `xhigh` for lots of
+- For Codex, use GPT-6 Luna at `high` for routine work or `xhigh` for lots of
   work. Jump directly to Sol at `low|medium` for an Opus-tier pass or
   `high|xhigh` for a Fable-tier pass. Terra is an optional middle bridge. Use
   GPT-6 Astra at `high|xhigh` for the most demanding passes.
@@ -241,7 +244,8 @@ bin/peeragent --agent zai --effort xhigh "Review the cross-module migration for 
 ```
 
 Codex accepts the short aliases `astra`, `luna`, `terra`, and `sol` and passes
-their canonical `gpt-6-astra` and `gpt-5.6-*` model IDs to the Codex CLI. Claude
+`astra`, `luna`, and `sol` as GPT-6 IDs and `terra` as `gpt-5.6-terra`
+to the Codex CLI. Explicit GPT-5.6 IDs are also supported. Claude
 supports `--model
 fable`, `--model sonnet`, `--model opus`, and `--model haiku`. Gemini accepts
 `flash` (the default Gemini 3.7 Flash), `pro` (Gemini 3.1 Pro), and explicit

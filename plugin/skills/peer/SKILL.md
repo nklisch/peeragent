@@ -79,8 +79,11 @@ vice versa.
 
 ## Effort And Model
 
-Use GPT-5.6 for routine Codex work. Luna is the routine fast path; Sol is the
-top of the GPT-5.6 line. GPT-6 Astra is the flagship jump above Sol for the
+The `luna` and `sol` aliases select GPT-6; `terra` selects GPT-5.6.
+Explicit `gpt-5.6-luna` and `gpt-5.6-sol` IDs remain supported.
+
+Use GPT-6 for routine Codex work. Luna is the routine fast path; Sol is the
+higher-capability GPT-6 tier. GPT-6 Astra is the flagship jump above Sol for the
 most difficult work. Terra is a useful bridge, but most calls can jump
 directly from Luna to Sol or Astra.
 
@@ -197,8 +200,8 @@ Use advanced modes only when the request calls for them:
 - `--worktree` — reserved; returns a clear failure today.
 - `--profile <name>` — Codex profile override.
 - `--model <name>` — Codex aliases (`astra`, `luna`, `terra`, `sol`) or their
-  canonical `gpt-6-astra` and `gpt-5.6-*` IDs; Claude aliases (`fable`, `sonnet`, `opus`,
-  `haiku`); Gemini `flash`, `pro`, or a supported explicit family ID; or Z.AI
+  canonical `gpt-6-<astra|luna|sol>` and `gpt-5.6-<luna|terra|sol>` IDs;
+  Claude aliases (`fable`, `sonnet`, `opus`, `haiku`); Gemini `flash`, `pro`, or a supported explicit family ID; or Z.AI
   `glm-5.2`. No other Z.AI models are accepted.
 - `--resume <agent-session>` — continue a prior target-agent session when
   the previous result included `metadata.agent_session`. Use it for continuity
