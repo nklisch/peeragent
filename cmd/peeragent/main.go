@@ -239,6 +239,13 @@ func runAsyncJob(req input.Request) error {
 		}
 		return finishAsyncJob(store, job, res)
 	}
+	closeJob, err := jobs.AttachCurrentProcess(job.ID)
+	if err != nil {
+		res := resultFromExecution(jobReq, executil.Result{ExitCode: 1}, fmt.Errorf("attach async process tree: %w", err))
+		res.Metadata.JobID = job.ID
+		return finishAsyncJob(store, job, res)
+	}
+	defer closeJob()
 
 	res, execResult, _ := applicationService.DelegateWithExecution(context.Background(), delegationFromRequest(jobReq))
 	res.Metadata.JobID = job.ID

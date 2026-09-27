@@ -206,6 +206,9 @@ func TestCancelJobRepeatedCancellationIsIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if err := store.WritePID(job.ID, 4242); err != nil {
+		t.Fatal(err)
+	}
 	controller := &fakeProcessController{}
 	service := NewService(Options{ProcessController: controller})
 
@@ -220,8 +223,26 @@ func TestCancelJobRepeatedCancellationIsIdempotent(t *testing.T) {
 	if first.Status != result.StatusCancelled || second.Status != result.StatusCancelled {
 		t.Fatalf("results = %#v, %#v", first, second)
 	}
-	if controller.calls() != 0 {
-		t.Fatalf("controller calls = %d, no pid was present", controller.calls())
+	if controller.calls() != 1 {
+		t.Fatalf("controller calls = %d, want one cleanup", controller.calls())
+	}
+}
+
+func TestCancelJobMissingPIDDoesNotClaimCancellation(t *testing.T) {
+	cwd := t.TempDir()
+	store := jobs.NewStore(cwd)
+	job, err := store.Create(cwd, testJobSpec(), "do work")
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := NewService(Options{ProcessController: &fakeProcessController{}})
+	got, err := service.CancelJob(context.Background(), JobRequest{CWD: cwd, JobID: job.ID})
+	if err == nil || !strings.Contains(err.Error(), "pid is missing") || got.Status != "" {
+		t.Fatalf("cancel without pid = %#v, %v", got, err)
+	}
+	loaded, err := store.Load(job.ID)
+	if err != nil || loaded.Status != jobs.StatusRunning {
+		t.Fatalf("job = %#v, %v; want running", loaded, err)
 	}
 }
 
@@ -267,7 +288,7 @@ func TestCancelJobCleanupIgnoresCallerCancellationAfterCommit(t *testing.T) {
 	}
 }
 
-func TestCancelJobReturnsProcessControlErrorAfterRemovingPID(t *testing.T) {
+func TestCancelJobLeavesRunningStateWhenProcessControlFails(t *testing.T) {
 	cwd := t.TempDir()
 	store := jobs.NewStore(cwd)
 	job, err := store.Create(cwd, testJobSpec(), "do work")
@@ -285,11 +306,18 @@ func TestCancelJobReturnsProcessControlErrorAfterRemovingPID(t *testing.T) {
 	if !errors.Is(err, expected) {
 		t.Fatalf("error = %v, want %v", err, expected)
 	}
-	if got.Status != result.StatusCancelled {
-		t.Fatalf("result = %#v, want persisted cancelled result", got)
+	if got.Status != "" {
+		t.Fatalf("result = %#v, want no fabricated cancellation", got)
 	}
-	if _, err := store.ReadPID(job.ID); !os.IsNotExist(err) {
-		t.Fatalf("ReadPID after process error = %v, want missing pid", err)
+	if pid, err := store.ReadPID(job.ID); err != nil || pid != 4242 {
+		t.Fatalf("ReadPID after process error = %d, %v; want 4242", pid, err)
+	}
+	loaded, err := store.Load(job.ID)
+	if err != nil || loaded.Status != jobs.StatusRunning {
+		t.Fatalf("job after process error = %#v, %v; want running", loaded, err)
+	}
+	if _, err := os.Stat(job.ResultPath); !os.IsNotExist(err) {
+		t.Fatalf("result after process error = %v; want missing", err)
 	}
 }
 
@@ -305,7 +333,7 @@ type fakeProcessController struct {
 	startedOnce sync.Once
 }
 
-func (f *fakeProcessController) TerminateAndWait(pid int, termGrace, killGrace time.Duration) error {
+func (f *fakeProcessController) TerminateAndWait(_ string, pid int, termGrace, killGrace time.Duration) error {
 	f.mu.Lock()
 	f.pid = pid
 	f.termGrace = termGrace

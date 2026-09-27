@@ -89,12 +89,16 @@ large command suite.
 
 ## Wrapper Role
 
-`bin/peeragent` is the executable entrypoint. It resolves the compiled Go
+`bin/peeragent` is the Unix entrypoint. It resolves the compiled Go
 binary using the following order: an explicit `PEERAGENT_BIN` override, a local
 `dist/peeragent` build, `go run cmd/peeragent` when Go is available in a source
 checkout, and a committed platform binary at `bin/<goos>-<goarch>/peeragent`.
 If none of those resolve, the shim exits with code `3` and directs the user to
 install from the GitHub releases page.
+
+On native Windows, the skill invokes the committed
+`bin/windows-<goarch>/peeragent.exe` directly. Source checkouts can build
+`dist/peeragent.exe`. No Unix shell or argument-forwarding shim is required.
 
 The wrapper's CLI adapter:
 

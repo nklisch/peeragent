@@ -29,15 +29,22 @@ name.
 Do not assume `peeragent` is on `PATH`. Resolve the bundled wrapper before
 the first call and use that path for every invocation:
 
-- If `PEERAGENT_BIN` names an executable, use it.
+- If `PEERAGENT_BIN` names a compiled executable, use it.
 - Otherwise resolve from this skill file: go two directories up from the
-  skill directory, then use `bin/peeragent`.
-- In a development checkout, the same wrapper is `bin/peeragent`.
-- Use bare `peeragent` only if the bundled path cannot be found and
-  `command -v peeragent` succeeds.
+  skill directory. On native Windows, use the matching
+  `bin/windows-<goarch>/peeragent.exe` directly through PowerShell; choose
+  `amd64` or `arm64` from the OS architecture, or honor a valid
+  `PEERAGENT_TARGET_OVERRIDE` of `windows-amd64` or `windows-arm64`.
+  On Unix, use `bin/peeragent`.
+- In a development checkout, use `dist/peeragent.exe` for current Windows
+  source after building, or the same Unix wrapper under its root `bin/`.
+- Use bare `peeragent` only if the bundled path cannot be found and the
+  host shell can locate it.
 
-If a bare `peeragent` call fails with `command not found`, retry once with
-the bundled plugin path before reporting failure.
+On PowerShell, invoke the resolved executable with the call operator:
+`& $peeragentPath --agent codex "task text"`. Quote paths containing spaces.
+Use the direct `.exe` so task text is passed as an argument without a shell
+interpreter. `PEERAGENT_BIN` on Windows must point to an existing `.exe`.
 
 For invocations that launch or control a peer CLI (`--agent ...`, `--async`,
 or `--cancel`), run the wrapper with the host harness's outside-sandbox command
@@ -177,12 +184,12 @@ again; use your own harness's sub-agents if you need help."
 - `status: failed` — surface the failure reason and useful log details.
   - If exit code `3` (or, in `--text` mode, a "no prebuilt binary for this
     platform" message), peeragent has no committed binary for the user's
-    OS/arch. Prebuilt binaries cover linux/darwin on amd64/arm64. Tell the
+    OS/arch. Prebuilt binaries cover Linux, macOS, and Windows on amd64/arm64. Tell the
     user: on those platforms, reinstall the plugin or download the matching
     archive from https://github.com/nklisch/peeragent/releases; on any other
     platform, install from source (requires Go) with
     `go install github.com/nklisch/peeragent/cmd/peeragent@latest` and set
-    `PEERAGENT_BIN`. If the
+    `PEERAGENT_BIN` to the compiled executable. If the
     platform is misdetected, `PEERAGENT_TARGET_OVERRIDE=<goos>-<goarch>`
     selects a present binary. Do not retry in a loop.
 - `status: running` — keep monitoring the async job; report only an interim
@@ -223,7 +230,7 @@ Use advanced modes only when the request calls for them:
   transcript recap unless context matters.
 - Do not run the same peer repeatedly in a loop after `failed` or
   `blocked` results — diagnose first. On exit code `3`, tell the user to
-  install a prebuilt binary (linux/darwin amd64/arm64) or build from source
+  install a prebuilt binary (Linux, macOS, or Windows amd64/arm64) or build from source
   with Go; do not retry.
 - Preserve the host's responsibility for explaining outcomes to the
   user. The peer is the worker; you are the narrator.

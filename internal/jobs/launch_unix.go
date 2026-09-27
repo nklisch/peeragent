@@ -16,6 +16,18 @@ func ApplyDetachAttrs(cmd *exec.Cmd) {
 	cmd.SysProcAttr.Setsid = true
 }
 
+func AttachCurrentProcess(string) (func(), error) {
+	return func() {}, nil
+}
+
+func SignalProcessTree(_ string, pid int, sig os.Signal) error {
+	return SignalProcessGroup(pid, sig)
+}
+
+func ProcessTreeExists(_ string, pid int) bool {
+	return ProcessGroupExists(pid)
+}
+
 func SignalProcessGroup(pid int, sig os.Signal) error {
 	if pid <= 1 {
 		return fmt.Errorf("refusing to signal unsafe process group %d", pid)

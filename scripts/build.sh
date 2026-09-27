@@ -4,4 +4,6 @@ set -eu
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 
 mkdir -p "$ROOT/dist"
-go build -o "$ROOT/dist/peeragent" "$ROOT/cmd/peeragent"
+binary=peeragent
+[ "$(go env GOOS)" = windows ] && binary=peeragent.exe
+go build -o "$ROOT/dist/$binary" "$ROOT/cmd/peeragent"

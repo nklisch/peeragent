@@ -33,14 +33,18 @@ build_target() {
   dir="$BUILD/$target"
   mkdir -p "$dir"
   echo "building $target"
-  CGO_ENABLED=0 GOOS=$goos GOARCH=$goarch go build -trimpath -buildvcs=false -ldflags="-s -w" -o "$dir/peeragent" "$ROOT/cmd/peeragent"
-  tar -C "$dir" -czf "$OUT/peeragent_${VERSION}_${goos}_${goarch}.tar.gz" peeragent
+  binary=peeragent
+  [ "$goos" = windows ] && binary=peeragent.exe
+  CGO_ENABLED=0 GOOS=$goos GOARCH=$goarch go build -trimpath -buildvcs=false -ldflags="-s -w" -o "$dir/$binary" "$ROOT/cmd/peeragent"
+  tar -C "$dir" -czf "$OUT/peeragent_${VERSION}_${goos}_${goarch}.tar.gz" "$binary"
 }
 
 build_target linux amd64
 build_target linux arm64
 build_target darwin amd64
 build_target darwin arm64
+build_target windows amd64
+build_target windows arm64
 
 (
   cd "$OUT"

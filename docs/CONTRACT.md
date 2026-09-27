@@ -77,9 +77,11 @@ Options:
 - `--result <job-id>`: Fetch an async job's current or terminal result.
 - `--wait <job-id>`: Stay attached until an async job has a terminal result,
   making it suitable for native host process monitors.
-- `--cancel <job-id>`: Cancel an async job by marking terminal state. On Unix,
-  it sends SIGTERM to the async process group, then sends SIGKILL after a
-  5-second grace period when the group is still running.
+- `--cancel <job-id>`: Stop the async worker and its descendants, then mark
+  the job cancelled. On Unix, it sends SIGTERM to the process group and
+  SIGKILL after a 5-second grace period. On Windows, it terminates the
+  worker's Windows job object. If stopping cannot be confirmed, cancellation
+  returns an error and leaves the job nonterminal for diagnosis or retry.
 
 ## Result JSON
 
@@ -222,15 +224,17 @@ Async state is stored under:
 .peeragent/jobs/<job-id>/
   job.json       lifecycle + ExecSpec; written on child finish or by --cancel
   prompt.txt     resolved task text, parent-written, child-read
-  pid            child PID/PGID for cancel, present while running
+  pid            worker PID (also PGID on Unix), present while running
   agent.log      background wrapper stdout+stderr
   target.log     raw target stdout+stderr when available
   result.json    final result, written by child OR by --cancel
 ```
 
-`--cancel` writes `job.json` and `result.json` as cancelled before signalling.
-On Unix, it signals the process group recorded by `pid`. If the `pid` sidecar is
-missing, cancellation still records the terminal state and skips signalling.
+`--cancel` holds the job lock while stopping the worker and its descendants,
+then writes `result.json` and `job.json` as cancelled. A missing `pid`
+sidecar prevents a new cancellation from claiming success. Windows workers
+attach to a named job object before starting the target CLI; its kill-on-close
+limit also stops descendants if the worker exits unexpectedly.
 
 ## Guarantees
 

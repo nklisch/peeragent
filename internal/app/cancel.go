@@ -16,20 +16,18 @@ const (
 	cancelKillGrace = 500 * time.Millisecond
 )
 
-// ProcessController is the narrow process-control port used after a
-// cancellation transition commits. Its contract intentionally has no caller
-// context: an interrupted CLI request must not strand a detached child after
-// cancelled state is durable.
+// ProcessController is the narrow process-control port used during
+// cancellation. It has no caller context: interruption must not strand a
+// detached child after cleanup begins.
 type ProcessController interface {
-	TerminateAndWait(pid int, termGrace, killGrace time.Duration) error
+	TerminateAndWait(jobID string, pid int, termGrace, killGrace time.Duration) error
 }
 
 type processController struct{}
 
-// CancelJob atomically chooses cancellation or the already-persisted terminal
-// winner, then performs best-effort process cleanup. The lock protects the
-// result.json/job.json transition; cleanup happens after the lock so it cannot
-// block a completion writer and is independent of ctx cancellation.
+// CancelJob commits cancelled only after the worker and its descendants have
+// exited. Holding the job lock prevents a completion writer from racing the
+// cleanup and preserves the existing terminal-winner rule.
 func (s *Service) CancelJob(ctx context.Context, raw JobRequest) (result.Result, error) {
 	req, err := s.normalizeJobRequest(ctx, raw)
 	if err != nil {
@@ -48,15 +46,8 @@ func (s *Service) CancelJob(ctx context.Context, raw JobRequest) (result.Result,
 		return result.Result{}, fmt.Errorf("load async job %q: %w", req.JobID, err)
 	}
 
-	var (
-		cancelResult       result.Result
-		terminalWinner     result.Result
-		terminalWinnerSet  bool
-		cancellationStored bool
-	)
+	var cancelResult result.Result
 	if err := store.WithJobLock(job.ID, func() error {
-		// Before the terminal write, caller cancellation may safely abort the
-		// operation. There is deliberately no context check after WriteJobResult.
 		if err := ctx.Err(); err != nil {
 			return err
 		}
@@ -81,15 +72,26 @@ func (s *Service) CancelJob(ctx context.Context, raw JobRequest) (result.Result,
 			if _, err := store.SaveGuarded(current); err != nil {
 				return err
 			}
-			terminalWinner = prior
-			terminalWinnerSet = true
+			cancelResult = prior
 			return nil
 		}
 
+		pid, err := store.ReadPID(job.ID)
+		if errors.Is(err, fs.ErrNotExist) {
+			return fmt.Errorf("cannot confirm async job %q stopped: pid is missing", job.ID)
+		}
+		if err != nil {
+			return fmt.Errorf("read async job %q pid: %w", job.ID, err)
+		}
+		if pid <= 0 {
+			return fmt.Errorf("cannot confirm async job %q stopped: invalid pid %d", job.ID, pid)
+		}
+		// Once cleanup starts it completes even if the caller disconnects.
+		if err := s.processController.TerminateAndWait(job.ID, pid, cancelTermGrace, cancelKillGrace); err != nil {
+			return fmt.Errorf("terminate async job %q: %w", job.ID, err)
+		}
+
 		if exists && prior.Status == result.StatusCancelled {
-			// A prior cancel may have committed both terminal files and
-			// disconnected before process cleanup. Repair job.json without
-			// replacing its result, then continue cleanup below.
 			cancelResult = prior
 		} else {
 			cancelResult = cancelledJobResult(req, current)
@@ -101,48 +103,16 @@ func (s *Service) CancelJob(ctx context.Context, raw JobRequest) (result.Result,
 		if _, err := store.SaveGuarded(current); err != nil {
 			return err
 		}
-		cancellationStored = true
 		return nil
 	}); err != nil {
 		return result.Result{}, err
 	}
 
-	if terminalWinnerSet {
-		if err := store.RemovePID(job.ID); err != nil {
-			return terminalWinner, err
-		}
-		return terminalWinner, nil
-	}
-
 	if cancelResult.Status == "" {
 		cancelResult = jobStatusResult(req, job)
 	}
-	if !cancellationStored && job.Status != jobs.StatusCancelled {
-		if err := store.RemovePID(job.ID); err != nil {
-			return cancelResult, err
-		}
-		return cancelResult, nil
-	}
-
-	pid, err := store.ReadPID(job.ID)
-	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			return cancelResult, nil
-		}
-		return cancelResult, fmt.Errorf("read async job %q pid: %w", job.ID, err)
-	}
-	var controllerErr error
-	if pid > 0 {
-		// This call intentionally does not receive ctx. Once cancellation is
-		// persisted, TERM/KILL cleanup must finish after caller interruption.
-		controllerErr = s.processController.TerminateAndWait(pid, cancelTermGrace, cancelKillGrace)
-	}
-	removeErr := store.RemovePID(job.ID)
-	if controllerErr != nil {
-		return cancelResult, controllerErr
-	}
-	if removeErr != nil {
-		return cancelResult, fmt.Errorf("remove async job %q pid: %w", job.ID, removeErr)
+	if err := store.RemovePID(job.ID); err != nil {
+		return cancelResult, fmt.Errorf("remove async job %q pid: %w", job.ID, err)
 	}
 	return cancelResult, nil
 }
@@ -161,24 +131,24 @@ func cancelledJobResult(req JobRequest, job jobs.Job) result.Result {
 	}
 }
 
-func (processController) TerminateAndWait(pid int, termGrace, killGrace time.Duration) error {
+func (processController) TerminateAndWait(jobID string, pid int, termGrace, killGrace time.Duration) error {
 	if pid <= 0 {
 		return nil
 	}
 
-	termErr := jobs.SignalProcessGroup(pid, jobs.TerminateSignal())
-	if !jobs.ProcessGroupExists(pid) {
+	termErr := jobs.SignalProcessTree(jobID, pid, jobs.TerminateSignal())
+	if !jobs.ProcessTreeExists(jobID, pid) {
 		return nil
 	}
-	if waitForProcessGroupExit(pid, termGrace) {
+	if waitForProcessTreeExit(jobID, pid, termGrace) {
 		return nil
 	}
 
-	killErr := jobs.SignalProcessGroup(pid, jobs.KillSignal())
-	if !jobs.ProcessGroupExists(pid) {
+	killErr := jobs.SignalProcessTree(jobID, pid, jobs.KillSignal())
+	if !jobs.ProcessTreeExists(jobID, pid) {
 		return nil
 	}
-	if waitForProcessGroupExit(pid, killGrace) {
+	if waitForProcessTreeExit(jobID, pid, killGrace) {
 		return nil
 	}
 	if killErr != nil {
@@ -187,19 +157,19 @@ func (processController) TerminateAndWait(pid int, termGrace, killGrace time.Dur
 	return fmt.Errorf("terminate process group %d: did not exit after TERM/KILL", pid)
 }
 
-func waitForProcessGroupExit(pid int, timeout time.Duration) bool {
-	if !jobs.ProcessGroupExists(pid) {
+func waitForProcessTreeExit(jobID string, pid int, timeout time.Duration) bool {
+	if !jobs.ProcessTreeExists(jobID, pid) {
 		return true
 	}
 	if timeout <= 0 {
-		return !jobs.ProcessGroupExists(pid)
+		return !jobs.ProcessTreeExists(jobID, pid)
 	}
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
-		if !jobs.ProcessGroupExists(pid) {
+		if !jobs.ProcessTreeExists(jobID, pid) {
 			return true
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	return !jobs.ProcessGroupExists(pid)
+	return !jobs.ProcessTreeExists(jobID, pid)
 }

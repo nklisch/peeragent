@@ -396,7 +396,7 @@ func TestFinishAsyncJobRemovesPIDAfterNaturalFinish(t *testing.T) {
 	}
 }
 
-func TestCancelJobWithoutPIDSidecarWritesTerminalState(t *testing.T) {
+func TestCancelJobWithoutPIDSidecarDoesNotClaimCancellation(t *testing.T) {
 	cwd := t.TempDir()
 	store := jobs.NewStore(cwd)
 	job, err := store.Create(cwd, jobs.ExecSpec{Agent: "codex", Access: "default", JSON: true}, "do work")
@@ -404,22 +404,19 @@ func TestCancelJobWithoutPIDSidecarWritesTerminalState(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := captureStdout(func() error {
-		return cancelJob(input.Request{CWD: cwd, CancelJobID: job.ID, JSON: true})
-	}); err != nil {
-		t.Fatal(err)
+	if err := cancelJob(input.Request{CWD: cwd, CancelJobID: job.ID, JSON: true}); err == nil {
+		t.Fatal("expected cancellation to fail without a pid")
 	}
 
 	loaded, err := store.Load(job.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if loaded.Status != "cancelled" {
-		t.Fatalf("Status = %q, want cancelled", loaded.Status)
+	if loaded.Status != "running" {
+		t.Fatalf("Status = %q, want running", loaded.Status)
 	}
-	got := readStoredResult(t, job.ResultPath)
-	if got.Status != result.StatusCancelled {
-		t.Fatalf("result status = %q, want cancelled", got.Status)
+	if _, err := os.Stat(job.ResultPath); !os.IsNotExist(err) {
+		t.Fatalf("result.json = %v, want missing", err)
 	}
 	if _, err := store.ReadPID(job.ID); !os.IsNotExist(err) {
 		t.Fatalf("ReadPID err = %v, want missing pid", err)

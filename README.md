@@ -46,22 +46,24 @@ Pi:
 pi install git:github.com/nklisch/peeragent@v0.8.0
 ```
 
-The Pi package loads the `peer` skill from `plugin/skills`, so its wrapper
-resolution lands on the bundled `plugin/bin/peeragent` shim and committed
-platform binaries.
+The Pi package loads the `peer` skill from `plugin/skills`, which resolves
+the bundled executable for the host platform.
 
-On the four supported platforms (linux amd64/arm64, darwin amd64/arm64),
+On the six supported platforms (Linux, macOS, and Windows on amd64/arm64),
 the plugin runs immediately with no download and no Go toolchain required —
-prebuilt binaries are committed in `plugin/bin/<goos>-<goarch>/peeragent`.
+prebuilt binaries are committed in `plugin/bin/<goos>-<goarch>/`. Windows
+users invoke the matching `peeragent.exe` directly from PowerShell, without
+a Unix shell.
 
 On any other platform, install from source (requires Go 1.25 or newer):
 `go install github.com/nklisch/peeragent/cmd/peeragent@latest` (or pin
 `@v<plugin-version>` to match your installed plugin), then set `PEERAGENT_BIN`
-to the installed binary (typically `$(go env GOPATH)/bin/peeragent`).
-Prebuilt release archives for the four supported platforms are also published at
+to the installed binary (typically `$(go env GOPATH)/bin/peeragent` on Unix
+or `Join-Path (go env GOPATH) 'bin\peeragent.exe'` in PowerShell).
+Prebuilt release archives for the six supported platforms are also published at
 https://github.com/nklisch/peeragent/releases for manual install. If your
 platform is misdetected, set `PEERAGENT_TARGET_OVERRIDE=<goos>-<goarch>` to
-select a present binary.
+select a present binary. On Windows, the skill selects the executable directly.
 
 ## Using It
 
@@ -187,6 +189,16 @@ bin/peeragent --agent codex --model luna --effort high "Implement the requested 
 bin/peeragent --agent gemini "Implement the requested change and run relevant tests."
 bin/peeragent --agent claude "Implement the requested change and run relevant tests."
 bin/peeragent --agent zai "Implement the requested change and run relevant tests."
+```
+
+Native Windows PowerShell uses the packaged executable, with no Git Bash or Go
+installation required:
+
+```powershell
+$peeragent = ".\plugin\bin\windows-amd64\peeragent.exe" # use windows-arm64 on ARM64
+& $peeragent --agent codex "Reply with OK."
+$launch = & $peeragent --async --agent claude "Review the change." | ConvertFrom-Json
+& $peeragent --wait $launch.metadata.job_id
 ```
 
 Read task text from a file:
@@ -362,6 +374,7 @@ plugin/.codex-plugin/plugin.json       # Codex plugin manifest
 plugin/plugin.json                     # Antigravity plugin manifest
 plugin/skills/peer/SKILL.md
 plugin/bin/peeragent
+plugin/bin/windows-amd64/peeragent.exe
 ```
 
 The root also keeps the same manifests, skill, and shim for local development.
@@ -370,8 +383,8 @@ the shim so `plugin/` stays in sync.
 
 ## Releasing
 
-Marketplace installs use the committed `plugin/bin/<goos>-<goarch>/peeragent`
-binaries directly. Release artifacts are those same four platform binaries
+Marketplace installs use the committed `plugin/bin/<goos>-<goarch>/`
+binaries directly. Release artifacts are those same six platform binaries
 published as downloadable archives for manual install.
 
 Build release archives locally:
@@ -383,17 +396,19 @@ make release VERSION=0.8.0
 That writes:
 
 ```text
-dist/release/peeragent_0.5.1_linux_amd64.tar.gz
-dist/release/peeragent_0.5.1_linux_arm64.tar.gz
-dist/release/peeragent_0.5.1_darwin_amd64.tar.gz
-dist/release/peeragent_0.5.1_darwin_arm64.tar.gz
+dist/release/peeragent_0.8.0_linux_amd64.tar.gz
+dist/release/peeragent_0.8.0_linux_arm64.tar.gz
+dist/release/peeragent_0.8.0_darwin_amd64.tar.gz
+dist/release/peeragent_0.8.0_darwin_arm64.tar.gz
+dist/release/peeragent_0.8.0_windows_amd64.tar.gz
+dist/release/peeragent_0.8.0_windows_arm64.tar.gz
 dist/release/checksums.txt
 ```
 
 Publish a GitHub release from a machine with `gh` authenticated:
 
 ```sh
-make publish-release VERSION=0.5.1
+make publish-release VERSION=0.8.0
 ```
 
 The GitHub Actions workflow in `.github/workflows/release.yml` also publishes
@@ -432,12 +447,13 @@ pi --version
 ```
 
 If peeragent reports it has no prebuilt binary for this platform (exit code 3),
-note that the prebuilt platforms are linux/darwin on amd64/arm64. On those,
+the prebuilt platforms are Linux, macOS, and Windows on amd64/arm64. On those,
 reinstall the plugin or download the matching archive from
 https://github.com/nklisch/peeragent/releases. On any other platform, install
 from source (requires Go 1.25 or newer): `go install github.com/nklisch/peeragent/cmd/peeragent@latest`
 then set `PEERAGENT_BIN` to the installed binary. For source checkouts,
-`make build` also produces a local `dist/peeragent` binary.
+`make build` also produces a local `dist/peeragent` binary on Unix or
+`dist/peeragent.exe` on Windows.
 
 If an async lookup fails, make sure the job id came from the same repository and
 that `.peeragent/jobs/<job-id>/job.json` still exists.

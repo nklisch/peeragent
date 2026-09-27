@@ -26,11 +26,12 @@ Alt Subagent runs on a developer machine with:
 
 - A repository or working directory open in the host agent.
 - A platform-compatible `peeragent` binary. The plugin ships prebuilt binaries
-  committed at `plugin/bin/<goos>-<goarch>/peeragent` for linux amd64, linux
-  arm64, darwin amd64, and darwin arm64. On other platforms, install manually
+  committed at `plugin/bin/<goos>-<goarch>/` for Linux, macOS, and Windows
+  on amd64/arm64. Windows uses `peeragent.exe`; Unix uses `peeragent`.
+  On other platforms, install manually
   from the GitHub releases page (https://github.com/nklisch/peeragent/releases)
   by downloading the matching asset and either setting `PEERAGENT_BIN` to its
-  path or placing it at `<plugin>/bin/<goos>-<goarch>/peeragent`.
+  path or placing it under `<plugin>/bin/<goos>-<goarch>/`.
 - At least one target CLI installed and authenticated locally.
 
 Supported target CLIs:
@@ -55,7 +56,8 @@ The project contains:
   Codex can target Claude, Gemini, or Z.AI GLM 5.2, and Claude Code also
   discovers the same directory.
 - `bin/peeragent` as the executable shim host agents call.
-- `plugin/bin/<target>/peeragent` — committed prebuilt binaries for each
+- The native Windows `plugin/bin/windows-<goarch>/peeragent.exe` entrypoint.
+- `plugin/bin/<target>/` — committed prebuilt binaries for each
   supported platform, included in the marketplace plugin artifact.
 - `cmd/peeragent/` and internal Go packages for the wrapper implementation.
 - `docs/` for foundation documents.

@@ -4,6 +4,14 @@ set -eu
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$ROOT"
 VERSION=$(awk -F'"' '/"version"[[:space:]]*:/ { print $4; exit }' .claude-plugin/plugin.json)
+HOST_GOOS=$(go env GOOS)
+HOST_GOARCH=$(go env GOARCH)
+dist_binary=dist/peeragent
+committed_binary=plugin/bin/peeragent
+if [ "$HOST_GOOS" = windows ]; then
+  dist_binary=dist/peeragent.exe
+  committed_binary="plugin/bin/windows-$HOST_GOARCH/peeragent.exe"
+fi
 # Syntactically valid but intentionally absent, so lookup reaches the not-found contract.
 MISSING_JOB_ID=20000101T000000Z-00000000
 
@@ -16,7 +24,7 @@ go test ./...
 
 step "build"
 scripts/build.sh
-test -x dist/peeragent
+test -x "$dist_binary"
 test -x bin/peeragent
 
 step "plugin package"
@@ -43,12 +51,17 @@ fi
 
 step "committed platform binaries"
 for t in linux-amd64 linux-arm64 darwin-amd64 darwin-arm64; do
-  test -x "plugin/bin/$t/peeragent"
   test -s "plugin/bin/$t/peeragent"
+  if [ "$HOST_GOOS" != windows ]; then
+    test -x "plugin/bin/$t/peeragent"
+  fi
+done
+for t in windows-amd64 windows-arm64; do
+  test -s "plugin/bin/$t/peeragent.exe"
 done
 
 set +e
-committed_out=$(plugin/bin/peeragent --status "$MISSING_JOB_ID" 2>&1)
+committed_out=$("$committed_binary" --status "$MISSING_JOB_ID" 2>&1)
 committed_code=$?
 set -e
 if [ "$committed_code" -ne 4 ]; then
@@ -77,6 +90,8 @@ test -f "dist/release/peeragent_${VERSION}_linux_amd64.tar.gz"
 test -f "dist/release/peeragent_${VERSION}_linux_arm64.tar.gz"
 test -f "dist/release/peeragent_${VERSION}_darwin_amd64.tar.gz"
 test -f "dist/release/peeragent_${VERSION}_darwin_arm64.tar.gz"
+test -f "dist/release/peeragent_${VERSION}_windows_amd64.tar.gz"
+test -f "dist/release/peeragent_${VERSION}_windows_arm64.tar.gz"
 test -f dist/release/checksums.txt
 
 step "plugin metadata"
