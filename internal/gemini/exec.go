@@ -65,8 +65,10 @@ func ExecWithRunner(ctx context.Context, run executil.Runner, opts Options) (Res
 	result.AgentSession = opts.Resume
 	if runtime.GOOS == "windows" {
 		normalizeStreamResult(&result)
+		flagOutputFailures(&result)
+	} else {
+		normalizeResult(&result)
 	}
-	normalizeResult(&result)
 	return result, err
 }
 
@@ -111,7 +113,10 @@ func normalizeResult(result *Result) {
 			result.ExitCode = 1
 		}
 	}
+	flagOutputFailures(result)
+}
 
+func flagOutputFailures(result *Result) {
 	if result.ExitCode != 0 {
 		return
 	}

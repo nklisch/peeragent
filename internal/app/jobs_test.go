@@ -304,6 +304,49 @@ func TestJobResultFailsAfterMissingPIDGrace(t *testing.T) {
 	}
 }
 
+func TestJobResultRechecksResultAfterCompletionLock(t *testing.T) {
+	cwd := t.TempDir()
+	store := jobs.NewStore(cwd)
+	job, err := store.Create(cwd, testJobSpec(), "do work")
+	if err != nil {
+		t.Fatal(err)
+	}
+	job.CreatedAt = time.Now().Add(-missingPIDGrace - time.Second)
+	if err := store.Save(job); err != nil {
+		t.Fatal(err)
+	}
+	want := result.Result{Status: result.StatusSuccess, Summary: "completed while result was checked"}
+	done := make(chan struct {
+		value result.Result
+		err   error
+	}, 1)
+	if err := store.WithJobLock(job.ID, func() error {
+		go func() {
+			value, err := NewService(Options{}).JobResult(context.Background(), JobRequest{CWD: cwd, JobID: job.ID})
+			done <- struct {
+				value result.Result
+				err   error
+			}{value, err}
+		}()
+		select {
+		case early := <-done:
+			t.Fatalf("result returned before completion lock released: %#v, %v", early.value, early.err)
+		case <-time.After(50 * time.Millisecond):
+		}
+		return WriteJobResult(job.ResultPath, want)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case got := <-done:
+		if got.err != nil || got.value.Status != want.Status || got.value.Summary != want.Summary {
+			t.Fatalf("result after completion = %#v, %v", got.value, got.err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("result remained blocked after completion")
+	}
+}
+
 func testJobSpec() jobs.ExecSpec {
 	return jobs.ExecSpec{Agent: "codex", Access: "default", JSON: true}
 }

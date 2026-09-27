@@ -260,6 +260,23 @@ func TestWindowsPromptUsesStreamInput(t *testing.T) {
 	}
 }
 
+func TestWindowsStreamResponseThatLooksLikeEnvelopeIsPreserved(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows stream normalization")
+	}
+	stubLookPath(t)
+	response := `{"status":"investigating","response":"This is the agent's answer"}`
+	envelope, err := json.Marshal(printEnvelope{ConversationID: "conversation-new", Status: "SUCCESS", Response: response})
+	if err != nil {
+		t.Fatal(err)
+	}
+	run := &testsupport.RecordingRunner{Result: Result{Stdout: `{"event":"result","result":` + string(envelope) + `}`}}
+	got, err := ExecWithRunner(context.Background(), run, Options{CWD: "/repo", Prompt: "review"})
+	if err != nil || got.ExitCode != 0 || got.Stdout != response || got.AgentSession != "conversation-new" {
+		t.Fatalf("stream result = %#v, %v", got, err)
+	}
+}
+
 func stubLookPath(t *testing.T) {
 	t.Helper()
 	previous := lookPath

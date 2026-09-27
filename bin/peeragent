@@ -29,12 +29,16 @@ if [ -n "${PEERAGENT_BIN:-}" ] && [ -x "$PEERAGENT_BIN" ]; then
 fi
 
 # 2. Local ephemeral build (developer `make build`).
-if [ -x "$PLUGIN_ROOT/dist/peeragent.exe" ]; then
-  exec "$PLUGIN_ROOT/dist/peeragent.exe" "$@"
-fi
-if [ -x "$PLUGIN_ROOT/dist/peeragent" ]; then
-  exec "$PLUGIN_ROOT/dist/peeragent" "$@"
-fi
+case "$(uname -s 2>/dev/null || echo unknown)" in
+  MINGW*|MSYS*|CYGWIN*)
+    if [ -x "$PLUGIN_ROOT/dist/peeragent.exe" ]; then
+      exec "$PLUGIN_ROOT/dist/peeragent.exe" "$@"
+    fi ;;
+  *)
+    if [ -x "$PLUGIN_ROOT/dist/peeragent" ]; then
+      exec "$PLUGIN_ROOT/dist/peeragent" "$@"
+    fi ;;
+esac
 
 # 3. Source checkout with Go: run current source so edits are reflected.
 if [ -d "$PLUGIN_ROOT/cmd/peeragent" ] && command -v go >/dev/null 2>&1; then

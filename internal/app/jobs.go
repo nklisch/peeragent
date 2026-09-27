@@ -66,20 +66,30 @@ func (s *Service) JobResult(ctx context.Context, raw JobRequest) (result.Result,
 	content, err := os.ReadFile(job.ResultPath)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
-			if jobs.IsTerminalStatus(job.Status) {
-				return abandonedJobResult(req, job, "terminal result is missing"), nil
+			candidate, abandoned, err := missingResultState(store, req, job)
+			if err != nil || !abandoned {
+				return candidate, err
 			}
-			worker, pidErr := store.ReadPIDRecord(job.ID)
-			if pidErr == nil && !jobs.ProcessTreeExists(job.ID, worker) {
-				return abandonedJobResult(req, job, "worker exited before writing a result"), nil
-			}
-			if pidErr != nil && !errors.Is(pidErr, fs.ErrNotExist) {
-				return result.Result{}, fmt.Errorf("read async job %q pid: %w", req.JobID, pidErr)
-			}
-			if errors.Is(pidErr, fs.ErrNotExist) && time.Since(job.CreatedAt) > missingPIDGrace {
-				return abandonedJobResult(req, job, "worker pid is missing"), nil
-			}
-			return runningJobResultForRequest(req, job), nil
+			// Completion writes result.json under this lock. Re-read it before
+			// reporting an abandoned worker; it may have arrived meanwhile.
+			var checked result.Result
+			err = store.WithJobLock(job.ID, func() error {
+				current, err := store.Load(job.ID)
+				if err != nil {
+					return err
+				}
+				stored, exists, err := readStoredResult(current.ResultPath)
+				if err != nil {
+					return err
+				}
+				if exists {
+					checked = stored
+					return nil
+				}
+				checked, _, err = missingResultState(store, req, current)
+				return err
+			})
+			return checked, err
 		}
 		return result.Result{}, fmt.Errorf("read async job %q result: %w", req.JobID, err)
 	}
@@ -89,6 +99,26 @@ func (s *Service) JobResult(ctx context.Context, raw JobRequest) (result.Result,
 		return result.Result{}, fmt.Errorf("decode async job %q result: %w", req.JobID, err)
 	}
 	return stored, nil
+}
+
+func missingResultState(store jobs.Store, req JobRequest, job jobs.Job) (result.Result, bool, error) {
+	if jobs.IsTerminalStatus(job.Status) {
+		return abandonedJobResult(req, job, "terminal result is missing"), true, nil
+	}
+	worker, err := store.ReadPIDRecord(job.ID)
+	if err == nil {
+		if !jobs.ProcessTreeExists(job.ID, worker) {
+			return abandonedJobResult(req, job, "worker exited before writing a result"), true, nil
+		}
+		return runningJobResultForRequest(req, job), false, nil
+	}
+	if !errors.Is(err, fs.ErrNotExist) {
+		return result.Result{}, false, fmt.Errorf("read async job %q pid: %w", req.JobID, err)
+	}
+	if time.Since(job.CreatedAt) > missingPIDGrace {
+		return abandonedJobResult(req, job, "worker pid is missing"), true, nil
+	}
+	return runningJobResultForRequest(req, job), false, nil
 }
 
 func abandonedJobResult(req JobRequest, job jobs.Job, reason string) result.Result {
