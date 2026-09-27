@@ -16,7 +16,12 @@ func ApplyDetachAttrs(cmd *exec.Cmd) {
 	cmd.SysProcAttr.Setsid = true
 }
 
-func StartDetached(cmd *exec.Cmd) error { return cmd.Start() }
+func StartDetached(cmd *exec.Cmd, _ func() *exec.Cmd) (*exec.Cmd, error) {
+	if err := cmd.Start(); err != nil {
+		return nil, err
+	}
+	return cmd, nil
+}
 
 func AttachCurrentProcess(string) (func(), error) {
 	return func() {}, nil

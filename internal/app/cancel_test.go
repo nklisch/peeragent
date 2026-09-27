@@ -246,7 +246,7 @@ func TestCancelJobMissingPIDDoesNotClaimCancellation(t *testing.T) {
 	}
 }
 
-func TestCancelJobCleanupIgnoresCallerCancellationAfterCommit(t *testing.T) {
+func TestCancelJobFinishesCleanupAfterCallerCancellation(t *testing.T) {
 	cwd := t.TempDir()
 	store := jobs.NewStore(cwd)
 	job, err := store.Create(cwd, testJobSpec(), "do work")

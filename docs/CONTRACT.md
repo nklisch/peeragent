@@ -207,6 +207,9 @@ not pass through `cmd.exe` or the Windows command-line length limit. Codex,
 Claude, and Pi read plain prompt text from stdin. Antigravity uses its
 `--input-format stream-json` mode. The wrapper rejects batch-launcher options
 that would break `cmd.exe` quoting before starting the target.
+Windows hosts must also keep large task text out of the peeragent command line:
+use `--prompt-file` or pipe stdin, because the host can hit the command-line
+limit before peeragent starts.
 
 Default result output is compact. For Codex JSONL output, peeragent records the
 latest completed `agent_message` as the visible stdout detail instead of joining
@@ -233,7 +236,7 @@ Async state is stored under:
   pid            worker PID (also PGID on Unix); Windows also records process creation identity
   agent.log      background wrapper stdout+stderr
   target.log     raw target stdout+stderr when available
-  result.json    final result, written by child OR by --cancel
+  result.json    final result, written by child, --cancel, or abandoned-worker recovery
 ```
 
 `--cancel` holds the job lock while stopping the worker and its descendants,
@@ -243,9 +246,14 @@ attach to a named job object before starting the target CLI; its kill-on-close
 limit also stops descendants if the worker exits unexpectedly. The named job is
 local to one Windows logon session, so cancel from a different session or
 elevation context is not supported. If a worker exits without a result,
-`--result` and `--wait` report failure instead of waiting forever. Windows
-state updates use a named mutex, so a hard-killed worker cannot leave a lock
-file that blocks future job operations.
+`--result` and `--wait` record and report failure instead of waiting forever;
+`--status` then reports failed too. A missing worker PID gets a 45-second
+startup grace period. Windows job-file reads and replacements retry short
+sharing locks for up to 1.5 seconds. Windows state updates use a named mutex,
+so a hard-killed worker cannot leave a lock file that blocks future job
+operations.
+Unix state updates use an OS file lock, which also releases when its holder
+exits; the lock file remains as a stable inode for later callers.
 
 ## Guarantees
 

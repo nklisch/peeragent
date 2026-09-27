@@ -247,7 +247,7 @@ func TestWithJobLockSerializesConcurrentAccess(t *testing.T) {
 	}
 }
 
-func TestWithJobLockRemovesLockFile(t *testing.T) {
+func TestWithJobLockReleasesLock(t *testing.T) {
 	store := NewStore(t.TempDir())
 	job, err := store.Create("/repo", ExecSpec{Agent: "codex", Access: "default", JSON: true}, "do work")
 	if err != nil {
@@ -272,8 +272,8 @@ func TestWithJobLockRemovesLockFile(t *testing.T) {
 	if !called {
 		t.Fatal("lock callback was not called")
 	}
-	if _, err := os.Stat(lockPath); !os.IsNotExist(err) {
-		t.Fatalf("lock file after release err = %v, want not exist", err)
+	if err := store.WithJobLock(job.ID, func() error { return nil }); err != nil {
+		t.Fatalf("lock remained held after callback: %v", err)
 	}
 }
 

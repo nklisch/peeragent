@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"os"
 	"strings"
 	"time"
 
@@ -22,7 +21,7 @@ type JobRequest struct {
 	JobID string
 }
 
-const missingPIDGrace = 5 * time.Second
+const missingPIDGrace = 45 * time.Second
 
 // JobStatus returns the compact lifecycle state for one repository-local job.
 // Missing job state is a structured exit-code-4 result for CLI compatibility;
@@ -41,6 +40,15 @@ func (s *Service) JobStatus(ctx context.Context, raw JobRequest) (result.Result,
 		return result.Result{}, fmt.Errorf("load async job %q: %w", req.JobID, err)
 	}
 
+	if !jobs.IsTerminalStatus(job.Status) {
+		stored, exists, err := readStoredResult(job.ResultPath)
+		if err != nil {
+			return result.Result{}, fmt.Errorf("read async job %q result: %w", req.JobID, err)
+		}
+		if exists && isTerminalResultStatus(stored.Status) {
+			job.Status = JobStatusFromResult(stored.Status)
+		}
+	}
 	return jobStatusResult(req, job), nil
 }
 
@@ -63,7 +71,7 @@ func (s *Service) JobResult(ctx context.Context, raw JobRequest) (result.Result,
 		return result.Result{}, fmt.Errorf("load async job %q: %w", req.JobID, err)
 	}
 
-	content, err := os.ReadFile(job.ResultPath)
+	content, err := jobs.ReadJobFile(job.ResultPath)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			candidate, abandoned, err := missingResultState(store, req, job)
@@ -86,7 +94,16 @@ func (s *Service) JobResult(ctx context.Context, raw JobRequest) (result.Result,
 					checked = stored
 					return nil
 				}
-				checked, _, err = missingResultState(store, req, current)
+				var abandoned bool
+				checked, abandoned, err = missingResultState(store, req, current)
+				if err != nil || !abandoned || jobs.IsTerminalStatus(current.Status) {
+					return err
+				}
+				if err := WriteJobResult(current.ResultPath, checked); err != nil {
+					return err
+				}
+				current.Status = jobs.StatusFailed
+				_, err = store.SaveGuarded(current)
 				return err
 			})
 			return checked, err
@@ -296,7 +313,7 @@ func WriteJobResult(path string, res result.Result) error {
 }
 
 func readStoredResult(path string) (result.Result, bool, error) {
-	content, err := os.ReadFile(path)
+	content, err := jobs.ReadJobFile(path)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return result.Result{}, false, nil

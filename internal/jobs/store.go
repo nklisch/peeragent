@@ -103,7 +103,7 @@ func (s Store) Load(id string) (Job, error) {
 	if err != nil {
 		return Job{}, err
 	}
-	content, err := os.ReadFile(filepath.Join(dir, "job.json"))
+	content, err := ReadJobFile(filepath.Join(dir, "job.json"))
 	if err != nil {
 		return Job{}, err
 	}
@@ -157,7 +157,7 @@ func (s Store) ReadPrompt(id string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	content, err := os.ReadFile(filepath.Join(dir, "prompt.txt"))
+	content, err := ReadJobFile(filepath.Join(dir, "prompt.txt"))
 	if err != nil {
 		return "", err
 	}
@@ -193,7 +193,7 @@ func (s Store) ReadPIDRecord(id string) (PIDRecord, error) {
 	if err != nil {
 		return PIDRecord{}, err
 	}
-	content, err := os.ReadFile(filepath.Join(dir, "pid"))
+	content, err := ReadJobFile(filepath.Join(dir, "pid"))
 	if err != nil {
 		return PIDRecord{}, err
 	}
@@ -245,7 +245,7 @@ func AtomicWriteFile(path string, content []byte, perm os.FileMode) error {
 		_ = os.Remove(tmp)
 		return err
 	}
-	if err := os.Rename(tmp, path); err != nil {
+	if err := renameJobFile(tmp, path); err != nil {
 		_ = os.Remove(tmp)
 		return err
 	}

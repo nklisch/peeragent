@@ -46,6 +46,7 @@ func ExecWithRunner(ctx context.Context, run executil.Runner, opts Options) (Res
 	if runtime.GOOS == "windows" {
 		// Streaming mode reads the prompt from stdin. Print mode requires a
 		// command-line value, which Windows batch launchers can truncate.
+		// Protocol: https://www.agy.dev/docs/cli/headless/#stream-prompts-from-stdin
 		args[1] = "stream-json"
 		args = append(args[:len(args)-2], "--input-format", "stream-json")
 		message, marshalErr := json.Marshal(struct {

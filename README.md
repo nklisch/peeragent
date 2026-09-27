@@ -204,6 +204,13 @@ $launch = & $peeragent --async --agent claude "Review the change." | ConvertFrom
 Git Bash can also run `plugin/bin/peeragent`; its launcher selects the matching
 Windows `.exe`. Windows targets receive task text through stdin, including
 multiline prompts read with `--prompt-file`.
+For large tasks, pass `--prompt-file` or pipe the task into peeragent's stdin.
+The Windows command-line limit also applies to the host launching peeragent,
+so a long positional task can fail before peeragent starts.
+The Windows Gemini adapter uses Antigravity's documented
+[`stream-json` stdin protocol](https://www.agy.dev/docs/cli/headless/#stream-prompts-from-stdin).
+The automated tests stub `agy`; before a Windows release, run one
+authenticated `--agent gemini` smoke test against the installed CLI.
 
 Read task text from a file:
 

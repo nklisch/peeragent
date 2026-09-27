@@ -166,11 +166,16 @@ func TestWindowsWorkerExitKillsDescendants(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, pid := range append(pids, workerPID) {
-		pid := pid
+		h, err := syscall.OpenProcess(syscall.PROCESS_TERMINATE|syscall.SYNCHRONIZE, false, uint32(pid))
+		if err != nil {
+			t.Fatal(err)
+		}
 		t.Cleanup(func() {
-			if process, err := os.FindProcess(pid); err == nil {
-				_ = process.Kill()
+			if state, err := syscall.WaitForSingleObject(h, 0); err == nil && state == 0x102 {
+				_ = syscall.TerminateProcess(h, 1)
+				_, _ = syscall.WaitForSingleObject(h, 5000)
 			}
+			_ = syscall.CloseHandle(h)
 		})
 	}
 	worker, err := os.FindProcess(workerPID)
@@ -178,6 +183,9 @@ func TestWindowsWorkerExitKillsDescendants(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := worker.Kill(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := worker.Wait(); err != nil {
 		t.Fatal(err)
 	}
 	for _, pid := range pids {

@@ -233,19 +233,21 @@ func (l ProcessLauncher) Launch(executable string, job jobs.Job) error {
 		}
 	}
 
-	cmd := command(executable, "--job-run", job.ID, "--cwd", job.CWD)
-	cmd.Dir = job.CWD
-
 	logFile, err := os.OpenFile(job.LogPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 	if err != nil {
 		return err
 	}
 	defer logFile.Close()
-	cmd.Stdout = logFile
-	cmd.Stderr = logFile
-	jobs.ApplyDetachAttrs(cmd)
-
-	if err := jobs.StartDetached(cmd); err != nil {
+	buildCommand := func() *exec.Cmd {
+		cmd := command(executable, "--job-run", job.ID, "--cwd", job.CWD)
+		cmd.Dir = job.CWD
+		cmd.Stdout = logFile
+		cmd.Stderr = logFile
+		jobs.ApplyDetachAttrs(cmd)
+		return cmd
+	}
+	cmd, err := jobs.StartDetached(buildCommand(), buildCommand)
+	if err != nil {
 		return err
 	}
 	store := jobs.NewStore(job.CWD)

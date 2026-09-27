@@ -34,6 +34,7 @@ var (
 	assignProcessToJobObject  = kernel32.NewProc("AssignProcessToJobObject")
 	terminateJobObject        = kernel32.NewProc("TerminateJobObject")
 	queryInformationJobObject = kernel32.NewProc("QueryInformationJobObject")
+	isProcessInJob            = kernel32.NewProc("IsProcessInJob")
 )
 
 type basicLimitInformation struct {
@@ -84,15 +85,40 @@ func ApplyDetachAttrs(cmd *exec.Cmd) {
 	cmd.SysProcAttr.CreationFlags |= createNoWindow | createBreakawayFromJob
 }
 
-func StartDetached(cmd *exec.Cmd) error {
-	err := cmd.Start()
-	if !errors.Is(err, syscall.ERROR_ACCESS_DENIED) {
-		return err
+func StartDetached(cmd *exec.Cmd, rebuild func() *exec.Cmd) (*exec.Cmd, error) {
+	return startDetached(cmd, rebuild, (*exec.Cmd).Start, currentProcessInJob)
+}
+
+func startDetached(cmd *exec.Cmd, rebuild func() *exec.Cmd, start func(*exec.Cmd) error, inJob func() bool) (*exec.Cmd, error) {
+	err := start(cmd)
+	if err == nil {
+		return cmd, nil
 	}
-	// A host job can forbid breakaway. Retry in that job instead of rejecting
-	// every async launch on such hosts.
-	cmd.SysProcAttr.CreationFlags &^= createBreakawayFromJob
-	return cmd.Start()
+	if !errors.Is(err, syscall.ERROR_ACCESS_DENIED) || cmd.SysProcAttr == nil ||
+		cmd.SysProcAttr.CreationFlags&createBreakawayFromJob == 0 || rebuild == nil || !inJob() {
+		return nil, err
+	}
+	// A host job can forbid breakaway. Create a fresh command because exec.Cmd
+	// cannot be reused after Start, particularly when it owns pipes.
+	retry := rebuild()
+	if retry == nil || retry.SysProcAttr == nil {
+		return nil, fmt.Errorf("rebuild detached command after denied breakaway: missing command or process attributes")
+	}
+	retry.SysProcAttr.CreationFlags &^= createBreakawayFromJob
+	if retryErr := start(retry); retryErr != nil {
+		return nil, retryErr
+	}
+	return retry, nil
+}
+
+func currentProcessInJob() bool {
+	self, err := syscall.GetCurrentProcess()
+	if err != nil {
+		return false
+	}
+	var inJob int32
+	ok, _, _ := isProcessInJob.Call(uintptr(self), 0, uintptr(unsafe.Pointer(&inJob)))
+	return ok != 0 && inJob != 0
 }
 
 // AttachCurrentProcess confines the worker and all future descendants to a

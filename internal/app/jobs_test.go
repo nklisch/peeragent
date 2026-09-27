@@ -298,9 +298,39 @@ func TestJobResultFailsAfterMissingPIDGrace(t *testing.T) {
 	if err := store.Save(job); err != nil {
 		t.Fatal(err)
 	}
-	got, err := NewService(Options{}).JobResult(context.Background(), JobRequest{CWD: cwd, JobID: job.ID})
+	service := NewService(Options{})
+	req := JobRequest{CWD: cwd, JobID: job.ID}
+	got, err := service.JobResult(context.Background(), req)
 	if err != nil || got.Status != result.StatusFailed {
 		t.Fatalf("missing worker result = %#v, %v", got, err)
+	}
+	loaded, err := store.Load(job.ID)
+	if err != nil || loaded.Status != jobs.StatusFailed {
+		t.Fatalf("persisted abandoned job = %#v, %v", loaded, err)
+	}
+	status, err := service.JobStatus(context.Background(), req)
+	if err != nil || status.Status != result.StatusFailed {
+		t.Fatalf("status after abandonment = %#v, %v", status, err)
+	}
+	cancelled, err := service.CancelJob(context.Background(), req)
+	if err != nil || cancelled.Status != result.StatusFailed || cancelled.Summary != got.Summary {
+		t.Fatalf("cancel after abandonment = %#v, %v", cancelled, err)
+	}
+}
+
+func TestJobStatusUsesTerminalResultAfterInterruptedStateWrite(t *testing.T) {
+	cwd := t.TempDir()
+	store := jobs.NewStore(cwd)
+	job, err := store.Create(cwd, testJobSpec(), "do work")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteJobResult(job.ResultPath, result.Result{Status: result.StatusFailed, Summary: "worker stopped"}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := NewService(Options{}).JobStatus(context.Background(), JobRequest{CWD: cwd, JobID: job.ID})
+	if err != nil || got.Status != result.StatusFailed {
+		t.Fatalf("status after interrupted state write = %#v, %v", got, err)
 	}
 }
 

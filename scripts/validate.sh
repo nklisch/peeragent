@@ -25,11 +25,19 @@ go test ./...
 step "build"
 scripts/build.sh
 test -x "$dist_binary"
-test -x bin/peeragent
+if [ "$HOST_GOOS" = windows ]; then
+  test -f bin/peeragent
+else
+  test -x bin/peeragent
+fi
 
 step "plugin package"
 scripts/package-plugin.sh
-test -x plugin/bin/peeragent
+if [ "$HOST_GOOS" = windows ]; then
+  test -f plugin/bin/peeragent
+else
+  test -x plugin/bin/peeragent
+fi
 test -f plugin/.claude-plugin/plugin.json
 test -f plugin/.codex-plugin/plugin.json
 ! test -e plugin/.mcp.json

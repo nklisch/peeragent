@@ -3,6 +3,7 @@
 package jobs
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"syscall"
@@ -10,6 +11,39 @@ import (
 	"time"
 	"unsafe"
 )
+
+func TestStartDetachedRebuildsOnlyForDeniedBreakaway(t *testing.T) {
+	first := exec.Command(os.Args[0])
+	ApplyDetachAttrs(first)
+	var retry *exec.Cmd
+	build := func() *exec.Cmd {
+		retry = exec.Command(os.Args[0])
+		ApplyDetachAttrs(retry)
+		return retry
+	}
+	starts := 0
+	got, err := startDetached(first, build, func(cmd *exec.Cmd) error {
+		starts++
+		if starts == 1 {
+			return syscall.ERROR_ACCESS_DENIED
+		}
+		if cmd == first || cmd.SysProcAttr.CreationFlags&createBreakawayFromJob != 0 {
+			t.Fatal("retry reused the failed command or retained breakaway")
+		}
+		return nil
+	}, func() bool { return true })
+	if err != nil || got != retry || starts != 2 {
+		t.Fatalf("fallback = %p, %v, starts %d", got, err, starts)
+	}
+	starts = 0
+	got, err = startDetached(first, build, func(*exec.Cmd) error {
+		starts++
+		return syscall.ERROR_ACCESS_DENIED
+	}, func() bool { return false })
+	if got != nil || !errors.Is(err, syscall.ERROR_ACCESS_DENIED) || starts != 1 {
+		t.Fatalf("outside-job fallback = %p, %v, starts %d", got, err, starts)
+	}
+}
 
 func TestWindowsJobHelperProcess(t *testing.T) {
 	if os.Getenv("PEERAGENT_JOBS_TEST_CHILD") == "1" {

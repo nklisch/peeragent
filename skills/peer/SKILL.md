@@ -35,6 +35,7 @@ the first call and use that path for every invocation:
   `bin/windows-<goarch>/peeragent.exe` directly through PowerShell; choose
   `amd64` or `arm64` from the OS architecture, or honor a valid
   `PEERAGENT_TARGET_OVERRIDE` of `windows-amd64` or `windows-arm64`.
+  In Git Bash on Windows, `bin/peeragent` selects the matching Windows `.exe`.
   On Unix, use `bin/peeragent`.
 - In a development checkout, use `dist/peeragent.exe` for current Windows
   source after building, or the same Unix wrapper under its root `bin/`.
@@ -45,6 +46,12 @@ On PowerShell, invoke the resolved executable with the call operator:
 `& $peeragentPath --agent codex "task text"`. Quote paths containing spaces.
 Use the direct `.exe` so task text is passed as an argument without a shell
 interpreter. `PEERAGENT_BIN` on Windows must point to an existing `.exe`.
+For large Windows tasks, write the task to a UTF-8 file and pass
+`--prompt-file <path>`, or pipe it to stdin with no positional task. The Windows
+command-line limit applies before peeragent starts, even when its target CLI
+reads prompts from stdin. A 50 KB positional task can fail at process launch.
+Git Bash hosts may invoke `bin/peeragent` directly; its launcher runs the
+matching Windows executable.
 
 For invocations that launch or control a peer CLI (`--agent ...`, `--async`,
 or `--cancel`), run the wrapper with the host harness's outside-sandbox command
@@ -214,7 +221,8 @@ Use advanced modes only when the request calls for them:
   the previous result included `metadata.agent_session`. Use it for continuity
   inside one multi-pass workflow; omit it for an independent second opinion.
 - `--cwd <path>` — repo directory the peer runs in.
-- `--prompt-file <path>` — read large prompts from a file.
+- `--prompt-file <path>` — read large prompts from a file; use this or piped
+  stdin for large tasks on Windows.
 - `--async` — preferred for substantive work; starts a background job and
   returns a `job_id` immediately with `status: running`.
 - `--status <job-id>` — check an async job.
