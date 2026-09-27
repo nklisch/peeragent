@@ -129,6 +129,26 @@ func TestPIDRoundTrip(t *testing.T) {
 	}
 }
 
+func TestPIDRecordRoundTrip(t *testing.T) {
+	store := NewStore(t.TempDir())
+	job, err := store.Create("/repo", ExecSpec{Agent: "codex"}, "do work")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := PIDRecord{PID: 12345, Identity: 987654321012345}
+	if err := store.WritePIDRecord(job.ID, want); err != nil {
+		t.Fatal(err)
+	}
+	got, err := store.ReadPIDRecord(job.ID)
+	if err != nil || got != want {
+		t.Fatalf("pid record = %#v, %v; want %#v", got, err, want)
+	}
+	pid, err := store.ReadPID(job.ID)
+	if err != nil || pid != want.PID {
+		t.Fatalf("legacy pid reader = %d, %v", pid, err)
+	}
+}
+
 func TestReadPIDRejectsInvalidContent(t *testing.T) {
 	store := NewStore(t.TempDir())
 	job, err := store.Create("/repo", ExecSpec{Agent: "codex", Access: "default", JSON: true}, "do work")

@@ -14,6 +14,7 @@ import (
 
 const (
 	createNoWindow         = 0x08000000
+	createBreakawayFromJob = 0x01000000
 	jobBasicAccountingInfo = 1
 	jobExtendedLimitInfo   = 9
 	jobKillOnClose         = 0x00002000
@@ -80,7 +81,18 @@ func ApplyDetachAttrs(cmd *exec.Cmd) {
 	if cmd.SysProcAttr == nil {
 		cmd.SysProcAttr = &syscall.SysProcAttr{}
 	}
-	cmd.SysProcAttr.CreationFlags |= createNoWindow
+	cmd.SysProcAttr.CreationFlags |= createNoWindow | createBreakawayFromJob
+}
+
+func StartDetached(cmd *exec.Cmd) error {
+	err := cmd.Start()
+	if !errors.Is(err, syscall.ERROR_ACCESS_DENIED) {
+		return err
+	}
+	// A host job can forbid breakaway. Retry in that job instead of rejecting
+	// every async launch on such hosts.
+	cmd.SysProcAttr.CreationFlags &^= createBreakawayFromJob
+	return cmd.Start()
 }
 
 // AttachCurrentProcess confines the worker and all future descendants to a
@@ -115,7 +127,8 @@ func AttachCurrentProcess(jobID string) (func(), error) {
 	return closeJob, nil
 }
 
-func SignalProcessTree(jobID string, pid int, _ os.Signal) error {
+func SignalProcessTree(jobID string, worker PIDRecord, _ os.Signal) error {
+	pid := worker.PID
 	if pid <= 1 {
 		return fmt.Errorf("refusing to terminate unsafe process %d", pid)
 	}
@@ -142,7 +155,7 @@ func SignalProcessTree(jobID string, pid int, _ os.Signal) error {
 		}
 		// The worker may still be creating and joining its job. A persisted PID
 		// is not a safe termination target because Windows can reuse it.
-		if !processExists(pid) {
+		if !processMatchesIdentity(pid, worker.Identity) {
 			return nil
 		}
 		if !time.Now().Before(deadline) {
@@ -152,17 +165,17 @@ func SignalProcessTree(jobID string, pid int, _ os.Signal) error {
 	}
 }
 
-func ProcessTreeExists(jobID string, pid int) bool {
+func ProcessTreeExists(jobID string, worker PIDRecord) bool {
 	h, err := openNamedJob(jobID, jobQuery)
 	if err == nil {
 		defer syscall.CloseHandle(h)
 		active, queryErr := activeJobProcesses(h)
-		return queryErr != nil || active != 0 || processExists(pid)
+		return queryErr != nil || active != 0 || processMatchesIdentity(worker.PID, worker.Identity)
 	}
 	if !errors.Is(err, syscall.ERROR_FILE_NOT_FOUND) {
 		return true
 	}
-	return processExists(pid)
+	return processMatchesIdentity(worker.PID, worker.Identity)
 }
 
 func activeJobProcesses(h syscall.Handle) (uint32, error) {

@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/nklisch/peeragent/internal/jobs"
 	"github.com/nklisch/peeragent/internal/result"
@@ -20,6 +21,8 @@ type JobRequest struct {
 	CWD   string
 	JobID string
 }
+
+const missingPIDGrace = 5 * time.Second
 
 // JobStatus returns the compact lifecycle state for one repository-local job.
 // Missing job state is a structured exit-code-4 result for CLI compatibility;
@@ -63,6 +66,19 @@ func (s *Service) JobResult(ctx context.Context, raw JobRequest) (result.Result,
 	content, err := os.ReadFile(job.ResultPath)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
+			if jobs.IsTerminalStatus(job.Status) {
+				return abandonedJobResult(req, job, "terminal result is missing"), nil
+			}
+			worker, pidErr := store.ReadPIDRecord(job.ID)
+			if pidErr == nil && !jobs.ProcessTreeExists(job.ID, worker) {
+				return abandonedJobResult(req, job, "worker exited before writing a result"), nil
+			}
+			if pidErr != nil && !errors.Is(pidErr, fs.ErrNotExist) {
+				return result.Result{}, fmt.Errorf("read async job %q pid: %w", req.JobID, pidErr)
+			}
+			if errors.Is(pidErr, fs.ErrNotExist) && time.Since(job.CreatedAt) > missingPIDGrace {
+				return abandonedJobResult(req, job, "worker pid is missing"), nil
+			}
 			return runningJobResultForRequest(req, job), nil
 		}
 		return result.Result{}, fmt.Errorf("read async job %q result: %w", req.JobID, err)
@@ -73,6 +89,22 @@ func (s *Service) JobResult(ctx context.Context, raw JobRequest) (result.Result,
 		return result.Result{}, fmt.Errorf("decode async job %q result: %w", req.JobID, err)
 	}
 	return stored, nil
+}
+
+func abandonedJobResult(req JobRequest, job jobs.Job, reason string) result.Result {
+	return result.Result{
+		Status:       result.StatusFailed,
+		Summary:      fmt.Sprintf("Async job %s stopped without a result", job.ID),
+		ChangedFiles: []string{},
+		Verification: []result.Verification{},
+		Details:      reason + "; see agent log for details",
+		Metadata: result.Metadata{
+			CWD:      req.CWD,
+			ExitCode: 1,
+			JobID:    job.ID,
+			LogPath:  job.LogPath,
+		},
+	}
 }
 
 func (s *Service) normalizeJobRequest(ctx context.Context, raw JobRequest) (JobRequest, error) {
@@ -217,11 +249,10 @@ func FinishJob(store jobs.Store, job jobs.Job, res result.Result) error {
 		_, err = store.SaveGuarded(current)
 		return err
 	})
-	removeErr := store.RemovePID(job.ID)
 	if err != nil {
 		return err
 	}
-	return removeErr
+	return store.RemovePID(job.ID)
 }
 
 // WriteJobResult is the canonical atomic result-file writer used by child

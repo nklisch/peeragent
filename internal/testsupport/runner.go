@@ -3,6 +3,7 @@ package testsupport
 
 import (
 	"context"
+	"runtime"
 
 	"github.com/nklisch/peeragent/internal/executil"
 )
@@ -14,14 +15,35 @@ type RecordingRunner struct {
 	Name   string
 	Args   []string
 	CWD    string
+	Stdin  string
 	Result executil.Result
+}
+
+// ExpectedPromptArgs adjusts existing argv expectations for Windows stdin
+// delivery while retaining the separate options asserted by adapter tests.
+func ExpectedPromptArgs(args []string, cli string) []string {
+	if runtime.GOOS != "windows" {
+		return args
+	}
+	want := append([]string(nil), args...)
+	switch cli {
+	case "codex":
+		want[len(want)-1] = "-"
+	case "agy":
+		want[1] = "stream-json"
+		want = append(want[:len(want)-2], "--input-format", "stream-json")
+	default:
+		want = want[:len(want)-1]
+	}
+	return want
 }
 
 var _ executil.Runner = (*RecordingRunner)(nil)
 
-func (r *RecordingRunner) Run(_ context.Context, name string, args []string, cwd string) (executil.Result, error) {
+func (r *RecordingRunner) Run(_ context.Context, name string, args []string, cwd, stdin string) (executil.Result, error) {
 	r.Name = name
 	r.Args = args
 	r.CWD = cwd
+	r.Stdin = stdin
 	return r.Result, nil
 }

@@ -202,6 +202,12 @@ output. Gemini resumes the captured `conversation_id` through `--conversation`.
 Pi can resume a caller-supplied session id, but the wrapper does not scrape logs
 to infer new Pi session ids. Fresh Z.AI calls use `--no-session` by default.
 
+On Windows, target prompts travel through stdin so multiline and large tasks do
+not pass through `cmd.exe` or the Windows command-line length limit. Codex,
+Claude, and Pi read plain prompt text from stdin. Antigravity uses its
+`--input-format stream-json` mode. The wrapper rejects batch-launcher options
+that would break `cmd.exe` quoting before starting the target.
+
 Default result output is compact. For Codex JSONL output, peeragent records the
 latest completed `agent_message` as the visible stdout detail instead of joining
 intermediate assistant messages. Hosts that need more context can resume with
@@ -224,7 +230,7 @@ Async state is stored under:
 .peeragent/jobs/<job-id>/
   job.json       lifecycle + ExecSpec; written on child finish or by --cancel
   prompt.txt     resolved task text, parent-written, child-read
-  pid            worker PID (also PGID on Unix), present while running
+  pid            worker PID (also PGID on Unix); Windows also records process creation identity
   agent.log      background wrapper stdout+stderr
   target.log     raw target stdout+stderr when available
   result.json    final result, written by child OR by --cancel
@@ -234,7 +240,12 @@ Async state is stored under:
 then writes `result.json` and `job.json` as cancelled. A missing `pid`
 sidecar prevents a new cancellation from claiming success. Windows workers
 attach to a named job object before starting the target CLI; its kill-on-close
-limit also stops descendants if the worker exits unexpectedly.
+limit also stops descendants if the worker exits unexpectedly. The named job is
+local to one Windows logon session, so cancel from a different session or
+elevation context is not supported. If a worker exits without a result,
+`--result` and `--wait` report failure instead of waiting forever. Windows
+state updates use a named mutex, so a hard-killed worker cannot leave a lock
+file that blocks future job operations.
 
 ## Guarantees
 

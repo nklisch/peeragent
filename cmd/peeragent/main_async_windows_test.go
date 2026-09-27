@@ -5,6 +5,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -19,11 +20,11 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	if strings.EqualFold(filepath.Base(os.Args[0]), "codex.exe") {
+	if strings.EqualFold(filepath.Base(os.Args[0]), "codex.exe") || strings.EqualFold(filepath.Base(os.Args[0]), "fake-codex.exe") {
 		fakeCodexMain()
 		return
 	}
-	if os.Getenv("PEERAGENT_TEST_HELPER_MAIN") == "1" {
+	if testHelperMainRequested(os.Getenv("PEERAGENT_TEST_HELPER_MAIN"), os.Args) {
 		main()
 		return
 	}
@@ -36,8 +37,9 @@ func fakeCodexMain() {
 			time.Sleep(time.Hour)
 		}
 	}
-	if os.Getenv("PEERAGENT_FAKE_MODE") == "quick" {
-		if !strings.Contains(os.Args[len(os.Args)-1], `say "OK" & keep | literal`) {
+	if mode := os.Getenv("PEERAGENT_FAKE_MODE"); mode == "quick" || mode == "quick-long" {
+		prompt, err := io.ReadAll(os.Stdin)
+		if err != nil || !strings.Contains(string(prompt), `say "OK" & keep | literal`) || (mode == "quick-long" && len(prompt) < 40000) {
 			fmt.Fprintln(os.Stderr, "task text was altered before reaching Codex")
 			os.Exit(1)
 		}
@@ -56,6 +58,50 @@ func fakeCodexMain() {
 		os.Exit(1)
 	}
 	_ = child.Wait()
+}
+
+func TestWindowsCmdReceivesLongMultilinePrompt(t *testing.T) {
+	cwd, fakeBin, state := windowsFixture(t, "quick-long")
+	if err := os.Rename(filepath.Join(fakeBin, "codex.exe"), filepath.Join(fakeBin, "fake-codex.exe")); err != nil {
+		t.Fatal(err)
+	}
+	launcher := "@echo off\r\n\"%~dp0fake-codex.exe\" %*\r\n"
+	if err := os.WriteFile(filepath.Join(fakeBin, "codex.cmd"), []byte(launcher), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	task := strings.Repeat("a", 40000) + "\n" + `say "OK" & keep | literal` + "\n" + `odd " & echo BAD > injected.txt`
+	promptFile := filepath.Join(cwd, "long task.txt")
+	if err := os.WriteFile(promptFile, []byte(task), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got := runWindowsCLI(t, fakeBin, state, "quick-long", "--cwd", cwd, "--agent", "codex", "--prompt-file", promptFile)
+	if got.Status != result.StatusSuccess || !strings.Contains(got.Details, "WINDOWS_OK") {
+		t.Fatalf("cmd result = %#v", got)
+	}
+	launch := runWindowsCLI(t, fakeBin, state, "quick-long", "--cwd", cwd, "--async", "--agent", "codex", "--prompt-file", promptFile)
+	if launch.Status != result.StatusRunning || launch.Metadata.JobID == "" {
+		t.Fatalf("cmd async launch = %#v", launch)
+	}
+	waited := runWindowsCLI(t, fakeBin, state, "quick-long", "--cwd", cwd, "--wait", launch.Metadata.JobID)
+	if waited.Status != result.StatusSuccess || !strings.Contains(waited.Details, "WINDOWS_OK") {
+		t.Fatalf("cmd async result = %#v", waited)
+	}
+	if _, err := os.Stat(filepath.Join(cwd, "injected.txt")); !os.IsNotExist(err) {
+		t.Fatalf("prompt text was interpreted by cmd.exe: %v", err)
+	}
+}
+
+func TestWindowsNativeExeReceivesLongPrompt(t *testing.T) {
+	cwd, fakeBin, state := windowsFixture(t, "quick-long")
+	promptFile := filepath.Join(cwd, "long task.txt")
+	task := strings.Repeat("a", 40000) + "\n" + `say "OK" & keep | literal`
+	if err := os.WriteFile(promptFile, []byte(task), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got := runWindowsCLI(t, fakeBin, state, "quick-long", "--cwd", cwd, "--agent", "codex", "--prompt-file", promptFile)
+	if got.Status != result.StatusSuccess || !strings.Contains(got.Details, "WINDOWS_OK") {
+		t.Fatalf("native executable result = %#v", got)
+	}
 }
 
 func TestWindowsBlockingAndAsyncFromPathsWithSpaces(t *testing.T) {

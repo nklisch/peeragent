@@ -333,9 +333,9 @@ type fakeProcessController struct {
 	startedOnce sync.Once
 }
 
-func (f *fakeProcessController) TerminateAndWait(_ string, pid int, termGrace, killGrace time.Duration) error {
+func (f *fakeProcessController) TerminateAndWait(_ string, worker jobs.PIDRecord, termGrace, killGrace time.Duration) error {
 	f.mu.Lock()
-	f.pid = pid
+	f.pid = worker.PID
 	f.termGrace = termGrace
 	f.killGrace = killGrace
 	f.count++

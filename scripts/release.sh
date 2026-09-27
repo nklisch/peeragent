@@ -36,7 +36,11 @@ build_target() {
   binary=peeragent
   [ "$goos" = windows ] && binary=peeragent.exe
   CGO_ENABLED=0 GOOS=$goos GOARCH=$goarch go build -trimpath -buildvcs=false -ldflags="-s -w" -o "$dir/$binary" "$ROOT/cmd/peeragent"
-  tar -C "$dir" -czf "$OUT/peeragent_${VERSION}_${goos}_${goarch}.tar.gz" "$binary"
+  if [ "$goos" = windows ]; then
+    go run "$ROOT/scripts/zip-windows.go" "$dir/$binary" "$OUT/peeragent_${VERSION}_${goos}_${goarch}.zip"
+  else
+    tar -C "$dir" -czf "$OUT/peeragent_${VERSION}_${goos}_${goarch}.tar.gz" "$binary"
+  fi
 }
 
 build_target linux amd64
@@ -49,9 +53,9 @@ build_target windows arm64
 (
   cd "$OUT"
   if command -v sha256sum >/dev/null 2>&1; then
-    sha256sum peeragent_*.tar.gz > checksums.txt
+    sha256sum peeragent_*.tar.gz peeragent_*.zip > checksums.txt
   else
-    shasum -a 256 peeragent_*.tar.gz > checksums.txt
+    shasum -a 256 peeragent_*.tar.gz peeragent_*.zip > checksums.txt
   fi
 )
 

@@ -239,13 +239,14 @@ func runAsyncJob(req input.Request) error {
 		}
 		return finishAsyncJob(store, job, res)
 	}
-	closeJob, err := jobs.AttachCurrentProcess(job.ID)
+	_, err = jobs.AttachCurrentProcess(job.ID)
 	if err != nil {
 		res := resultFromExecution(jobReq, executil.Result{ExitCode: 1}, fmt.Errorf("attach async process tree: %w", err))
 		res.Metadata.JobID = job.ID
 		return finishAsyncJob(store, job, res)
 	}
-	defer closeJob()
+	// Process exit closes the job handle. Closing it before returning would
+	// kill this worker before a FinishJob error can reach its log.
 
 	res, execResult, _ := applicationService.DelegateWithExecution(context.Background(), delegationFromRequest(jobReq))
 	res.Metadata.JobID = job.ID

@@ -2,7 +2,10 @@ package gemini
 
 import (
 	"context"
+	"encoding/json"
 	"reflect"
+	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/nklisch/peeragent/internal/testsupport"
@@ -36,11 +39,14 @@ func TestExecWithRunnerBuildsDefaultArgv(t *testing.T) {
 		"--print-timeout", "15m",
 		"--print", "do work",
 	}
-	if !reflect.DeepEqual(run.Args, wantArgs) {
+	if !reflect.DeepEqual(run.Args, testsupport.ExpectedPromptArgs(wantArgs, "agy")) {
 		t.Fatalf("args = %#v, want %#v", run.Args, wantArgs)
 	}
 	if run.Name == "" {
 		t.Fatal("expected agy path")
+	}
+	if runtime.GOOS == "windows" && !strings.Contains(run.Stdin, `"content":"do work"`) {
+		t.Fatalf("stream input = %q", run.Stdin)
 	}
 }
 
@@ -66,7 +72,7 @@ func TestExecWithRunnerBuildsFullAccessArgv(t *testing.T) {
 		"--print-timeout", "15m",
 		"--print", "do work",
 	}
-	if !reflect.DeepEqual(run.Args, wantArgs) {
+	if !reflect.DeepEqual(run.Args, testsupport.ExpectedPromptArgs(wantArgs, "agy")) {
 		t.Fatalf("args = %#v, want %#v", run.Args, wantArgs)
 	}
 }
@@ -93,7 +99,7 @@ func TestExecWithRunnerPassesModelAndEffort(t *testing.T) {
 		"--print-timeout", "15m",
 		"--print", "do work",
 	}
-	if !reflect.DeepEqual(run.Args, wantArgs) {
+	if !reflect.DeepEqual(run.Args, testsupport.ExpectedPromptArgs(wantArgs, "agy")) {
 		t.Fatalf("args = %#v, want %#v", run.Args, wantArgs)
 	}
 }
@@ -122,7 +128,7 @@ func TestExecWithRunnerBuildsResumeArgv(t *testing.T) {
 		"--conversation", "conversation-1",
 		"--print", "continue work",
 	}
-	if !reflect.DeepEqual(run.Args, wantArgs) {
+	if !reflect.DeepEqual(run.Args, testsupport.ExpectedPromptArgs(wantArgs, "agy")) {
 		t.Fatalf("args = %#v, want %#v", run.Args, wantArgs)
 	}
 	if result.AgentSession != "conversation-1" {
@@ -160,7 +166,7 @@ func TestExecWithRunnerNormalizesStructuredOutputAndCapturesSession(t *testing.T
 	stubLookPath(t)
 	run := &testsupport.RecordingRunner{Result: Result{
 		ExitCode: 0,
-		Stdout:   `{"conversation_id":"conversation-new","status":"SUCCESS","response":"completed"}`,
+		Stdout:   agyTestOutput("SUCCESS", "completed"),
 	}}
 
 	result, err := ExecWithRunner(context.Background(), run, Options{CWD: "/repo", Prompt: "do work"})
@@ -182,7 +188,7 @@ func TestExecWithRunnerFlagsStructuredFailure(t *testing.T) {
 	stubLookPath(t)
 	run := &testsupport.RecordingRunner{Result: Result{
 		ExitCode: 0,
-		Stdout:   `{"conversation_id":"conversation-new","status":"FAILED","response":"could not complete"}`,
+		Stdout:   agyTestOutput("FAILED", "could not complete"),
 	}}
 
 	result, err := ExecWithRunner(context.Background(), run, Options{CWD: "/repo", Prompt: "do work"})
@@ -212,7 +218,7 @@ func TestExecWithRunnerFlagsPrintModeError(t *testing.T) {
 
 func TestExecWithRunnerKeepsSuccessExitCode(t *testing.T) {
 	stubLookPath(t)
-	run := &testsupport.RecordingRunner{Result: Result{ExitCode: 0, Stdout: "OK"}}
+	run := &testsupport.RecordingRunner{Result: Result{ExitCode: 0, Stdout: agyTestOutput("SUCCESS", "OK")}}
 
 	result, err := ExecWithRunner(context.Background(), run, Options{CWD: "/repo", Prompt: "do work"})
 	if err != nil {
@@ -220,6 +226,37 @@ func TestExecWithRunnerKeepsSuccessExitCode(t *testing.T) {
 	}
 	if result.ExitCode != 0 {
 		t.Fatalf("expected exit 0 for success, got %d", result.ExitCode)
+	}
+}
+
+func agyTestOutput(status, response string) string {
+	envelope := `{"conversation_id":"conversation-new","status":"` + status + `","response":"` + response + `"}`
+	if runtime.GOOS == "windows" {
+		return `{"event":"result","result":` + envelope + `}`
+	}
+	return envelope
+}
+
+func TestWindowsPromptUsesStreamInput(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows prompt transport")
+	}
+	stubLookPath(t)
+	prompt := strings.Repeat("a", 40000) + "\n" + `odd " & | >`
+	run := &testsupport.RecordingRunner{Result: Result{Stdout: agyTestOutput("SUCCESS", "OK")}}
+	if _, err := ExecWithRunner(context.Background(), run, Options{CWD: "/repo", Prompt: prompt}); err != nil {
+		t.Fatal(err)
+	}
+	var event struct {
+		Message struct {
+			Content string `json:"content"`
+		} `json:"message"`
+	}
+	if err := json.Unmarshal([]byte(run.Stdin), &event); err != nil || event.Message.Content != prompt {
+		t.Fatalf("Antigravity stream input changed the prompt: %v", err)
+	}
+	if strings.Contains(strings.Join(run.Args, " "), prompt) {
+		t.Fatal("Antigravity prompt remains in command arguments")
 	}
 }
 

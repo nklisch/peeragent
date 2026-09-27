@@ -3,10 +3,27 @@ package codex
 import (
 	"context"
 	"reflect"
+	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/nklisch/peeragent/internal/testsupport"
 )
+
+func TestWindowsPromptUsesStdin(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows prompt transport")
+	}
+	stubLookPath(t)
+	prompt := strings.Repeat("a", 40000) + "\n" + `odd " & | >`
+	run := &testsupport.RecordingRunner{}
+	if _, err := ExecWithRunner(context.Background(), run, Options{CWD: "/repo", Prompt: prompt, Resume: "session-1"}); err != nil {
+		t.Fatal(err)
+	}
+	if run.Stdin != prompt || run.Args[len(run.Args)-1] != "-" {
+		t.Fatal("Codex resume prompt was not sent intact through stdin")
+	}
+}
 
 func TestExecWithRunnerBuildsArgv(t *testing.T) {
 	stubLookPath(t)
@@ -27,16 +44,19 @@ func TestExecWithRunnerBuildsArgv(t *testing.T) {
 		"--json",
 		"--cd", "/repo",
 		"--sandbox", "workspace-write",
-		"-c", `approval_policy="on-request"`,
-		"-c", `approvals_reviewer="auto_review"`,
-		"-c", `model_reasoning_effort="high"`,
+		"-c", "approval_policy=on-request",
+		"-c", "approvals_reviewer=auto_review",
+		"-c", "model_reasoning_effort=high",
 		"do work",
 	}
-	if !reflect.DeepEqual(run.Args, wantArgs) {
+	if !reflect.DeepEqual(run.Args, testsupport.ExpectedPromptArgs(wantArgs, "codex")) {
 		t.Fatalf("args = %#v, want %#v", run.Args, wantArgs)
 	}
 	if run.Name == "" {
 		t.Fatal("expected codex path")
+	}
+	if runtime.GOOS == "windows" && run.Stdin != "do work" {
+		t.Fatalf("stdin prompt = %q", run.Stdin)
 	}
 }
 
@@ -54,10 +74,10 @@ func TestExecWithRunnerBuildsFullAccessArgv(t *testing.T) {
 		"--json",
 		"--cd", "/repo",
 		"--dangerously-bypass-approvals-and-sandbox",
-		"-c", `model_reasoning_effort="high"`,
+		"-c", "model_reasoning_effort=high",
 		"do work",
 	}
-	if !reflect.DeepEqual(run.Args, wantArgs) {
+	if !reflect.DeepEqual(run.Args, testsupport.ExpectedPromptArgs(wantArgs, "codex")) {
 		t.Fatalf("args = %#v, want %#v", run.Args, wantArgs)
 	}
 }
@@ -77,12 +97,12 @@ func TestExecWithRunnerBuildsProfileArgv(t *testing.T) {
 		"--cd", "/repo",
 		"--sandbox", "workspace-write",
 		"--profile", "peeragent",
-		"-c", `approval_policy="on-request"`,
-		"-c", `approvals_reviewer="auto_review"`,
-		"-c", `model_reasoning_effort="high"`,
+		"-c", "approval_policy=on-request",
+		"-c", "approvals_reviewer=auto_review",
+		"-c", "model_reasoning_effort=high",
 		"do work",
 	}
-	if !reflect.DeepEqual(run.Args, wantArgs) {
+	if !reflect.DeepEqual(run.Args, testsupport.ExpectedPromptArgs(wantArgs, "codex")) {
 		t.Fatalf("args = %#v, want %#v", run.Args, wantArgs)
 	}
 }
@@ -101,13 +121,13 @@ func TestExecWithRunnerBuildsModelArgv(t *testing.T) {
 		"--json",
 		"--cd", "/repo",
 		"--sandbox", "workspace-write",
-		"-c", `approval_policy="on-request"`,
-		"-c", `approvals_reviewer="auto_review"`,
+		"-c", "approval_policy=on-request",
+		"-c", "approvals_reviewer=auto_review",
 		"--model", "gpt-5.6-luna",
-		"-c", `model_reasoning_effort="high"`,
+		"-c", "model_reasoning_effort=high",
 		"do work",
 	}
-	if !reflect.DeepEqual(run.Args, wantArgs) {
+	if !reflect.DeepEqual(run.Args, testsupport.ExpectedPromptArgs(wantArgs, "codex")) {
 		t.Fatalf("args = %#v, want %#v", run.Args, wantArgs)
 	}
 }
@@ -128,13 +148,13 @@ func TestExecWithRunnerBuildsGPT6ModelArgv(t *testing.T) {
 				"--json",
 				"--cd", "/repo",
 				"--sandbox", "workspace-write",
-				"-c", `approval_policy="on-request"`,
-				"-c", `approvals_reviewer="auto_review"`,
+				"-c", "approval_policy=on-request",
+				"-c", "approvals_reviewer=auto_review",
 				"--model", model,
-				"-c", `model_reasoning_effort="high"`,
+				"-c", "model_reasoning_effort=high",
 				"do work",
 			}
-			if !reflect.DeepEqual(run.Args, wantArgs) {
+			if !reflect.DeepEqual(run.Args, testsupport.ExpectedPromptArgs(wantArgs, "codex")) {
 				t.Fatalf("args = %#v, want %#v", run.Args, wantArgs)
 			}
 		})
@@ -155,12 +175,12 @@ func TestExecWithRunnerBuildsLowEffortArgv(t *testing.T) {
 		"--json",
 		"--cd", "/repo",
 		"--sandbox", "workspace-write",
-		"-c", `approval_policy="on-request"`,
-		"-c", `approvals_reviewer="auto_review"`,
-		"-c", `model_reasoning_effort="low"`,
+		"-c", "approval_policy=on-request",
+		"-c", "approvals_reviewer=auto_review",
+		"-c", "model_reasoning_effort=low",
 		"do work",
 	}
-	if !reflect.DeepEqual(run.Args, wantArgs) {
+	if !reflect.DeepEqual(run.Args, testsupport.ExpectedPromptArgs(wantArgs, "codex")) {
 		t.Fatalf("args = %#v, want %#v", run.Args, wantArgs)
 	}
 }
@@ -179,12 +199,12 @@ func TestExecWithRunnerBuildsHighEffortArgv(t *testing.T) {
 		"--json",
 		"--cd", "/repo",
 		"--sandbox", "workspace-write",
-		"-c", `approval_policy="on-request"`,
-		"-c", `approvals_reviewer="auto_review"`,
-		"-c", `model_reasoning_effort="high"`,
+		"-c", "approval_policy=on-request",
+		"-c", "approvals_reviewer=auto_review",
+		"-c", "model_reasoning_effort=high",
 		"do work",
 	}
-	if !reflect.DeepEqual(run.Args, wantArgs) {
+	if !reflect.DeepEqual(run.Args, testsupport.ExpectedPromptArgs(wantArgs, "codex")) {
 		t.Fatalf("args = %#v, want %#v", run.Args, wantArgs)
 	}
 }
@@ -203,12 +223,12 @@ func TestExecWithRunnerBuildsXHighEffortArgv(t *testing.T) {
 		"--json",
 		"--cd", "/repo",
 		"--sandbox", "workspace-write",
-		"-c", `approval_policy="on-request"`,
-		"-c", `approvals_reviewer="auto_review"`,
-		"-c", `model_reasoning_effort="xhigh"`,
+		"-c", "approval_policy=on-request",
+		"-c", "approvals_reviewer=auto_review",
+		"-c", "model_reasoning_effort=xhigh",
 		"do work",
 	}
-	if !reflect.DeepEqual(run.Args, wantArgs) {
+	if !reflect.DeepEqual(run.Args, testsupport.ExpectedPromptArgs(wantArgs, "codex")) {
 		t.Fatalf("args = %#v, want %#v", run.Args, wantArgs)
 	}
 }
@@ -226,14 +246,14 @@ func TestExecWithRunnerBuildsResumeArgv(t *testing.T) {
 		"exec",
 		"resume",
 		"--json",
-		"-c", `approval_policy="on-request"`,
-		"-c", `approvals_reviewer="auto_review"`,
+		"-c", "approval_policy=on-request",
+		"-c", "approvals_reviewer=auto_review",
 		"--model", "gpt-5.6-sol",
-		"-c", `model_reasoning_effort="high"`,
+		"-c", "model_reasoning_effort=high",
 		"019e6be9-b530-7ef3-96aa-989712db6ebb",
 		"continue work",
 	}
-	if !reflect.DeepEqual(run.Args, wantArgs) {
+	if !reflect.DeepEqual(run.Args, testsupport.ExpectedPromptArgs(wantArgs, "codex")) {
 		t.Fatalf("args = %#v, want %#v", run.Args, wantArgs)
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os/exec"
+	"runtime"
 	"strings"
 
 	"github.com/nklisch/peeragent/internal/executil"
@@ -33,7 +34,13 @@ func ExecWithRunner(ctx context.Context, run executil.Runner, opts Options) (Res
 	if err != nil {
 		return Result{ExitCode: 127}, errors.New("codex CLI not found in PATH")
 	}
-	result, err := run.Run(ctx, path, buildArgs(opts), opts.CWD)
+	args := buildArgs(opts)
+	var stdin string
+	if runtime.GOOS == "windows" {
+		args[len(args)-1] = "-"
+		stdin = opts.Prompt
+	}
+	result, err := run.Run(ctx, path, args, opts.CWD, stdin)
 	normalizeJSONResult(&result)
 	return result, err
 }
@@ -103,13 +110,13 @@ func effortArgs(effort string) []string {
 	if effort == "" {
 		effort = "high"
 	}
-	return []string{"-c", `model_reasoning_effort="` + effort + `"`}
+	return []string{"-c", "model_reasoning_effort=" + effort}
 }
 
 func approvalArgs() []string {
 	return []string{
-		"-c", `approval_policy="on-request"`,
-		"-c", `approvals_reviewer="auto_review"`,
+		"-c", "approval_policy=on-request",
+		"-c", "approvals_reviewer=auto_review",
 	}
 }
 

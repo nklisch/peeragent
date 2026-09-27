@@ -166,7 +166,8 @@ Worktree execution is recognized but not implemented yet.
 3. On unix, the child starts in a new session so its PID is also the process
    group id recorded in the `pid` sidecar.
 4. The child loads the execution spec and prompt from the job directory, runs
-   the target CLI, writes `result.json`, updates `job.json`, and removes `pid`.
+   the target CLI, writes `result.json`, updates `job.json`, and removes `pid`
+   only after the terminal write succeeds.
 5. The wrapper returns a job id and log location.
 6. The host starts `peeragent --wait <id>` through native monitor/completion
    facilities when available. The attached waiter prints the terminal result;
@@ -175,9 +176,10 @@ Worktree execution is recognized but not implemented yet.
 
 Async jobs are local to the repository under `.peeragent/jobs/`.
 
-Cancellation writes cancelled `job.json` and `result.json` state before
-signalling. On unix, it sends SIGTERM to the recorded process group, waits up
-to 5 seconds, then sends SIGKILL if the group is still present. Child finish
+Cancellation confirms the worker and descendants have stopped before writing
+cancelled `job.json` and `result.json`. On Unix, it sends SIGTERM to the
+recorded process group, waits up to 5 seconds, then sends SIGKILL if the group
+is still present. Child finish
 reloads current state before writing and leaves cancelled terminal state
 untouched.
 

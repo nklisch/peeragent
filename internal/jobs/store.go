@@ -52,6 +52,13 @@ type Store struct {
 	Root string
 }
 
+// PIDRecord includes the worker's process creation identity on Windows. A PID
+// alone may later refer to an unrelated process after the worker exits.
+type PIDRecord struct {
+	PID      int
+	Identity uint64
+}
+
 const jobLockTimeout = 5 * time.Second
 
 func NewStore(cwd string) Store {
@@ -158,6 +165,14 @@ func (s Store) ReadPrompt(id string) (string, error) {
 }
 
 func (s Store) WritePID(id string, pid int) error {
+	return s.writePIDContent(id, strconv.Itoa(pid)+"\n")
+}
+
+func (s Store) WritePIDRecord(id string, worker PIDRecord) error {
+	return s.writePIDContent(id, fmt.Sprintf("%d\n%d\n", worker.PID, worker.Identity))
+}
+
+func (s Store) writePIDContent(id, content string) error {
 	dir, err := s.jobDir(id)
 	if err != nil {
 		return err
@@ -165,19 +180,36 @@ func (s Store) WritePID(id string, pid int) error {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
-	return AtomicWriteFile(filepath.Join(dir, "pid"), []byte(strconv.Itoa(pid)+"\n"), 0o644)
+	return AtomicWriteFile(filepath.Join(dir, "pid"), []byte(content), 0o644)
 }
 
 func (s Store) ReadPID(id string) (int, error) {
+	worker, err := s.ReadPIDRecord(id)
+	return worker.PID, err
+}
+
+func (s Store) ReadPIDRecord(id string) (PIDRecord, error) {
 	dir, err := s.jobDir(id)
 	if err != nil {
-		return 0, err
+		return PIDRecord{}, err
 	}
 	content, err := os.ReadFile(filepath.Join(dir, "pid"))
 	if err != nil {
-		return 0, err
+		return PIDRecord{}, err
 	}
-	return strconv.Atoi(strings.TrimSpace(string(content)))
+	lines := strings.Fields(string(content))
+	if len(lines) < 1 || len(lines) > 2 {
+		return PIDRecord{}, fmt.Errorf("invalid worker pid record")
+	}
+	pid, err := strconv.Atoi(lines[0])
+	if err != nil {
+		return PIDRecord{}, err
+	}
+	worker := PIDRecord{PID: pid}
+	if len(lines) == 2 {
+		worker.Identity, err = strconv.ParseUint(lines[1], 10, 64)
+	}
+	return worker, err
 }
 
 func (s Store) RemovePID(id string) error {
@@ -190,45 +222,6 @@ func (s Store) RemovePID(id string) error {
 		return nil
 	}
 	return err
-}
-
-// WithJobLock serializes short updates that must keep job.json and result.json
-// consistent. It relies on local filesystem O_EXCL semantics, writes the
-// holder PID for diagnostics, and times out after jobLockTimeout rather than
-// stealing an existing lock.
-func (s Store) WithJobLock(id string, fn func() error) error {
-	dir, err := s.jobDir(id)
-	if err != nil {
-		return err
-	}
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return err
-	}
-	lockPath := filepath.Join(dir, "lock")
-	deadline := time.Now().Add(jobLockTimeout)
-	for {
-		file, err := os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
-		if err == nil {
-			if _, err := fmt.Fprintf(file, "%d\n", os.Getpid()); err != nil {
-				_ = file.Close()
-				_ = os.Remove(lockPath)
-				return err
-			}
-			if err := file.Close(); err != nil {
-				_ = os.Remove(lockPath)
-				return err
-			}
-			defer os.Remove(lockPath)
-			return fn()
-		}
-		if !os.IsExist(err) {
-			return err
-		}
-		if time.Now().After(deadline) {
-			return fmt.Errorf("acquire job lock %s: timed out after %s", id, jobLockTimeout)
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
 }
 
 func (s Store) jobDir(id string) (string, error) {

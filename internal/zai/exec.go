@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os/exec"
+	"runtime"
 
 	"github.com/nklisch/peeragent/internal/executil"
 )
@@ -32,7 +33,13 @@ func ExecWithRunner(ctx context.Context, run executil.Runner, opts Options) (Res
 	if err != nil {
 		return Result{ExitCode: 127}, errors.New("Pi CLI not found in PATH")
 	}
-	result, err := run.Run(ctx, path, buildArgs(opts), opts.CWD)
+	args := buildArgs(opts)
+	var stdin string
+	if runtime.GOOS == "windows" {
+		args = args[:len(args)-1]
+		stdin = opts.Prompt
+	}
+	result, err := run.Run(ctx, path, args, opts.CWD, stdin)
 	result.AgentSession = opts.Resume
 	return result, err
 }

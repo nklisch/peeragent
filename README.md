@@ -201,6 +201,10 @@ $launch = & $peeragent --async --agent claude "Review the change." | ConvertFrom
 & $peeragent --wait $launch.metadata.job_id
 ```
 
+Git Bash can also run `plugin/bin/peeragent`; its launcher selects the matching
+Windows `.exe`. Windows targets receive task text through stdin, including
+multiline prompts read with `--prompt-file`.
+
 Read task text from a file:
 
 ```sh
@@ -400,8 +404,8 @@ dist/release/peeragent_0.8.0_linux_amd64.tar.gz
 dist/release/peeragent_0.8.0_linux_arm64.tar.gz
 dist/release/peeragent_0.8.0_darwin_amd64.tar.gz
 dist/release/peeragent_0.8.0_darwin_arm64.tar.gz
-dist/release/peeragent_0.8.0_windows_amd64.tar.gz
-dist/release/peeragent_0.8.0_windows_arm64.tar.gz
+dist/release/peeragent_0.8.0_windows_amd64.zip
+dist/release/peeragent_0.8.0_windows_arm64.zip
 dist/release/checksums.txt
 ```
 

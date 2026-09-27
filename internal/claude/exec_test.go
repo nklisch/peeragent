@@ -3,10 +3,27 @@ package claude
 import (
 	"context"
 	"reflect"
+	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/nklisch/peeragent/internal/testsupport"
 )
+
+func TestWindowsPromptUsesStdin(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows prompt transport")
+	}
+	stubLookPath(t)
+	prompt := strings.Repeat("a", 40000) + "\n" + `odd " & | >`
+	run := &testsupport.RecordingRunner{}
+	if _, err := ExecWithRunner(context.Background(), run, Options{CWD: "/repo", Prompt: prompt}); err != nil {
+		t.Fatal(err)
+	}
+	if run.Stdin != prompt || strings.Contains(strings.Join(run.Args, " "), prompt) {
+		t.Fatal("Claude prompt was not sent intact through stdin")
+	}
+}
 
 func TestExecWithRunnerBuildsDefaultArgv(t *testing.T) {
 	stubLookPath(t)
@@ -28,11 +45,14 @@ func TestExecWithRunnerBuildsDefaultArgv(t *testing.T) {
 		"--effort", "xhigh",
 		"do work",
 	}
-	if !reflect.DeepEqual(run.Args, wantArgs) {
+	if !reflect.DeepEqual(run.Args, testsupport.ExpectedPromptArgs(wantArgs, "claude")) {
 		t.Fatalf("args = %#v, want %#v", run.Args, wantArgs)
 	}
 	if run.Name == "" {
 		t.Fatal("expected claude path")
+	}
+	if runtime.GOOS == "windows" && run.Stdin != "do work" {
+		t.Fatalf("stdin prompt = %q", run.Stdin)
 	}
 }
 
@@ -53,7 +73,7 @@ func TestExecWithRunnerBuildsFullAccessHighEffortArgv(t *testing.T) {
 		"--effort", "high",
 		"do work",
 	}
-	if !reflect.DeepEqual(run.Args, wantArgs) {
+	if !reflect.DeepEqual(run.Args, testsupport.ExpectedPromptArgs(wantArgs, "claude")) {
 		t.Fatalf("args = %#v, want %#v", run.Args, wantArgs)
 	}
 }
@@ -76,7 +96,7 @@ func TestExecWithRunnerBuildsModelArgv(t *testing.T) {
 		"--effort", "xhigh",
 		"do work",
 	}
-	if !reflect.DeepEqual(run.Args, wantArgs) {
+	if !reflect.DeepEqual(run.Args, testsupport.ExpectedPromptArgs(wantArgs, "claude")) {
 		t.Fatalf("args = %#v, want %#v", run.Args, wantArgs)
 	}
 }
@@ -99,7 +119,7 @@ func TestExecWithRunnerBuildsResumeArgv(t *testing.T) {
 		"--effort", "xhigh",
 		"continue work",
 	}
-	if !reflect.DeepEqual(run.Args, wantArgs) {
+	if !reflect.DeepEqual(run.Args, testsupport.ExpectedPromptArgs(wantArgs, "claude")) {
 		t.Fatalf("args = %#v, want %#v", run.Args, wantArgs)
 	}
 }

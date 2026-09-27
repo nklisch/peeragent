@@ -219,7 +219,11 @@ func (l ProcessLauncher) Launch(executable string, job jobs.Job) error {
 	writePID := l.writePID
 	if writePID == nil {
 		writePID = func(store jobs.Store, id string, pid int) error {
-			return store.WritePID(id, pid)
+			identity, err := jobs.ProcessIdentity(pid)
+			if err != nil {
+				return err
+			}
+			return store.WritePIDRecord(id, jobs.PIDRecord{PID: pid, Identity: identity})
 		}
 	}
 	releaseProcess := l.releaseProcess
@@ -241,7 +245,7 @@ func (l ProcessLauncher) Launch(executable string, job jobs.Job) error {
 	cmd.Stderr = logFile
 	jobs.ApplyDetachAttrs(cmd)
 
-	if err := cmd.Start(); err != nil {
+	if err := jobs.StartDetached(cmd); err != nil {
 		return err
 	}
 	store := jobs.NewStore(job.CWD)

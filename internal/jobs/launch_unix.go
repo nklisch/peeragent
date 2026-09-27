@@ -16,16 +16,18 @@ func ApplyDetachAttrs(cmd *exec.Cmd) {
 	cmd.SysProcAttr.Setsid = true
 }
 
+func StartDetached(cmd *exec.Cmd) error { return cmd.Start() }
+
 func AttachCurrentProcess(string) (func(), error) {
 	return func() {}, nil
 }
 
-func SignalProcessTree(_ string, pid int, sig os.Signal) error {
-	return SignalProcessGroup(pid, sig)
+func SignalProcessTree(_ string, worker PIDRecord, sig os.Signal) error {
+	return SignalProcessGroup(worker.PID, sig)
 }
 
-func ProcessTreeExists(_ string, pid int) bool {
-	return ProcessGroupExists(pid)
+func ProcessTreeExists(_ string, worker PIDRecord) bool {
+	return ProcessGroupExists(worker.PID)
 }
 
 func SignalProcessGroup(pid int, sig os.Signal) error {

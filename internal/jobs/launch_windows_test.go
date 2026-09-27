@@ -17,6 +17,14 @@ func TestWindowsJobHelperProcess(t *testing.T) {
 	}
 }
 
+func TestApplyDetachAttrsRequestsBreakaway(t *testing.T) {
+	cmd := exec.Command(os.Args[0])
+	ApplyDetachAttrs(cmd)
+	if cmd.SysProcAttr.CreationFlags&(createNoWindow|createBreakawayFromJob) != createNoWindow|createBreakawayFromJob {
+		t.Fatalf("creation flags = %#x", cmd.SysProcAttr.CreationFlags)
+	}
+}
+
 func TestSignalProcessTreeWaitsForAttachment(t *testing.T) {
 	jobID, err := newID()
 	if err != nil {
@@ -32,13 +40,22 @@ func TestSignalProcessTreeWaitsForAttachment(t *testing.T) {
 		_ = cmd.Wait()
 	})
 	pid := cmd.Process.Pid
+	identity, err := ProcessIdentity(pid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	worker := PIDRecord{PID: pid, Identity: identity}
 
 	// A missing job must not cause cancellation to kill a possibly reused PID.
-	if err := SignalProcessTree(jobID, pid, TerminateSignal()); err == nil {
+	if err := SignalProcessTree(jobID, worker, TerminateSignal()); err == nil {
 		t.Fatal("cancellation accepted a live PID with no named job")
 	}
-	if !processExists(pid) || !ProcessTreeExists(jobID, pid) {
+	if !processExists(pid) || !ProcessTreeExists(jobID, worker) {
 		t.Fatal("a live process was stopped or reported stopped before attachment")
+	}
+	stale := PIDRecord{PID: pid, Identity: identity + 1}
+	if err := SignalProcessTree(jobID, stale, TerminateSignal()); err != nil || ProcessTreeExists(jobID, stale) || !processExists(pid) {
+		t.Fatalf("stale worker identity affected unrelated process: %v", err)
 	}
 
 	name, err := jobName(jobID)
@@ -50,14 +67,10 @@ func TestSignalProcessTreeWaitsForAttachment(t *testing.T) {
 		t.Fatalf("create empty job: %v", callErr)
 	}
 	defer syscall.CloseHandle(syscall.Handle(job))
-	cancelDone := make(chan error, 1)
-	go func() { cancelDone <- SignalProcessTree(jobID, pid, TerminateSignal()) }()
-	select {
-	case err := <-cancelDone:
-		t.Fatalf("cancellation returned before the worker attached: %v", err)
-	case <-time.After(50 * time.Millisecond):
+	if err := SignalProcessTree(jobID, worker, TerminateSignal()); err == nil {
+		t.Fatal("cancellation accepted a live worker while its named job was empty")
 	}
-	if !processExists(pid) || !ProcessTreeExists(jobID, pid) {
+	if !processExists(pid) || !ProcessTreeExists(jobID, worker) {
 		t.Fatal("an empty job hid or stopped its live worker")
 	}
 
@@ -70,13 +83,8 @@ func TestSignalProcessTreeWaitsForAttachment(t *testing.T) {
 	if ok == 0 {
 		t.Fatalf("assign worker to job: %v", callErr)
 	}
-	select {
-	case err := <-cancelDone:
-		if err != nil {
-			t.Fatal(err)
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("cancellation did not finish after worker attachment")
+	if err := SignalProcessTree(jobID, worker, TerminateSignal()); err != nil {
+		t.Fatal(err)
 	}
 	if state, err := syscall.WaitForSingleObject(process, 2000); err != nil || state != syscall.WAIT_OBJECT_0 {
 		t.Fatalf("worker remained alive after job termination: state=%d err=%v", state, err)

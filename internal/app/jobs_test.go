@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/nklisch/peeragent/internal/jobs"
 	"github.com/nklisch/peeragent/internal/result"
@@ -258,6 +259,48 @@ func TestFinishJobPreservesCompetingTerminalResult(t *testing.T) {
 	}
 	if got.Summary != winner.Summary || got.Status != winner.Status {
 		t.Fatalf("stored result = %#v, want %#v", got, winner)
+	}
+}
+
+func TestFinishJobKeepsPIDWhenResultWriteFails(t *testing.T) {
+	cwd := t.TempDir()
+	store := jobs.NewStore(cwd)
+	job, err := store.Create(cwd, testJobSpec(), "do work")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.WritePID(job.ID, 999999999); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(job.ResultPath+".tmp", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := FinishJob(store, job, result.Result{Status: result.StatusSuccess}); err == nil {
+		t.Fatal("expected result write failure")
+	}
+	if pid, err := store.ReadPID(job.ID); err != nil || pid != 999999999 {
+		t.Fatalf("pid after failed finish = %d, %v", pid, err)
+	}
+	got, err := NewService(Options{}).JobResult(context.Background(), JobRequest{CWD: cwd, JobID: job.ID})
+	if err != nil || got.Status != result.StatusFailed {
+		t.Fatalf("abandoned job result = %#v, %v", got, err)
+	}
+}
+
+func TestJobResultFailsAfterMissingPIDGrace(t *testing.T) {
+	cwd := t.TempDir()
+	store := jobs.NewStore(cwd)
+	job, err := store.Create(cwd, testJobSpec(), "do work")
+	if err != nil {
+		t.Fatal(err)
+	}
+	job.CreatedAt = time.Now().Add(-missingPIDGrace - time.Second)
+	if err := store.Save(job); err != nil {
+		t.Fatal(err)
+	}
+	got, err := NewService(Options{}).JobResult(context.Background(), JobRequest{CWD: cwd, JobID: job.ID})
+	if err != nil || got.Status != result.StatusFailed {
+		t.Fatalf("missing worker result = %#v, %v", got, err)
 	}
 }
 

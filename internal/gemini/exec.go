@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os/exec"
+	"runtime"
 	"strings"
 
 	"github.com/nklisch/peeragent/internal/executil"
@@ -40,10 +41,57 @@ func ExecWithRunner(ctx context.Context, run executil.Runner, opts Options) (Res
 	if err != nil {
 		return Result{ExitCode: 127}, errors.New("Antigravity CLI not found in PATH")
 	}
-	result, err := run.Run(ctx, path, buildArgs(opts), opts.CWD)
+	args := buildArgs(opts)
+	var stdin string
+	if runtime.GOOS == "windows" {
+		// Streaming mode reads the prompt from stdin. Print mode requires a
+		// command-line value, which Windows batch launchers can truncate.
+		args[1] = "stream-json"
+		args = append(args[:len(args)-2], "--input-format", "stream-json")
+		message, marshalErr := json.Marshal(struct {
+			Event   string `json:"event"`
+			Message struct {
+				Content string `json:"content"`
+			} `json:"message"`
+		}{Event: "user", Message: struct {
+			Content string `json:"content"`
+		}{Content: opts.Prompt}})
+		if marshalErr != nil {
+			return Result{ExitCode: 1}, marshalErr
+		}
+		stdin = string(message) + "\n"
+	}
+	result, err := run.Run(ctx, path, args, opts.CWD, stdin)
 	result.AgentSession = opts.Resume
+	if runtime.GOOS == "windows" {
+		normalizeStreamResult(&result)
+	}
 	normalizeResult(&result)
 	return result, err
+}
+
+func normalizeStreamResult(result *Result) {
+	found := false
+	for _, line := range strings.Split(result.Stdout, "\n") {
+		var event struct {
+			Event  string        `json:"event"`
+			Result printEnvelope `json:"result"`
+		}
+		if json.Unmarshal([]byte(line), &event) != nil || event.Event != "result" {
+			continue
+		}
+		found = true
+		result.Stdout = event.Result.Response
+		if event.Result.ConversationID != "" {
+			result.AgentSession = event.Result.ConversationID
+		}
+		if !strings.EqualFold(event.Result.Status, "SUCCESS") {
+			result.ExitCode = 1
+		}
+	}
+	if !found && result.ExitCode == 0 {
+		result.ExitCode = 1
+	}
 }
 
 // normalizeResult translates agy's machine-readable print envelope into the

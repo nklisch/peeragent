@@ -29,6 +29,9 @@ if [ -n "${PEERAGENT_BIN:-}" ] && [ -x "$PEERAGENT_BIN" ]; then
 fi
 
 # 2. Local ephemeral build (developer `make build`).
+if [ -x "$PLUGIN_ROOT/dist/peeragent.exe" ]; then
+  exec "$PLUGIN_ROOT/dist/peeragent.exe" "$@"
+fi
 if [ -x "$PLUGIN_ROOT/dist/peeragent" ]; then
   exec "$PLUGIN_ROOT/dist/peeragent" "$@"
 fi
@@ -54,6 +57,7 @@ detect_target() {
   case "$(uname -s 2>/dev/null || echo unknown)" in
     Linux) goos=linux ;;
     Darwin) goos=darwin ;;
+    MINGW*|MSYS*|CYGWIN*) goos=windows ;;
     *) goos=unknown ;;
   esac
   case "$(uname -m 2>/dev/null || echo unknown)" in
@@ -65,12 +69,13 @@ detect_target() {
 }
 TARGET=$(detect_target)
 CANDIDATE="$PLUGIN_ROOT/bin/$TARGET/peeragent"
+case "$TARGET" in windows-*) CANDIDATE="$CANDIDATE.exe" ;; esac
 if [ -x "$CANDIDATE" ]; then
   exec "$CANDIDATE" "$@"
 fi
 
 # 5. No prebuilt binary for this platform — fail per the result contract (exit 3).
-# Prebuilt binaries cover linux/darwin on amd64/arm64 only; other platforms install
+# Prebuilt binaries cover linux/darwin/windows on amd64/arm64; other platforms install
 # from source. The JSON (stdout) embeds only the sanitized TARGET — no filesystem
 # path — so it is always valid regardless of PLUGIN_ROOT. --text (stderr) carries
 # the human-facing path hint.
@@ -97,10 +102,10 @@ wants_text() {
   return 1
 }
 if wants_text "$@"; then
-  printf 'peeragent has no prebuilt binary for this platform (%s).\nPrebuilt binaries cover linux and macOS on amd64/arm64.\nOn other platforms, install from source (requires Go):\n  %s\nthen set PEERAGENT_BIN to the installed binary (typically $(go env GOPATH)/bin/peeragent),\nor place a binary at %s.\nReleases: %s\n' \
+  printf 'peeragent has no prebuilt binary for this platform (%s).\nPrebuilt binaries cover Linux, macOS, and Windows on amd64/arm64.\nOn other platforms, install from source (requires Go):\n  %s\nthen set PEERAGENT_BIN to the installed binary (typically $(go env GOPATH)/bin/peeragent),\nor place a binary at %s.\nReleases: %s\n' \
     "$TARGET" "$INSTALL_HINT" "$CANDIDATE" "$RELEASES_URL" >&2
 else
-  printf '{"status":"failed","summary":"peeragent has no prebuilt binary for %s","changed_files":[],"verification":[],"details":"No prebuilt peeragent binary for %s. Prebuilt binaries cover linux/darwin on amd64/arm64; on other platforms install from source with Go (%s) and set PEERAGENT_BIN. Releases: %s","metadata":{"exit_code":3,"target":"%s"}}\n' \
+  printf '{"status":"failed","summary":"peeragent has no prebuilt binary for %s","changed_files":[],"verification":[],"details":"No prebuilt peeragent binary for %s. Prebuilt binaries cover Linux, macOS, and Windows on amd64/arm64; on other platforms install from source with Go (%s) and set PEERAGENT_BIN. Releases: %s","metadata":{"exit_code":3,"target":"%s"}}\n' \
     "$TARGET" "$TARGET" "$INSTALL_HINT" "$RELEASES_URL" "$TARGET"
 fi
 exit 3

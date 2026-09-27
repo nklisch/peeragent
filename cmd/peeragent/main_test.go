@@ -1,13 +1,16 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/nklisch/peeragent/internal/app"
 	"github.com/nklisch/peeragent/internal/executil"
@@ -15,6 +18,30 @@ import (
 	"github.com/nklisch/peeragent/internal/jobs"
 	"github.com/nklisch/peeragent/internal/result"
 )
+
+func TestWaitReturnsFailureForDeadWorker(t *testing.T) {
+	cwd := t.TempDir()
+	store := jobs.NewStore(cwd)
+	job, err := store.Create(cwd, jobs.ExecSpec{Agent: "codex", Access: "default", JSON: true}, "do work")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.WritePID(job.ID, 999999999); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, os.Args[0], "--cwd", cwd, "--wait", job.ID)
+	cmd.Env = append(os.Environ(), "PEERAGENT_TEST_HELPER_MAIN=1")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("wait returned %v: %s", err, output)
+	}
+	var got result.Result
+	if err := json.Unmarshal(output, &got); err != nil || got.Status != result.StatusFailed {
+		t.Fatalf("wait result = %#v, parse error %v, output %s", got, err, output)
+	}
+}
 
 func TestResultFromExecutionSuccess(t *testing.T) {
 	res := resultFromExecution(input.Request{CWD: "/repo"}, executil.Result{ExitCode: 0, AgentSession: "session-1"}, nil)

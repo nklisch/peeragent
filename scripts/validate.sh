@@ -90,8 +90,8 @@ test -f "dist/release/peeragent_${VERSION}_linux_amd64.tar.gz"
 test -f "dist/release/peeragent_${VERSION}_linux_arm64.tar.gz"
 test -f "dist/release/peeragent_${VERSION}_darwin_amd64.tar.gz"
 test -f "dist/release/peeragent_${VERSION}_darwin_arm64.tar.gz"
-test -f "dist/release/peeragent_${VERSION}_windows_amd64.tar.gz"
-test -f "dist/release/peeragent_${VERSION}_windows_arm64.tar.gz"
+test -f "dist/release/peeragent_${VERSION}_windows_amd64.zip"
+test -f "dist/release/peeragent_${VERSION}_windows_arm64.zip"
 test -f dist/release/checksums.txt
 
 step "plugin metadata"
