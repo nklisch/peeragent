@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"syscall"
+	"time"
 	"unsafe"
 )
 
@@ -20,6 +21,8 @@ const (
 	jobTerminate           = 0x0008
 	waitTimeout            = 0x00000102
 	errorInvalidParameter  = syscall.Errno(87)
+	attachmentWait         = 500 * time.Millisecond
+	attachmentPoll         = 20 * time.Millisecond
 )
 
 var (
@@ -116,34 +119,59 @@ func SignalProcessTree(jobID string, pid int, _ os.Signal) error {
 	if pid <= 1 {
 		return fmt.Errorf("refusing to terminate unsafe process %d", pid)
 	}
-	h, err := openNamedJob(jobID, jobTerminate)
-	if err == nil {
-		defer syscall.CloseHandle(h)
-		ok, _, callErr := terminateJobObject.Call(uintptr(h), 1)
-		if ok == 0 {
-			return fmt.Errorf("terminate Windows job %s: %w", jobID, callErr)
+	deadline := time.Now().Add(attachmentWait)
+	for {
+		h, err := openNamedJob(jobID, jobTerminate|jobQuery)
+		if err == nil {
+			active, queryErr := activeJobProcesses(h)
+			if queryErr != nil {
+				_ = syscall.CloseHandle(h)
+				return queryErr
+			}
+			if active != 0 {
+				ok, _, callErr := terminateJobObject.Call(uintptr(h), 1)
+				_ = syscall.CloseHandle(h)
+				if ok == 0 {
+					return fmt.Errorf("terminate Windows job %s: %w", jobID, callErr)
+				}
+				return nil
+			}
+			_ = syscall.CloseHandle(h)
+		} else if !errors.Is(err, syscall.ERROR_FILE_NOT_FOUND) {
+			return err
 		}
-		return nil
+		// The worker may still be creating and joining its job. A persisted PID
+		// is not a safe termination target because Windows can reuse it.
+		if !processExists(pid) {
+			return nil
+		}
+		if !time.Now().Before(deadline) {
+			return fmt.Errorf("Windows job %s has no attached worker while process %d is running", jobID, pid)
+		}
+		time.Sleep(attachmentPoll)
 	}
-	if !errors.Is(err, syscall.ERROR_FILE_NOT_FOUND) {
-		return err
-	}
-	// Cancellation may beat attachment. The worker attaches before execution.
-	return terminateRoot(pid)
 }
 
 func ProcessTreeExists(jobID string, pid int) bool {
 	h, err := openNamedJob(jobID, jobQuery)
 	if err == nil {
 		defer syscall.CloseHandle(h)
-		info := basicAccountingInformation{}
-		ok, _, _ := queryInformationJobObject.Call(uintptr(h), jobBasicAccountingInfo, uintptr(unsafe.Pointer(&info)), unsafe.Sizeof(info), 0)
-		return ok == 0 || info.ActiveProcesses != 0
+		active, queryErr := activeJobProcesses(h)
+		return queryErr != nil || active != 0 || processExists(pid)
 	}
 	if !errors.Is(err, syscall.ERROR_FILE_NOT_FOUND) {
 		return true
 	}
 	return processExists(pid)
+}
+
+func activeJobProcesses(h syscall.Handle) (uint32, error) {
+	info := basicAccountingInformation{}
+	ok, _, callErr := queryInformationJobObject.Call(uintptr(h), jobBasicAccountingInfo, uintptr(unsafe.Pointer(&info)), unsafe.Sizeof(info), 0)
+	if ok == 0 {
+		return 0, fmt.Errorf("query Windows job: %w", callErr)
+	}
+	return info.ActiveProcesses, nil
 }
 
 func SignalProcessGroup(pid int, _ os.Signal) error { return terminateRoot(pid) }
