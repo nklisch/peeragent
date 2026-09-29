@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.8.1
+
+### Features
+- Add GPT-6.1 Sol support for Codex. The `sol` alias now selects
+  `gpt-6.1-sol`; explicit GPT-6 and GPT-5.6 Sol IDs remain supported.
+
 ## v0.8.0
 
 ### Features

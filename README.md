@@ -105,8 +105,9 @@ Peeragent does not automatically replace a host assistant's normal sub-agent
 pattern. If you want that behavior, add a project instruction to `CLAUDE.md` or
 `AGENTS.md` telling the host when to delegate through `/peer`.
 
-The `luna` and `sol` aliases select GPT-6; `terra` selects GPT-5.6.
-Explicit `gpt-5.6-luna` and `gpt-5.6-sol` IDs remain supported.
+The `sol` alias selects `gpt-6.1-sol`; `luna` selects `gpt-6-luna`, and
+`terra` selects `gpt-5.6-terra`. Explicit `gpt-6-sol`, `gpt-5.6-luna`, and
+`gpt-5.6-sol` IDs remain supported.
 
 Use GPT-6 for routine Codex work and jump to GPT-6 Astra for the most
 demanding passes. Luna is the fast default, Sol is the higher-capability GPT-6 tier,
@@ -244,8 +245,9 @@ bin/peeragent --agent zai --effort xhigh "Review the cross-module migration for 
 ```
 
 Codex accepts the short aliases `astra`, `luna`, `terra`, and `sol` and passes
-`astra`, `luna`, and `sol` as GPT-6 IDs and `terra` as `gpt-5.6-terra`
-to the Codex CLI. Explicit GPT-5.6 IDs are also supported. Claude
+`astra` as `gpt-6-astra`, `luna` as `gpt-6-luna`, `sol` as `gpt-6.1-sol`,
+and `terra` as `gpt-5.6-terra` to the Codex CLI. Explicit `gpt-6-sol` and
+GPT-5.6 IDs are also supported. Claude
 supports `--model
 fable`, `--model sonnet`, `--model opus`, and `--model haiku`. Gemini accepts
 `flash` (the default Gemini 3.7 Flash), `pro` (Gemini 3.1 Pro), and explicit
@@ -383,17 +385,17 @@ make release VERSION=0.8.0
 That writes:
 
 ```text
-dist/release/peeragent_0.5.1_linux_amd64.tar.gz
-dist/release/peeragent_0.5.1_linux_arm64.tar.gz
-dist/release/peeragent_0.5.1_darwin_amd64.tar.gz
-dist/release/peeragent_0.5.1_darwin_arm64.tar.gz
+dist/release/peeragent_0.8.0_linux_amd64.tar.gz
+dist/release/peeragent_0.8.0_linux_arm64.tar.gz
+dist/release/peeragent_0.8.0_darwin_amd64.tar.gz
+dist/release/peeragent_0.8.0_darwin_arm64.tar.gz
 dist/release/checksums.txt
 ```
 
 Publish a GitHub release from a machine with `gh` authenticated:
 
 ```sh
-make publish-release VERSION=0.5.1
+make publish-release VERSION=0.8.0
 ```
 
 The GitHub Actions workflow in `.github/workflows/release.yml` also publishes

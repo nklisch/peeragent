@@ -58,9 +58,10 @@ Options:
   `medium`, `high`, or `xhigh`; Claude defaults to `xhigh` and accepts `high` or
   `xhigh`. Gemini passes effort to `agy`; Z.AI maps it to Pi `--thinking`.
 - `--model <astra|luna|terra|sol|fable|sonnet|opus|haiku|flash|pro|glm-5.2>`:
-  Select a GPT-6 or GPT-5.6 Codex tier, Claude alias, Gemini family, or
+  Select a GPT-6.1, GPT-6, or GPT-5.6 Codex tier, Claude alias, Gemini family, or
   explicitly record the fixed Z.AI GLM 5.2 target. Codex also accepts canonical
-  `gpt-6-<astra|luna|sol>` and `gpt-5.6-<luna|terra|sol>` IDs.
+  `gpt-6.1-sol`, `gpt-6-<astra|luna|sol>`, and
+  `gpt-5.6-<luna|terra|sol>` IDs.
   Gemini defaults to `gemini-3.7-flash`; `flash`, `pro`, and supported explicit
   Gemini family IDs normalize to an `agy --model` value. Flash accepts
   `low|medium|high`, while Pro accepts `low|high`. Z.AI accepts only
@@ -141,7 +142,7 @@ Codex (when a Codex model is selected):
 
 ```text
 codex exec --json --cd <repo> --sandbox workspace-write \
-  --model <gpt-6-<astra|luna|sol>|gpt-5.6-<luna|terra|sol>> \
+  --model <gpt-6.1-sol|gpt-6-<astra|luna|sol>|gpt-5.6-<luna|terra|sol>> \
   -c approval_policy="on-request" -c approvals_reviewer="auto_review" ...
 ```
 
@@ -171,7 +172,8 @@ pi --provider zai --model glm-5.2 --thinking <effort> --no-session -p ...
 
 For Codex, the short aliases `astra`, `luna`, `terra`, and `sol` normalize to
 and pass through as `gpt-6-astra`, `gpt-6-luna`, `gpt-5.6-terra`, and
-`gpt-6-sol`. Explicit GPT-5.6 Luna, Terra, and Sol IDs are also accepted.
+`gpt-6.1-sol`. Explicit `gpt-6-sol` and GPT-5.6 Luna, Terra, and Sol IDs
+are also accepted.
 For Claude, the wrapper passes `--model <alias>` to
 Claude Code; accepted aliases are `fable`, `sonnet`, `opus`, and `haiku`.
 For Gemini, `flash` normalizes to `gemini-3.7-flash`, `pro` normalizes to

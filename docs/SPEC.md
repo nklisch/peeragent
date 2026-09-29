@@ -103,7 +103,7 @@ Target invocations (Codex shown with a selected model tier):
 
 ```text
 codex exec --json --cd <repo> --sandbox workspace-write \
-  --model <gpt-6-<astra|luna|sol>|gpt-5.6-<luna|terra|sol>> \
+  --model <gpt-6.1-sol|gpt-6-<astra|luna|sol>|gpt-5.6-<luna|terra|sol>> \
   -c approval_policy="on-request" -c approvals_reviewer="auto_review" ...
 agy --output-format json --model gemini-3.7-flash --effort high \
   --mode accept-edits --sandbox --dangerously-skip-permissions \
@@ -126,8 +126,8 @@ Z.AI still runs through the same Pi print-mode surface.
 Codex reasoning effort defaults to `high`; the wrapper exposes `low`, `medium`,
 `high`, and `xhigh` for Codex. Its `astra`, `luna`, `terra`, and `sol` aliases
 normalize to `gpt-6-astra`, `gpt-6-luna`, `gpt-5.6-terra`, and
-`gpt-6-sol` and pass through to the Codex CLI. Explicit GPT-5.6 Luna, Terra,
-and Sol IDs remain supported. GPT-6 is the recommended family for routine Codex
+`gpt-6.1-sol` and pass through to the Codex CLI. Explicit `gpt-6-sol` and
+GPT-5.6 Luna, Terra, and Sol IDs remain supported. GPT-6 is the recommended family for routine Codex
 work: Luna at high is the routine fast path, Luna at xhigh handles larger
 workloads, Terra is an optional middle bridge, Sol at low or medium is roughly
 Opus-tier, and Sol at high or xhigh is roughly Fable-tier. GPT-6 Astra is the
