@@ -43,7 +43,7 @@ codex plugin add peeragent@peeragent
 Pi:
 
 ```sh
-pi install git:github.com/nklisch/peeragent@v0.8.1
+pi install git:github.com/nklisch/peeragent@v0.8.2
 ```
 
 The Pi package loads the `peer` skill from `plugin/skills`, so its wrapper
@@ -62,6 +62,14 @@ Prebuilt release archives for the four supported platforms are also published at
 https://github.com/nklisch/peeragent/releases for manual install. If your
 platform is misdetected, set `PEERAGENT_TARGET_OVERRIDE=<goos>-<goarch>` to
 select a present binary.
+
+On Windows, agent CLIs installed through npm can be launched through their
+`.cmd` shims, including from paths with spaces and parentheses. The shared
+runner preserves quoted arguments and shell characters when a shim forwards
+`%*` to a native executable. Batch arguments containing CR or LF are rejected
+before launch because cmd.exe treats them as command boundaries; use a native
+agent `.exe` ahead of the npm shim on PATH for multiline tasks. Native launches
+retain their normal argument handling.
 
 ## Using It
 
@@ -379,23 +387,23 @@ published as downloadable archives for manual install.
 Build release archives locally:
 
 ```sh
-make release VERSION=0.8.1
+make release VERSION=0.8.2
 ```
 
 That writes:
 
 ```text
-dist/release/peeragent_0.8.1_linux_amd64.tar.gz
-dist/release/peeragent_0.8.1_linux_arm64.tar.gz
-dist/release/peeragent_0.8.1_darwin_amd64.tar.gz
-dist/release/peeragent_0.8.1_darwin_arm64.tar.gz
+dist/release/peeragent_0.8.2_linux_amd64.tar.gz
+dist/release/peeragent_0.8.2_linux_arm64.tar.gz
+dist/release/peeragent_0.8.2_darwin_amd64.tar.gz
+dist/release/peeragent_0.8.2_darwin_arm64.tar.gz
 dist/release/checksums.txt
 ```
 
 Publish a GitHub release from a machine with `gh` authenticated:
 
 ```sh
-make publish-release VERSION=0.8.1
+make publish-release VERSION=0.8.2
 ```
 
 The GitHub Actions workflow in `.github/workflows/release.yml` also publishes

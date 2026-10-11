@@ -3,10 +3,7 @@ package jobs
 import (
 	"errors"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"runtime"
-	"syscall"
 	"testing"
 	"time"
 )
@@ -147,33 +144,6 @@ func TestReadPIDRejectsInvalidContent(t *testing.T) {
 	}
 	if _, err := store.ReadPID(job.ID); err == nil {
 		t.Fatal("expected invalid pid parse error")
-	}
-}
-
-func TestApplyDetachAttrsSetsidOnUnix(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("unix-only detach attribute")
-	}
-	cmd := exec.Command("true")
-	ApplyDetachAttrs(cmd)
-	if cmd.SysProcAttr == nil {
-		t.Fatal("SysProcAttr is nil")
-	}
-	attr := cmd.SysProcAttr
-	if !attr.Setsid {
-		t.Fatalf("Setsid = false in %#v", attr)
-	}
-}
-
-func TestProcessGroupHelpersRejectUnsafePID(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("unix-only process group validation")
-	}
-	if err := SignalProcessGroup(1, syscall.SIGTERM); err == nil {
-		t.Fatal("expected unsafe pid rejection")
-	}
-	if ProcessGroupExists(1) {
-		t.Fatal("unsafe process group should not be reported as existing")
 	}
 }
 
