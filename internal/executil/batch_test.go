@@ -1,17 +1,21 @@
 package executil
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestQuoteBatchArg(t *testing.T) {
 	for _, tc := range []struct{ arg, want string }{
-		{"", `^^^"^^^"`},
-		{"plain", `^^^"plain^^^"`},
-		{"a b", `^^^"a^^^ b^^^"`},
-		{`"`, `^^^"\^^^"^^^"`},
-		{`C:\path\`, `^^^"C:\path\\^^^"`},
-		{`\"`, `^^^"\\\^^^"^^^"`},
-		{`&|()^%!`, `^^^"^^^&^^^|^^^(^^^)^^^^^^^%^^^!^^^"`},
-		{"café 日本語", `^^^"café^^^ 日本語^^^"`},
+		{"", `""`},
+		{"plain", `"plain"`},
+		{"a b", `"a b"`},
+		{`"`, `"\""`},
+		{`C:\path\`, `"C:\path\\"`},
+		{`\"`, `"\\\""`},
+		{`&|()^%!`, `"&|()^%!"`},
+		{"café 日本語", `"café 日本語"`},
+		{"multi\nline\r\ntext", "\"multi\nline\r\ntext\""},
 	} {
 		t.Run(tc.arg, func(t *testing.T) {
 			got, err := quoteBatchArg(tc.arg)
@@ -22,10 +26,20 @@ func TestQuoteBatchArg(t *testing.T) {
 	}
 }
 
-func TestQuoteBatchArgRejectsCommandBoundaries(t *testing.T) {
-	for _, arg := range []string{"before\x00after", "before\rafter", "before\nafter", "before\r\nafter"} {
-		if _, err := quoteBatchArg(arg); err == nil {
-			t.Fatalf("accepted %q", arg)
-		}
+func TestQuoteBatchArgRejectsNUL(t *testing.T) {
+	if _, err := quoteBatchArg("before\x00after"); err == nil {
+		t.Fatal("accepted NUL")
+	}
+}
+
+func TestQuoteBatchArgLengthLimit(t *testing.T) {
+	if _, err := quoteBatchArg(strings.Repeat("x", 8191)); err == nil {
+		t.Fatal("accepted a value that cmd.exe would silently drop")
+	}
+	if _, err := quoteBatchArg(strings.Repeat("😀", 4095)); err == nil {
+		t.Fatal("length limit did not count UTF-16 units and enclosing quotes")
+	}
+	if _, err := quoteBatchArg(strings.Repeat("x", 8189)); err != nil {
+		t.Fatalf("rejected value at cmd.exe's limit: %v", err)
 	}
 }

@@ -43,7 +43,7 @@ codex plugin add peeragent@peeragent
 Pi:
 
 ```sh
-pi install git:github.com/nklisch/peeragent@v0.8.2
+pi install git:github.com/nklisch/peeragent@v0.8.3
 ```
 
 The Pi package loads the `peer` skill from `plugin/skills`, so its wrapper
@@ -66,10 +66,13 @@ select a present binary.
 On Windows, agent CLIs installed through npm can be launched through their
 `.cmd` shims, including from paths with spaces and parentheses. The shared
 runner preserves quoted arguments and shell characters when a shim forwards
-`%*` to a native executable. Batch arguments containing CR or LF are rejected
-before launch because cmd.exe treats them as command boundaries; use a native
-agent `.exe` ahead of the npm shim on PATH for multiline tasks. Native launches
-retain their normal argument handling.
+`%*` to a native executable. Arguments travel through process-local environment
+variables and expand after shell parsing, preserving multiline tasks without
+interpreting their contents as commands. This requires the shim to preserve
+delayed expansion at its forwarding command, as npm shims do. Native launches
+retain their normal argument handling. A quoted argument exceeding cmd.exe's
+8191-character limit is rejected before launch rather than silently dropped;
+use a native agent executable for tasks beyond that batch limit.
 
 ## Using It
 
@@ -387,23 +390,23 @@ published as downloadable archives for manual install.
 Build release archives locally:
 
 ```sh
-make release VERSION=0.8.2
+make release VERSION=0.8.3
 ```
 
 That writes:
 
 ```text
-dist/release/peeragent_0.8.2_linux_amd64.tar.gz
-dist/release/peeragent_0.8.2_linux_arm64.tar.gz
-dist/release/peeragent_0.8.2_darwin_amd64.tar.gz
-dist/release/peeragent_0.8.2_darwin_arm64.tar.gz
+dist/release/peeragent_0.8.3_linux_amd64.tar.gz
+dist/release/peeragent_0.8.3_linux_arm64.tar.gz
+dist/release/peeragent_0.8.3_darwin_amd64.tar.gz
+dist/release/peeragent_0.8.3_darwin_arm64.tar.gz
 dist/release/checksums.txt
 ```
 
 Publish a GitHub release from a machine with `gh` authenticated:
 
 ```sh
-make publish-release VERSION=0.8.2
+make publish-release VERSION=0.8.3
 ```
 
 The GitHub Actions workflow in `.github/workflows/release.yml` also publishes

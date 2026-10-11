@@ -21,7 +21,7 @@ func TestOSRunnerBatchShim(t *testing.T) {
 	}
 	t.Setenv("PEERAGENT_ARG_HELPER", "1")
 	t.Setenv("PEERAGENT_EXPAND_TEST", "must not expand")
-	args := []string{"", "task with spaces", `say "OK" & | ( ) ^ % !`, `%PEERAGENT_EXPAND_TEST% !PEERAGENT_EXPAND_TEST!`, `" & echo injected>injected.txt & "`, `C:\path with spaces\`, `slash\"quote`, "unicode: café 日本語", "tab\there", `%% %1 %* %PATH% ^"!"^`, `"""`, `backslashes\\"and\\`, `< > , ; = [ ] * ?`}
+	args := []string{"", "task with spaces", `say "OK" & | ( ) ^ % !`, `%PEERAGENT_EXPAND_TEST% !PEERAGENT_EXPAND_TEST!`, `" & echo injected>injected.txt & "`, `C:\path with spaces\`, `slash\"quote`, "unicode: café 日本語", "tab\there", `%% %1 %* %PATH% ^"!"^`, `"""`, `backslashes\\"and\\`, `< > , ; = [ ] * ?`, "multi\nline\r\ntext", "before\rthen", "line\n& echo injected>injected.txt\nend"}
 	for _, folder := range []string{"bin", "Program Files (x86)"} {
 		for _, ext := range []string{".cmd", ".bat", ".CMD"} {
 			t.Run(folder+ext, func(t *testing.T) {
@@ -53,10 +53,10 @@ func TestOSRunnerBatchShim(t *testing.T) {
 				if _, err := os.Stat(filepath.Join(dir, "injected.txt")); !os.IsNotExist(err) {
 					t.Fatalf("shell injection marker: %v", err)
 				}
-				for _, arg := range []string{"before\rafter", "before\nafter"} {
+				for _, arg := range []string{"before\x00after"} {
 					got, err := (OSRunner{}).Run(ctx, path, []string{arg}, dir)
 					if err == nil || got.ExitCode != 1 || got.Stdout != "" {
-						t.Fatalf("command boundary argument launched: %+v, %v", got, err)
+						t.Fatalf("NUL argument launched: %+v, %v", got, err)
 					}
 				}
 			})
