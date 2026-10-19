@@ -84,3 +84,30 @@ and cross-compilation were not checked. An unnecessarily queued cold-cross-build
 plan was stopped before it started; warm harness checks ran as light work.
 No verification process remains active. Results are in the unit's requested
 report and `warm-verification.log`; the worktree/cache remain for review.
+
+## Adjudicated review corrections
+
+On 2026-10-19, fixed the accepted capacity-classification blocker: the last
+structured terminal event decides the outcome. An ordinary `turn.failed`
+clears capacity history; stderr fallback requires a diagnostic prefix and no
+structured terminal outcome. Orphan-tool filtering now matches only its own
+diagnostic prefix, preserving an unrelated error containing a quoted filename.
+
+The new regressions reproduced the review's failures before correction. Focused
+tests passed after correction, including the async capacity-history/authentication
+failure ending `failed` with zero retries and one call, and cancellation after
+the first capacity attempt has scheduled its backoff. That cancellation test
+checks the owned worker exits, the result stays `cancelled`, and only one agent
+call occurred. It exercises Unix process-group cancellation; Windows is skipped
+because the existing adapter does not support that signalling.
+
+On frozen implementation `1f40116`, `make test` and `go vet ./...` each ran once
+and passed on Linux, reusing the warm Go cache. Formatting and `git diff --check`
+also passed. No real model or installed peeragent binary ran. Native macOS/Windows
+behavior and live capacity incidents remain untested.
+
+Deferred by adjudication: `moved-job-result-path` records the pre-existing
+status/result disagreement after relocation. Added review evidence to existing
+`gate-security-atomic-write-symlink` and `gate-security-job-file-permissions`
+items, rather than duplicating or fixing them. No merge, push, tag, release or
+binary refresh. The requested report carries commands and results for this round.
