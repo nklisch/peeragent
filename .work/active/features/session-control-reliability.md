@@ -20,7 +20,9 @@ Codex model-capacity stops needed a resumable outcome and opt-in recovery.
 
 - Reject unknown options, empty/missing option values, and values swallowed from
   the next option before reading task input or starting a job. Usage exit is 2;
-  `--` preserves dash-leading literal task text.
+  `--` preserves dash-leading literal task text. The source-checkout shim
+  preserves the compiled CLI's exits too; its child story records the
+  `go run` mismatch found during verification and the fix.
 - Keep repository-local job state as truth. Add a private per-user cache index
   of job ids and agent/session pairs to absolute working directories. Separate
   atomic entries support concurrent launches; explicit `--cwd` wins. Index

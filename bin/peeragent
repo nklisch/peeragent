@@ -33,9 +33,19 @@ if [ -x "$PLUGIN_ROOT/dist/peeragent" ]; then
   exec "$PLUGIN_ROOT/dist/peeragent" "$@"
 fi
 
-# 3. Source checkout with Go: run current source so edits are reflected.
+# 3. Source checkout with Go: build current source so edits are reflected.
+# Running the binary directly preserves usage (2) and missing-job (4) exits;
+# `go run` converts every non-zero program exit to 1. The detached job child
+# loads its executable before the launching CLI returns, so Unix can remove
+# this private build directory without interrupting an already-started job.
 if [ -d "$PLUGIN_ROOT/cmd/peeragent" ] && command -v go >/dev/null 2>&1; then
-  exec go run "$PLUGIN_ROOT/cmd/peeragent" "$@"
+  _peeragent_source_dir=$(mktemp -d "${GOTMPDIR:-${TMPDIR:-/tmp}}/peeragent-source.XXXXXX")
+  trap 'rm -rf "$_peeragent_source_dir" || :' 0
+  _peeragent_source_bin="$_peeragent_source_dir/peeragent$(go env GOEXE)"
+  (cd "$PLUGIN_ROOT" && go build -o "$_peeragent_source_bin" "$PLUGIN_ROOT/cmd/peeragent")
+  _peeragent_source_code=0
+  "$_peeragent_source_bin" "$@" || _peeragent_source_code=$?
+  exit "$_peeragent_source_code"
 fi
 
 # 4. Committed platform binary (marketplace / no-Go install).

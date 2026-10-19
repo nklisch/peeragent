@@ -315,6 +315,7 @@ returns a clear JSON failure instead of silently changing how work is done.
 
 Options are strict: unknown options such as `--list` and `--background`, and
 missing or empty option values, exit with usage code `2` before starting work.
+The source-checkout shim preserves those exit codes too.
 Use `--` to pass task text that starts with a dash:
 
 ```sh
