@@ -1,7 +1,7 @@
 ---
 id: source-shim-exit-codes
 kind: story
-stage: implementing
+stage: review
 tags: [infra, tests]
 parent: session-control-reliability
 depends_on: []
@@ -37,5 +37,7 @@ binary and developer-build precedence stay intact. The packaged shim matches.
 - Actual source-shim fake-agent smoke passed from throwaway directories:
   same-job capacity retry, cross-directory controls/resume, explicit directory
   precedence, strict options, and retained attempt logs. No model was started.
-- The combined final suite and native cross-build checks remain queued with
-  the parent feature's handoff. Native macOS/Windows shell behavior is untested.
+- The combined final `make test` suite, `go vet`, formatting and static
+  metadata/documentation checks passed on `0198014`. Native macOS/Windows
+  behavior and cross-builds were not checked. The optional cold cross-build
+  queue entry was stopped before execution; no verification process remains.

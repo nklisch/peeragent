@@ -1,7 +1,7 @@
 ---
 id: session-control-reliability
 kind: feature
-stage: implementing
+stage: review
 tags: [infra, tests, docs]
 parent: null
 depends_on: []
@@ -54,7 +54,7 @@ CLI and input test harnesses use a private index inherited by their
 helper processes, so ordinary test runs do not pollute the user cache.
 
 README, help, foundation docs, and both bundled skill copies describe the
-new behavior. Verification results will be recorded here at review handoff.
+new behavior. Final verification passed on the frozen implementation at `0198014`.
 No merge, push, release, or committed binary refresh is authorized in this unit.
 
 ## Known limits
@@ -66,3 +66,19 @@ No merge, push, release, or committed binary refresh is authorized in this unit.
   likewise needs an explicit directory override. The index is a locator only.
 - Real model calls and native macOS/Windows runtime behavior are not exercised
   by fake-agent checks on Linux.
+
+## Final verification
+
+On Linux, the full `make test` suite and `go vet ./...` passed on `0198014`.
+Formatting, `git diff --check`, both shims' `sh -n`, curated-copy comparisons,
+and the metadata/documentation checks extracted from `scripts/validate.sh`
+passed. Both scratch-binary and actual source-shim fake-agent async smoke
+checks passed, including retries, cross-directory controls/resume, usage exits,
+and raw attempt logs. No real model was started.
+
+Full `make validate` was excluded because it builds release archives and runs
+committed binaries. ShellCheck is unavailable; native macOS/Windows behavior
+and cross-compilation were not checked. An unnecessarily queued cold-cross-build
+plan was stopped before it started; warm harness checks ran as light work.
+No verification process remains active. Results are in the unit's requested
+report and `warm-verification.log`; the worktree/cache remain for review.
