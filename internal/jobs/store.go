@@ -22,6 +22,7 @@ const (
 	StatusComplete  Status = "complete"
 	StatusFailed    Status = "failed"
 	StatusCancelled Status = "cancelled"
+	StatusCapacity  Status = "capacity_exhausted"
 )
 
 type Job struct {
@@ -37,15 +38,17 @@ type Job struct {
 }
 
 type ExecSpec struct {
-	Agent      string `json:"agent"`
-	Access     string `json:"access"`
-	Profile    string `json:"profile,omitempty"`
-	Effort     string `json:"effort,omitempty"`
-	Model      string `json:"model,omitempty"`
-	Resume     string `json:"resume,omitempty"`
-	JSON       bool   `json:"json"`
-	FullAccess bool   `json:"full_access,omitempty"`
-	Worktree   bool   `json:"worktree,omitempty"`
+	RetryCapacity   int           `json:"retry_capacity,omitempty"`
+	CapacityBackoff time.Duration `json:"capacity_backoff,omitempty"`
+	Agent           string        `json:"agent"`
+	Access          string        `json:"access"`
+	Profile         string        `json:"profile,omitempty"`
+	Effort          string        `json:"effort,omitempty"`
+	Model           string        `json:"model,omitempty"`
+	Resume          string        `json:"resume,omitempty"`
+	JSON            bool          `json:"json"`
+	FullAccess      bool          `json:"full_access,omitempty"`
+	Worktree        bool          `json:"worktree,omitempty"`
 }
 
 type Store struct {
@@ -264,7 +267,7 @@ func AtomicWriteFile(path string, content []byte, perm os.FileMode) error {
 // cannot be accidentally overwritten by an older process.
 func IsTerminalStatus(status Status) bool {
 	switch status {
-	case StatusComplete, StatusFailed, StatusCancelled:
+	case StatusComplete, StatusFailed, StatusCancelled, StatusCapacity:
 		return true
 	default:
 		return false

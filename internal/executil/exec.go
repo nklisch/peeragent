@@ -9,12 +9,13 @@ import (
 )
 
 type Result struct {
-	ExitCode     int
-	Stdout       string
-	Stderr       string
-	RawStdout    string
-	RawStderr    string
-	AgentSession string
+	CapacityExhausted bool
+	ExitCode          int
+	Stdout            string
+	Stderr            string
+	RawStdout         string
+	RawStderr         string
+	AgentSession      string
 }
 
 type Runner interface {

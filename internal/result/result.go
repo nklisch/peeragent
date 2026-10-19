@@ -3,6 +3,7 @@ package result
 type Status string
 
 const (
+	StatusCapacity  Status = "capacity_exhausted"
 	StatusSuccess   Status = "success"
 	StatusFailed    Status = "failed"
 	StatusBlocked   Status = "blocked"
@@ -26,14 +27,16 @@ type Verification struct {
 }
 
 type Metadata struct {
-	CWD          string `json:"cwd,omitempty"`
-	Agent        string `json:"agent,omitempty"`
-	Access       string `json:"access,omitempty"`
-	Profile      string `json:"profile,omitempty"`
-	Effort       string `json:"effort,omitempty"`
-	Model        string `json:"model,omitempty"`
-	ExitCode     int    `json:"exit_code"`
-	AgentSession string `json:"agent_session,omitempty"`
-	JobID        string `json:"job_id,omitempty"`
-	LogPath      string `json:"log_path,omitempty"`
+	IndexWarning    string `json:"index_warning,omitempty"`
+	CapacityRetries int    `json:"capacity_retries,omitempty"`
+	CWD             string `json:"cwd,omitempty"`
+	Agent           string `json:"agent,omitempty"`
+	Access          string `json:"access,omitempty"`
+	Profile         string `json:"profile,omitempty"`
+	Effort          string `json:"effort,omitempty"`
+	Model           string `json:"model,omitempty"`
+	ExitCode        int    `json:"exit_code"`
+	AgentSession    string `json:"agent_session,omitempty"`
+	JobID           string `json:"job_id,omitempty"`
+	LogPath         string `json:"log_path,omitempty"`
 }

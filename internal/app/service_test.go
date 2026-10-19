@@ -311,3 +311,24 @@ func normalizedDelegation(t *testing.T, raw input.Delegation) input.Delegation {
 	}
 	return got
 }
+
+func TestIndexFailureWarnsWithoutPreventingExecution(t *testing.T) {
+	root := t.TempDir()
+	state := root + "/not-a-directory"
+	if err := os.WriteFile(state, []byte("occupied"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PEERAGENT_STATE_DIR", state)
+	launcher := &fakeLauncher{}
+	executor := &fakeExecutor{result: executil.Result{AgentSession: "session-warning"}}
+	service := NewService(Options{Launcher: launcher, Executor: executor, Executable: func() (string, error) { return "unused", nil }})
+	delegation := normalizedDelegation(t, input.Delegation{TaskText: "do work", CWD: root})
+	launched, err := service.Launch(context.Background(), delegation)
+	if err != nil || launched.Status != result.StatusRunning || launched.Metadata.IndexWarning == "" || launcher.job.ID == "" {
+		t.Fatalf("launch = %#v, %v", launched, err)
+	}
+	res, err := service.Delegate(context.Background(), delegation)
+	if err != nil || res.Status != result.StatusSuccess || res.Metadata.IndexWarning == "" {
+		t.Fatalf("delegation = %#v, %v", res, err)
+	}
+}

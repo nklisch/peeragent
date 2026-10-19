@@ -5,30 +5,36 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/nklisch/peeragent/internal/agent"
 	"github.com/nklisch/peeragent/internal/jobs"
 )
 
+const ValidOptions = "--agent --async --sandbox --full-access --worktree --effort --model --profile --resume --cwd --prompt-file --json --text --status --result --wait --cancel --retry-capacity --capacity-backoff --help -h"
+
 type Request struct {
-	TaskText    string
-	CWD         string
-	JSON        bool
-	Agent       string
-	FullAccess  bool
-	Worktree    bool
-	Profile     string
-	Effort      string
-	Model       string
-	Resume      string
-	Async       bool
-	JobRunID    string
-	StatusJobID string
-	ResultJobID string
-	WaitJobID   string
-	CancelJobID string
-	Help        bool
+	RetryCapacity   int
+	CapacityBackoff time.Duration
+	TaskText        string
+	CWD             string
+	JSON            bool
+	Agent           string
+	FullAccess      bool
+	Worktree        bool
+	Profile         string
+	Effort          string
+	Model           string
+	Resume          string
+	Async           bool
+	JobRunID        string
+	StatusJobID     string
+	ResultJobID     string
+	WaitJobID       string
+	CancelJobID     string
+	Help            bool
 }
 
 func Parse(args []string, stdin io.Reader, getwd func() (string, error)) (Request, error) {
@@ -44,6 +50,26 @@ func Parse(args []string, stdin io.Reader, getwd func() (string, error)) (Reques
 		return Request{}, err
 	}
 
+	if parsed.cwd == "" {
+		id := ""
+		for _, candidate := range []string{parsed.jobRunID, parsed.statusJobID, parsed.resultJobID, parsed.waitJobID, parsed.cancelJobID} {
+			if candidate != "" {
+				id = candidate
+				break
+			}
+		}
+		var cwd string
+		var lookupErr error
+		if id != "" {
+			cwd, lookupErr = jobs.LookupJob(id)
+		} else if parsed.resume != "" {
+			cwd, lookupErr = jobs.LookupSession(parsed.agent, parsed.resume)
+		}
+		if lookupErr != nil {
+			return Request{}, fmt.Errorf("lookup working directory (use --cwd to override): %w", lookupErr)
+		}
+		parsed.cwd = cwd
+	}
 	parts := make([]string, 0, 3)
 	if joinedArgs := strings.TrimSpace(strings.Join(parsed.positionals, " ")); joinedArgs != "" {
 		parts = append(parts, joinedArgs)
@@ -97,22 +123,24 @@ func Parse(args []string, stdin io.Reader, getwd func() (string, error)) (Reques
 	}
 
 	return Request{
-		TaskText:    delegation.TaskText,
-		CWD:         delegation.CWD,
-		JSON:        parsed.json,
-		Agent:       delegation.Agent,
-		FullAccess:  delegation.FullAccess,
-		Worktree:    parsed.worktree,
-		Profile:     delegation.Profile,
-		Effort:      delegation.Effort,
-		Model:       delegation.Model,
-		Resume:      delegation.Resume,
-		Async:       parsed.async,
-		JobRunID:    parsed.jobRunID,
-		StatusJobID: parsed.statusJobID,
-		ResultJobID: parsed.resultJobID,
-		WaitJobID:   parsed.waitJobID,
-		CancelJobID: parsed.cancelJobID,
+		RetryCapacity:   parsed.retryCapacity,
+		CapacityBackoff: parsed.capacityBackoff,
+		TaskText:        delegation.TaskText,
+		CWD:             delegation.CWD,
+		JSON:            parsed.json,
+		Agent:           delegation.Agent,
+		FullAccess:      delegation.FullAccess,
+		Worktree:        parsed.worktree,
+		Profile:         delegation.Profile,
+		Effort:          delegation.Effort,
+		Model:           delegation.Model,
+		Resume:          delegation.Resume,
+		Async:           parsed.async,
+		JobRunID:        parsed.jobRunID,
+		StatusJobID:     parsed.statusJobID,
+		ResultJobID:     parsed.resultJobID,
+		WaitJobID:       parsed.waitJobID,
+		CancelJobID:     parsed.cancelJobID,
 	}, nil
 }
 
@@ -171,43 +199,67 @@ func isInteractiveTTY(stdin io.Reader) bool {
 }
 
 type parsedArgs struct {
-	cwd         string
-	promptFile  string
-	json        bool
-	agent       string
-	sandbox     bool
-	fullAccess  bool
-	worktree    bool
-	profile     string
-	effort      string
-	model       string
-	resume      string
-	async       bool
-	jobRunID    string
-	statusJobID string
-	resultJobID string
-	waitJobID   string
-	cancelJobID string
-	help        bool
-	positionals []string
+	retryCapacity   int
+	capacityBackoff time.Duration
+	backoffSet      bool
+	retrySet        bool
+	cwd             string
+	promptFile      string
+	json            bool
+	agent           string
+	sandbox         bool
+	fullAccess      bool
+	worktree        bool
+	profile         string
+	effort          string
+	model           string
+	resume          string
+	async           bool
+	jobRunID        string
+	statusJobID     string
+	resultJobID     string
+	waitJobID       string
+	cancelJobID     string
+	help            bool
+	positionals     []string
 }
 
 func parseArgs(args []string) (parsedArgs, error) {
-	parsed := parsedArgs{json: true, agent: string(agent.DefaultID())}
+	parsed := parsedArgs{json: true, agent: string(agent.DefaultID()), capacityBackoff: 10 * time.Minute}
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
+		if arg == "--" {
+			parsed.positionals = append(parsed.positionals, args[i+1:]...)
+			break
+		}
 		switch arg {
+		case "--cwd", "--prompt-file", "--agent", "--profile", "--effort", "--model", "--resume", "--job-run", "--status", "--result", "--wait", "--cancel", "--retry-capacity", "--capacity-backoff":
+			if i+1 >= len(args) || strings.TrimSpace(args[i+1]) == "" || strings.HasPrefix(args[i+1], "-") {
+				return parsedArgs{}, fmt.Errorf("%s requires a non-empty value", arg)
+			}
+		}
+		switch arg {
+		case "--retry-capacity":
+			i++
+			n, err := strconv.Atoi(args[i])
+			if err != nil || n < 0 {
+				return parsedArgs{}, errors.New("--retry-capacity requires a non-negative integer")
+			}
+			parsed.retryCapacity = n
+			parsed.retrySet = true
+		case "--capacity-backoff":
+			i++
+			d, err := time.ParseDuration(args[i])
+			if err != nil || d <= 0 {
+				return parsedArgs{}, errors.New("--capacity-backoff requires a positive duration, e.g. 10m")
+			}
+			parsed.capacityBackoff = d
+			parsed.backoffSet = true
 		case "--cwd":
 			i++
-			if i >= len(args) {
-				return parsedArgs{}, errors.New("--cwd requires a value")
-			}
 			parsed.cwd = args[i]
 		case "--prompt-file":
 			i++
-			if i >= len(args) {
-				return parsedArgs{}, errors.New("--prompt-file requires a value")
-			}
 			parsed.promptFile = args[i]
 		case "--json":
 			parsed.json = true
@@ -215,9 +267,6 @@ func parseArgs(args []string) (parsedArgs, error) {
 			parsed.json = false
 		case "--agent":
 			i++
-			if i >= len(args) {
-				return parsedArgs{}, errors.New("--agent requires a value")
-			}
 			agent, err := normalizeAgent(args[i])
 			if err != nil {
 				return parsedArgs{}, err
@@ -231,68 +280,47 @@ func parseArgs(args []string) (parsedArgs, error) {
 			parsed.worktree = true
 		case "--profile":
 			i++
-			if i >= len(args) {
-				return parsedArgs{}, errors.New("--profile requires a value")
-			}
 			parsed.profile = args[i]
 		case "--effort":
 			i++
-			if i >= len(args) {
-				return parsedArgs{}, errors.New("--effort requires a value")
-			}
 			parsed.effort = args[i]
 		case "--model":
 			i++
-			if i >= len(args) {
-				return parsedArgs{}, errors.New("--model requires a value")
-			}
 			parsed.model = args[i]
 		case "--resume":
 			i++
-			if i >= len(args) {
-				return parsedArgs{}, errors.New("--resume requires a session id")
-			}
 			parsed.resume = strings.TrimSpace(args[i])
 		case "--async":
 			parsed.async = true
 		case "--job-run":
 			i++
-			if i >= len(args) {
-				return parsedArgs{}, errors.New("--job-run requires a value")
-			}
 			parsed.jobRunID = args[i]
 		case "--status":
 			i++
-			if i >= len(args) {
-				return parsedArgs{}, errors.New("--status requires a job id")
-			}
 			parsed.statusJobID = args[i]
 		case "--result":
 			i++
-			if i >= len(args) {
-				return parsedArgs{}, errors.New("--result requires a job id")
-			}
 			parsed.resultJobID = args[i]
 		case "--wait":
 			i++
-			if i >= len(args) {
-				return parsedArgs{}, errors.New("--wait requires a job id")
-			}
 			parsed.waitJobID = args[i]
 		case "--cancel":
 			i++
-			if i >= len(args) {
-				return parsedArgs{}, errors.New("--cancel requires a job id")
-			}
 			parsed.cancelJobID = args[i]
 		case "--help", "-h":
 			parsed.help = true
 		default:
+			if strings.HasPrefix(arg, "-") {
+				return parsedArgs{}, fmt.Errorf("unknown option %q; valid options: %s; use -- before task text beginning with a dash", arg, ValidOptions)
+			}
 			parsed.positionals = append(parsed.positionals, arg)
 		}
 	}
 	if parsed.help {
 		return parsed, nil
+	}
+	if (parsed.retrySet || parsed.backoffSet) && (!parsed.async || parsed.agent != "codex" || parsed.jobRunID != "" || parsed.statusJobID != "" || parsed.waitJobID != "" || parsed.resultJobID != "" || parsed.cancelJobID != "") {
+		return parsedArgs{}, errors.New("capacity retry options require --async --agent codex")
 	}
 	if parsed.sandbox && parsed.fullAccess {
 		return parsedArgs{}, errors.New("--sandbox cannot be combined with --full-access")

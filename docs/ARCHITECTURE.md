@@ -169,7 +169,20 @@ Worktree execution is recognized but not implemented yet.
    `--status` and `--result` remain fallbacks.
 ```
 
-Async jobs are local to the repository under `.peeragent/jobs/`.
+Async job truth is local to the repository under `.peeragent/jobs/`. A private
+per-user index maps job ids and agent/session pairs to absolute working
+directories. Separate atomic files avoid contention between launches. The
+CLI consults it before applying the current-directory default; application job
+controls use the same lookup when no directory is supplied. Explicit `--cwd`
+bypasses lookup. Index write failures warn without preventing delegation.
+
+Codex normalizes explicit capacity error events into a distinct terminal result
+while preserving the session id. The async child optionally retries that result
+with the same session and execution settings, a continuation prompt, and a
+bounded retry count and configurable backoff. Each attempt retains its raw log.
+The job stays running until the final attempt, and terminal cancellation wins
+against later completion. This still relies on the target process exiting;
+receiving a final message alone does not end a live target process.
 
 Cancellation writes cancelled `job.json` and `result.json` state before
 signalling. On unix, it sends SIGTERM to the recorded process group, waits up

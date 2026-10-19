@@ -36,6 +36,12 @@ func FormatText(res Result) string {
 	}
 
 	b.WriteString("Metadata:\n")
+	if res.Metadata.IndexWarning != "" {
+		fmt.Fprintf(&b, "- index_warning: %s\n", res.Metadata.IndexWarning)
+	}
+	if res.Metadata.CapacityRetries > 0 {
+		fmt.Fprintf(&b, "- capacity_retries: %d\n", res.Metadata.CapacityRetries)
+	}
 	if res.Metadata.CWD != "" {
 		fmt.Fprintf(&b, "- cwd: %s\n", res.Metadata.CWD)
 	}

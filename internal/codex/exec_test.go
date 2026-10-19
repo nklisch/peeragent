@@ -268,3 +268,35 @@ func stubLookPath(t *testing.T) {
 		lookPath = previous
 	})
 }
+
+func TestCapacityClassificationAndOrphanFiltering(t *testing.T) {
+	raw := "Orphan custom tool call: call_123\nimportant diagnostic\n"
+	res := Result{ExitCode: 1, Stdout: "{\"type\":\"thread.started\",\"thread_id\":\"session-capacity\"}\n{\"type\":\"turn.failed\",\"error\":{\"message\":\"Selected model is at capacity\"}}", Stderr: raw}
+	normalizeJSONResult(&res)
+	if !res.CapacityExhausted || res.AgentSession != "session-capacity" || res.Stderr != "important diagnostic" || res.RawStderr != raw {
+		t.Fatalf("capacity normalization: %#v", res)
+	}
+	res = Result{Stdout: `{"type":"item.completed","item":{"type":"agent_message","text":"Added detection for Selected model is at capacity"}}`}
+	normalizeJSONResult(&res)
+	if res.CapacityExhausted {
+		t.Fatal("ordinary final message classified as capacity failure")
+	}
+}
+
+func TestRecoveredCapacityDiagnosticDoesNotRetryCompletedWork(t *testing.T) {
+	res := Result{Stdout: `{"type":"error","message":"Selected model is at capacity"}
+{"type":"item.completed","item":{"type":"agent_message","text":"done"}}
+{"type":"turn.completed"}`, Stderr: "Selected model is at capacity"}
+	normalizeJSONResult(&res)
+	if res.CapacityExhausted || res.Stdout != "done" {
+		t.Fatalf("completed turn: %#v", res)
+	}
+}
+
+func TestResumeKeepsProfileOnParentCommand(t *testing.T) {
+	args := buildResumeArgs(Options{Profile: "retry-profile", Resume: "session", Prompt: "continue"})
+	wantPrefix := []string{"exec", "--profile", "retry-profile", "resume", "--json"}
+	if !reflect.DeepEqual(args[:len(wantPrefix)], wantPrefix) {
+		t.Fatalf("resume profile: %q", args)
+	}
+}

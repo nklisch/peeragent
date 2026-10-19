@@ -76,6 +76,14 @@ native monitor or completion facilities when available; the attached waiter
 prints the terminal result. `--status`, `--result`, and `--cancel` remain
 explicit controls.
 
+Unknown options and empty or missing values fail as usage errors before work
+starts. A `--` separator permits literal task text starting with a dash.
+
+Codex capacity stops return `capacity_exhausted` and retain the target session.
+Async callers may opt into `--retry-capacity N` additional attempts with
+`--capacity-backoff <duration>` (default ten minutes). Retries resume that
+session under the original job id and never retry other failures.
+
 ### Sandbox
 
 Sandbox execution is the default target CLI mode. The caller may pass
@@ -150,6 +158,11 @@ peeragent rejects every other Z.AI model name even if Pi lists it.
 Blocking and async results include `metadata.agent_session` when the target
 exposes a reliable session id. Hosts may pass that value back with
 `--resume <agent-session>` to continue the same target-agent conversation.
+
+Job controls locate newly launched jobs by id through a per-user working-directory
+index, regardless of the caller's current directory. Resume defaults to the
+last recorded directory for that agent/session pair. Explicit `--cwd` overrides
+either lookup; older unindexed jobs remain accessible with `--cwd`.
 
 Session resume is intended for continuity inside a single multi-pass workflow
 such as peer review. It should not be used when the user wants an independent

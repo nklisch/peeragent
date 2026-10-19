@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -24,10 +25,18 @@ func main() {
 		os.Exit(2)
 	}
 	if err := run(os.Args[1:]); err != nil {
+		var usage *usageError
+		if errors.As(err, &usage) {
+			os.Exit(2)
+		}
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
+
+type usageError struct{}
+
+func (*usageError) Error() string { return "invalid command; see --help" }
 
 const usageText = `peeragent — delegate a task pass to another local coding assistant.
 
@@ -50,26 +59,34 @@ Flags:
                                   low|medium|high; zai default high, accepts medium+;
                                   claude default xhigh, accepts high|xhigh).
   --profile <name>                Codex profile override.
-  --resume <agent-session>        Resume a prior target-agent session when supported.
+  --resume <agent-session>        Resume in its recorded directory unless --cwd is set.
   --sandbox                       Use the default target mode (Gemini still
                                   auto-approves tools but sandboxes terminals).
   --full-access                   Run the target CLI without sandboxing.
   --worktree                      Reserved; returns a clear failure today.
-  --cwd <path>                    Repo directory the target runs in.
+  --cwd <path>                    Override the target or indexed job/session directory.
   --prompt-file <path>            Read task text from a file.
   --async                         Start a background job and return its id.
+  --retry-capacity <N>            Retry Codex capacity stops up to N times (async only).
+  --capacity-backoff <duration>   Delay between capacity retries (default 10m).
   --status <job-id>               Show status of a background job.
   --result <job-id>               Print a background job's current/final result.
   --wait <job-id>                 Wait for and print a job's terminal result.
   --cancel <job-id>               Best-effort cancel a background job.
   --json | --text                 Output format (default --json).
   -h, --help                      Show this help.
+  --                              Treat all following arguments as task text.
+
+Job ids work from any directory through the per-user index. Unknown options and
+empty/missing option values are usage errors (exit 2). Capacity stops report
+capacity_exhausted with agent_session; retries resume that session under one job id.
+PEERAGENT_STATE_DIR overrides the user cache directory used for the lookup index.
 `
 
 func run(args []string) error {
 	req, err := input.Parse(args, os.Stdin, os.Getwd)
 	if err != nil {
-		return writeResult(input.Request{JSON: true}, result.Result{
+		if writeErr := writeResult(input.Request{JSON: true}, result.Result{
 			Status:       result.StatusFailed,
 			Summary:      err.Error(),
 			ChangedFiles: []string{},
@@ -77,7 +94,10 @@ func run(args []string) error {
 			Metadata: result.Metadata{
 				ExitCode: 2,
 			},
-		})
+		}); writeErr != nil {
+			return writeErr
+		}
+		return &usageError{}
 	}
 	if req.Help {
 		fmt.Print(usageText)
@@ -240,10 +260,57 @@ func runAsyncJob(req input.Request) error {
 		return finishAsyncJob(store, job, res)
 	}
 
-	res, execResult, _ := applicationService.DelegateWithExecution(context.Background(), delegationFromRequest(jobReq))
-	res.Metadata.JobID = job.ID
-	attachExecutionLog(jobReq, &res, execResult, jobTargetLogPath(job))
-	return finishAsyncJob(store, job, res)
+	for attempt := 0; ; attempt++ {
+		current, err := store.Load(job.ID)
+		if err != nil {
+			return err
+		}
+		if jobs.IsTerminalStatus(current.Status) {
+			return nil
+		}
+		res, execResult, _ := applicationService.DelegateWithExecution(context.Background(), delegationFromRequest(jobReq))
+		res.Metadata.JobID = job.ID
+		res.Metadata.CapacityRetries = attempt
+		logPath := jobTargetLogPath(job)
+		if attempt > 0 {
+			logPath = filepath.Join(filepath.Dir(job.LogPath), fmt.Sprintf("target-retry-%d.log", attempt))
+		}
+		attachExecutionLog(jobReq, &res, execResult, logPath)
+		if res.Status != result.StatusCapacity || attempt >= job.Spec.RetryCapacity || res.Metadata.AgentSession == "" {
+			return finishAsyncJob(store, job, res)
+		}
+		// Never start a fresh conversation on retry. Preserve all execution options,
+		// continuing the same session with a continuation prompt instead of replaying work.
+		jobReq.Resume = res.Metadata.AgentSession
+		jobReq.TaskText = "Continue the task from where you stopped when model capacity was exhausted."
+		proceed := false
+		err = store.WithJobLock(job.ID, func() error {
+			current, err := store.Load(job.ID)
+			if err != nil {
+				return err
+			}
+			if jobs.IsTerminalStatus(current.Status) {
+				return nil
+			}
+			current.Spec.Resume = jobReq.Resume
+			if err := store.Save(current); err != nil {
+				return err
+			}
+			proceed = true
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+		if !proceed {
+			return nil
+		}
+		backoff := job.Spec.CapacityBackoff
+		if backoff <= 0 {
+			backoff = 10 * time.Minute
+		}
+		time.Sleep(backoff)
+	}
 }
 
 func requestFromJob(job jobs.Job, prompt string) input.Request {
@@ -367,14 +434,16 @@ func resultFromExecution(req input.Request, execResult executil.Result, execErr 
 
 func delegationFromRequest(req input.Request) input.Delegation {
 	return input.Delegation{
-		TaskText:   req.TaskText,
-		CWD:        req.CWD,
-		Agent:      agentID(req),
-		FullAccess: req.FullAccess,
-		Profile:    req.Profile,
-		Effort:     req.Effort,
-		Model:      req.Model,
-		Resume:     req.Resume,
+		RetryCapacity:   req.RetryCapacity,
+		CapacityBackoff: req.CapacityBackoff,
+		TaskText:        req.TaskText,
+		CWD:             req.CWD,
+		Agent:           agentID(req),
+		FullAccess:      req.FullAccess,
+		Profile:         req.Profile,
+		Effort:          req.Effort,
+		Model:           req.Model,
+		Resume:          req.Resume,
 	}
 }
 

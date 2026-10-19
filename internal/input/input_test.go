@@ -225,7 +225,11 @@ func TestParseAgentGLMAlias(t *testing.T) {
 func TestParseAgentAliasesMatchRegistry(t *testing.T) {
 	for _, definition := range agent.Definitions() {
 		for _, alias := range definition.Aliases {
-			req, err := Parse([]string{"--agent", alias, "task"}, nil, fixedCWD)
+			args := []string{"--agent", alias, "task"}
+			if alias == "" {
+				args = []string{"task"}
+			} // Empty registry alias means the omitted flag; explicit empty values are usage errors.
+			req, err := Parse(args, nil, fixedCWD)
 			if err != nil {
 				t.Fatalf("Parse alias %q: %v", alias, err)
 			}
@@ -709,4 +713,40 @@ func openTestTTY(t *testing.T) *os.File {
 
 	t.Skip("no TTY-like test device available")
 	return nil
+}
+
+func TestOptionBoundary(t *testing.T) {
+	for _, flag := range []string{"--list", "--background", "-typo"} {
+		_, err := Parse([]string{flag, "task"}, nil, fixedCWD)
+		if err == nil || !strings.Contains(err.Error(), "valid options:") {
+			t.Fatalf("%s: %v", flag, err)
+		}
+	}
+	for _, flag := range []string{"--cwd", "--agent", "--prompt-file", "--profile", "--effort", "--model", "--resume", "--job-run", "--status", "--result", "--wait", "--cancel", "--retry-capacity", "--capacity-backoff"} {
+		for _, args := range [][]string{{flag}, {flag, ""}, {flag, "  "}, {flag, "--cwd", "/repo"}} {
+			if _, err := Parse(args, nil, fixedCWD); err == nil {
+				t.Fatalf("accepted %q", args)
+			}
+		}
+	}
+	req, err := Parse([]string{"--", "--list", "-task", "--cwd"}, nil, fixedCWD)
+	if err != nil || req.TaskText != "--list -task --cwd" {
+		t.Fatalf("escaped task: %#v, %v", req, err)
+	}
+}
+
+func TestCapacityRetryOptions(t *testing.T) {
+	for _, args := range [][]string{
+		{"--retry-capacity", "1", "task"}, {"--async", "--agent", "claude", "--retry-capacity", "1", "task"},
+		{"--async", "--retry-capacity", "no", "task"}, {"--async", "--capacity-backoff", "0s", "task"},
+		{"--async", "--status", "20000101T000000Z-00000000", "--retry-capacity", "1"},
+	} {
+		if _, err := Parse(args, nil, fixedCWD); err == nil {
+			t.Fatalf("accepted %q", args)
+		}
+	}
+	req, err := Parse([]string{"--async", "--retry-capacity", "12", "--capacity-backoff", "1ms", "task"}, nil, fixedCWD)
+	if err != nil || req.RetryCapacity != 12 || req.CapacityBackoff.String() != "1ms" {
+		t.Fatalf("retry: %#v %v", req, err)
+	}
 }

@@ -42,11 +42,21 @@ is present; this avoids accidentally blocking on host-provided stdin when the
 task is already explicit. In-memory stdin readers used by tests or embedders
 are always read when present.
 
+Unknown option-shaped arguments are usage errors (exit `2`) naming the valid
+options; `--` makes every following argument literal task text. Every valued
+option requires a non-empty value and cannot consume the next option as its
+value. This validation happens before reading prompts or launching work.
+
 Options:
 
 - `--agent <codex|gemini|claude|zai>`: Select the target agent. Defaults to
   `codex`. The `zai` target is fixed to Z.AI GLM 5.2 through Pi.
 - `--async`: Start the target in the background and return a job id.
+- `--retry-capacity <N>`: For async Codex delegation, resume capacity stops up
+  to N additional times (non-negative integer; default zero). A captured or
+  supplied session id is required; otherwise the capacity result is terminal.
+- `--capacity-backoff <duration>`: Positive delay between capacity retries,
+  default `10m`. Requires async Codex delegation.
 - `--sandbox`: Use the default target mode. For Gemini this enables terminal
   containment while tool permissions remain auto-approved for headless autonomy.
 - `--full-access`: Remove target sandboxing. Gemini still auto-approves tools in
@@ -70,7 +80,8 @@ Options:
 - `--resume <agent-session>`: Resume a prior target-agent session when the
   target supports it. Use this for continuity inside one review loop; omit it
   for an independent second opinion.
-- `--cwd <path>`: Set the repository root.
+- `--cwd <path>`: Set the repository root, overriding the indexed job or session
+  directory. Paths resolve to absolute paths before target invocation.
 - `--prompt-file <path>`: Read task text from a file.
 - `--json`: Emit JSON output. This is the default.
 - `--text`: Emit human-readable text output.
@@ -116,7 +127,11 @@ that can be passed back with `--resume`.
 - `success`: Target completed successfully.
 - `failed`: Target or wrapper failed.
 - `blocked`: Reserved for explicit target-reported blockers.
-- `running`: Async job started or is still running.
+- `running`: Async job started or is still running, including capacity backoff.
+- `capacity_exhausted`: Codex reported “Selected model is at capacity”; terminal
+  after the optional retry budget, or immediately when no retry/session is available.
+  `metadata.agent_session` carries the resumable conversation when known.
+  `metadata.capacity_retries` records additional attempts actually made.
 - `cancelled`: Async job was cancelled.
 
 ## Text Result
@@ -132,7 +147,14 @@ when available.
 
 ## Working Directory
 
-The default working directory is the current directory of the host session. The
+The default working directory for new tasks is the current host directory.
+Job controls without `--cwd` first look up the job id in the per-user index.
+Resume without `--cwd` first looks up the agent/session pair recorded at the
+last result, including blocking and failed results. Missing entries fall back
+to the current directory, preserving access to older repository-local jobs.
+Index read errors explain the `--cwd` override; index write errors report
+`metadata.index_warning` and allow execution to continue. An explicit `--cwd`
+always wins. The
 target operates in that same checkout. The wrapper does not create a worktree,
 clone, or sandbox copy unless explicitly requested.
 
@@ -206,7 +228,8 @@ Default result output is compact. For Codex JSONL output, peeragent records the
 latest completed `agent_message` as the visible stdout detail instead of joining
 intermediate assistant messages. Hosts that need more context can resume with
 `metadata.agent_session` or inspect the raw target stdout/stderr stored at
-`metadata.log_path` when that field is present.
+`metadata.log_path` when that field is present. Codex “Orphan custom tool call”
+lines are filtered from the visible stderr summary, while raw logs retain them.
 
 ## Exit Codes
 
@@ -230,6 +253,23 @@ Async state is stored under:
   result.json    final result, written by child OR by --cancel
 ```
 
+The private per-user lookup index is stored under
+`<os.UserCacheDir()>/peeragent/index/{jobs,sessions}/`, or
+`$PEERAGENT_STATE_DIR/index/{jobs,sessions}/` when overridden. Keys are hashed;
+values are absolute working directories. Index directories use `0700` and
+files `0600` on Unix. Independent atomic entries support concurrent launches
+without one shared read/modify/write file. The index can be deleted; explicit
+`--cwd` remains usable. Job entries are written before launch and session
+entries when the target returns a session. It is a locator, not job truth.
+
+`job.json` persists the capacity retry limit and backoff in `spec`, and updates
+`spec.resume` before retrying. During backoff the job stays running. A retry
+uses a continuation prompt and the same session, model, access, effort and job
+id. Every attempt gets a separate raw log; the final result points to its own
+attempt's log. Only explicit Codex capacity diagnostics trigger retries, never
+ordinary failures or a final agent message discussing capacity. The existing
+cancel/finish lock protects terminal state from later retry completion.
+
 `--cancel` writes `job.json` and `result.json` as cancelled before signalling.
 On Unix, it signals the process group recorded by `pid`. If the `pid` sidecar is
 missing, cancellation still records the terminal state and skips signalling.
@@ -241,7 +281,7 @@ The wrapper:
 - Preserves arbitrary task text as data.
 - Does not run full access unless explicitly requested.
 - Does not silently switch target agents.
-- Does not rerun a failed target automatically in a loop.
+- Does not retry failures unless async Codex capacity retries are explicitly enabled.
 - Reports the target exit status when available.
 - Stores raw target stdout/stderr at `metadata.log_path` when output exists.
 - Reports compact stdout/stderr details, preferring the final peer message when

@@ -91,6 +91,11 @@ func (s *Service) DelegateWithExecution(ctx context.Context, delegation input.De
 
 	execResult, execErr := s.executor.Execute(ctx, delegation)
 	res := ResultFromExecution(delegation, execResult, execErr)
+	if res.Metadata.AgentSession != "" {
+		if err := jobs.IndexSession(delegation.Agent, res.Metadata.AgentSession, delegation.CWD); err != nil {
+			res.Metadata.IndexWarning = err.Error()
+		}
+	}
 	return res, execResult, execErr
 }
 
@@ -117,6 +122,7 @@ func (s *Service) Launch(ctx context.Context, delegation input.Delegation) (resu
 		return failedDelegationResult(delegation, wrapped), wrapped
 	}
 
+	indexErr := jobs.IndexJob(job.ID, job.CWD)
 	executable, err := s.executable()
 	if err != nil {
 		wrapped := fmt.Errorf("resolve peeragent executable: %w", err)
@@ -127,19 +133,25 @@ func (s *Service) Launch(ctx context.Context, delegation input.Delegation) (resu
 		return failedJobResult(delegation, job, wrapped), wrapped
 	}
 
-	return runningJobResult(delegation, job), nil
+	res := runningJobResult(delegation, job)
+	if indexErr != nil {
+		res.Metadata.IndexWarning = indexErr.Error()
+	}
+	return res, nil
 }
 
 func execSpecFromDelegation(delegation input.Delegation) jobs.ExecSpec {
 	return jobs.ExecSpec{
-		Agent:      delegation.Agent,
-		Access:     accessMode(delegation),
-		Profile:    delegation.Profile,
-		Effort:     delegation.Effort,
-		Model:      delegation.Model,
-		Resume:     delegation.Resume,
-		JSON:       true,
-		FullAccess: delegation.FullAccess,
+		RetryCapacity:   delegation.RetryCapacity,
+		CapacityBackoff: delegation.CapacityBackoff,
+		Agent:           delegation.Agent,
+		Access:          accessMode(delegation),
+		Profile:         delegation.Profile,
+		Effort:          delegation.Effort,
+		Model:           delegation.Model,
+		Resume:          delegation.Resume,
+		JSON:            true,
+		FullAccess:      delegation.FullAccess,
 	}
 }
 

@@ -14,8 +14,8 @@ import (
 )
 
 // JobRequest identifies a repository-local asynchronous job. CWD is optional
-// at the application boundary; an empty value resolves through the service's
-// working-directory port so every CLI job operation shares the same lookup rules.
+// at the application boundary; an empty value uses the per-user job index,
+// then falls back to the service's working-directory port for unindexed jobs.
 type JobRequest struct {
 	CWD   string
 	JobID string
@@ -98,6 +98,14 @@ func (s *Service) normalizeJobRequest(ctx context.Context, raw JobRequest) (JobR
 		if s.workingDirectory == nil {
 			return JobRequest{}, errors.New("resolve cwd: working-directory resolver is nil")
 		}
+		indexed, err := jobs.LookupJob(raw.JobID)
+		if err != nil {
+			return JobRequest{}, err
+		}
+		if indexed != "" {
+			raw.CWD = indexed
+			return raw, nil
+		}
 		cwd, err := s.workingDirectory()
 		if err != nil {
 			return JobRequest{}, fmt.Errorf("resolve cwd: %w", err)
@@ -117,9 +125,10 @@ func jobStatusResult(req JobRequest, job jobs.Job) result.Result {
 		ChangedFiles: []string{},
 		Verification: []result.Verification{},
 		Metadata: result.Metadata{
-			CWD:      req.CWD,
-			ExitCode: 0,
-			JobID:    job.ID,
+			AgentSession: job.Spec.Resume,
+			CWD:          req.CWD,
+			ExitCode:     0,
+			JobID:        job.ID,
 		},
 	}
 }
@@ -131,9 +140,10 @@ func runningJobResultForRequest(req JobRequest, job jobs.Job) result.Result {
 		ChangedFiles: []string{},
 		Verification: []result.Verification{},
 		Metadata: result.Metadata{
-			CWD:      req.CWD,
-			ExitCode: 0,
-			JobID:    job.ID,
+			AgentSession: job.Spec.Resume,
+			CWD:          req.CWD,
+			ExitCode:     0,
+			JobID:        job.ID,
 		},
 	}
 }
@@ -160,6 +170,8 @@ func ResultStatusFromJob(status string) result.Status {
 	switch jobs.Status(status) {
 	case jobs.StatusComplete:
 		return result.StatusSuccess
+	case jobs.StatusCapacity:
+		return result.StatusCapacity
 	case jobs.StatusFailed:
 		return result.StatusFailed
 	case jobs.StatusCancelled:
@@ -179,6 +191,8 @@ func IsTerminalJobStatus(status string) bool {
 // job lifecycle value used by job.json.
 func JobStatusFromResult(status result.Status) jobs.Status {
 	switch status {
+	case result.StatusCapacity:
+		return jobs.StatusCapacity
 	case result.StatusSuccess:
 		return jobs.StatusComplete
 	case result.StatusCancelled:
@@ -213,6 +227,7 @@ func FinishJob(store jobs.Store, job jobs.Job, res result.Result) error {
 		if err := WriteJobResult(current.ResultPath, res); err != nil {
 			return err
 		}
+		current.Spec.Resume = res.Metadata.AgentSession
 		current.Status = targetStatus
 		_, err = store.SaveGuarded(current)
 		return err
@@ -251,6 +266,7 @@ func readStoredResult(path string) (result.Result, bool, error) {
 
 func isTerminalResultStatus(status result.Status) bool {
 	for _, persisted := range []jobs.Status{
+		jobs.StatusCapacity,
 		jobs.StatusComplete,
 		jobs.StatusFailed,
 		jobs.StatusCancelled,

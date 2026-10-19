@@ -20,6 +20,10 @@ import (
 )
 
 func TestMain(m *testing.M) {
+	if filepath.Base(os.Args[0]) == "codex" || filepath.Base(os.Args[0]) == "codex.exe" {
+		fakeCodexMain()
+		return
+	}
 	if testHelperMainRequested(os.Getenv("PEERAGENT_TEST_HELPER_MAIN"), os.Args) {
 		main()
 		return

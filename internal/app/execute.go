@@ -83,6 +83,13 @@ func ResultFromExecution(delegation input.Delegation, execResult executil.Result
 		summary = fmt.Sprintf("%s exited with non-zero status", agentDisplayName(delegation))
 	}
 
+	if execResult.CapacityExhausted {
+		status = result.StatusCapacity
+		summary = "Codex selected model is at capacity"
+		if execResult.ExitCode == 0 {
+			execResult.ExitCode = 1
+		}
+	}
 	return result.Result{
 		Status:       status,
 		Summary:      summary,

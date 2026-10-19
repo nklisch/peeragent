@@ -313,6 +313,14 @@ bin/peeragent --agent claude --full-access "Run the trusted local migration."
 `--worktree` is reserved for future isolated worktree execution. Today it
 returns a clear JSON failure instead of silently changing how work is done.
 
+Options are strict: unknown options such as `--list` and `--background`, and
+missing or empty option values, exit with usage code `2` before starting work.
+Use `--` to pass task text that starts with a dash:
+
+```sh
+bin/peeragent -- --review-this-task
+```
+
 ## Async Jobs
 
 For longer work, start a background job:
@@ -347,7 +355,39 @@ bin/peeragent --cancel <job-id>
 ```
 
 Async state lives under `.peeragent/jobs/` in the target repository. It is
-local runtime state and ignored by git.
+local runtime state and ignored by git. Job controls find newly launched jobs by
+id from any directory. `--resume <agent-session>` uses the directory recorded
+when that session last returned a result. An explicit `--cwd <path>` always
+wins. Older jobs and sessions without an index entry still need their original
+directory or `--cwd`.
+
+The lookup index lives at `<user-cache>/peeragent/index/` (Go's `os.UserCacheDir`:
+`$XDG_CACHE_HOME` or `~/.cache` on Linux, `~/Library/Caches` on macOS, and
+`%LocalAppData%` on Windows). `PEERAGENT_STATE_DIR` overrides the `peeragent`
+state root. It contains only working directories, keyed by job id or by agent
+and session id; directories use mode `0700` and files `0600` on Unix. Clearing
+it does not remove jobs, but requires `--cwd` for lookup again. An index write
+failure is reported in `metadata.index_warning`; the job still runs and can be
+controlled with `--cwd`.
+
+Codex's explicit “Selected model is at capacity” stop returns the terminal
+status `capacity_exhausted`, with `metadata.agent_session` when available.
+Blocking calls exit `1`. By default no retry occurs. To opt into up to twelve
+additional attempts with a ten-minute delay:
+
+```sh
+bin/peeragent --async --retry-capacity 12 "Implement the requested change."
+```
+
+`--capacity-backoff <duration>` changes the delay, for example `--capacity-backoff
+5m`. Retry options require async Codex delegation. Each retry resumes the same
+session with a continuation prompt and preserves execution settings and the
+job id; it never starts a replacement conversation. Without a session id, or
+after the retry budget is spent, the capacity result is terminal. Jobs remain
+`running` during the delay. `metadata.capacity_retries` records retries made.
+Non-capacity failures are never retried. Each attempt keeps a raw log (`target.log`,
+then `target-retry-N.log`); noisy Codex “Orphan custom tool call” lines are
+omitted only from the visible stderr summary, remaining in the raw log.
 
 ## Repository Shape
 

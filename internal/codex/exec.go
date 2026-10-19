@@ -70,11 +70,8 @@ func buildArgs(opts Options) []string {
 }
 
 func buildResumeArgs(opts Options) []string {
-	args := []string{
-		"exec",
-		"resume",
-		"--json",
-	}
+	args := append([]string{"exec"}, profileArgs(opts.Profile)...)
+	args = append(args, "resume", "--json")
 	if opts.FullAccess {
 		args = append(args, "--dangerously-bypass-approvals-and-sandbox")
 	} else {
@@ -116,14 +113,31 @@ func approvalArgs() []string {
 type codexEvent struct {
 	Type     string `json:"type"`
 	ThreadID string `json:"thread_id"`
-	Item     struct {
+	Message  string `json:"message"`
+	Error    struct {
+		Message string `json:"message"`
+	} `json:"error"`
+	Item struct {
 		Type string `json:"type"`
 		Text string `json:"text"`
 	} `json:"item"`
 }
 
 func normalizeJSONResult(result *Result) {
-	session, text := parseJSONL(result.Stdout)
+	// Classify the explicit Codex diagnostic before compacting JSONL to the final message.
+	session, text, capacity, completed := parseJSONL(result.Stdout)
+	result.CapacityExhausted = capacity || (containsCapacity(result.Stderr) && (result.ExitCode != 0 || !completed))
+	if result.RawStderr == "" {
+		result.RawStderr = result.Stderr
+	}
+	lines := strings.Split(result.Stderr, "\n")
+	filtered := lines[:0]
+	for _, line := range lines {
+		if !strings.Contains(line, "Orphan custom tool call") {
+			filtered = append(filtered, line)
+		}
+	}
+	result.Stderr = strings.TrimSpace(strings.Join(filtered, "\n"))
 	if session != "" {
 		result.AgentSession = session
 	}
@@ -132,24 +146,43 @@ func normalizeJSONResult(result *Result) {
 	}
 }
 
-func parseJSONL(output string) (string, string) {
-	var session string
-	var message string
+func containsCapacity(text string) bool {
+	return strings.Contains(strings.ToLower(text), "selected model is at capacity")
+}
+
+func parseJSONL(output string) (session, message string, capacity, completed bool) {
 	for _, raw := range strings.Split(output, "\n") {
 		line := strings.TrimSpace(raw)
-		if line == "" || !strings.HasPrefix(line, "{") {
+		if line == "" {
 			continue
 		}
 		var event codexEvent
 		if err := json.Unmarshal([]byte(line), &event); err != nil {
+			if strings.HasPrefix(strings.ToLower(line), "selected model is at capacity") {
+				capacity = true
+				completed = false
+			}
 			continue
 		}
-		if event.Type == "thread.started" && event.ThreadID != "" {
-			session = event.ThreadID
-		}
-		if event.Type == "item.completed" && event.Item.Type == "agent_message" && event.Item.Text != "" {
-			message = event.Item.Text
+		switch event.Type {
+		case "thread.started":
+			if event.ThreadID != "" {
+				session = event.ThreadID
+			}
+		case "item.completed":
+			if event.Item.Type == "agent_message" && event.Item.Text != "" {
+				message = event.Item.Text
+			}
+		case "error", "turn.failed":
+			if containsCapacity(event.Message) || containsCapacity(event.Error.Message) {
+				capacity = true
+				completed = false
+			}
+		case "turn.completed":
+			// A transient capacity diagnostic followed by completion is not a stop.
+			capacity = false
+			completed = true
 		}
 	}
-	return session, message
+	return
 }

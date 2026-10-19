@@ -3,21 +3,25 @@ package input
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
+	"time"
 )
 
 // Delegation is the shared request contract used by every inbound delegation
 // adapter. CLI job-control fields intentionally live on Request instead: they
 // describe how to inspect a job, not work to send to a target agent.
 type Delegation struct {
-	TaskText   string
-	CWD        string
-	Agent      string
-	FullAccess bool
-	Profile    string
-	Effort     string
-	Model      string
-	Resume     string
+	RetryCapacity   int
+	CapacityBackoff time.Duration
+	TaskText        string
+	CWD             string
+	Agent           string
+	FullAccess      bool
+	Profile         string
+	Effort          string
+	Model           string
+	Resume          string
 }
 
 // NormalizeDelegation applies boundary defaults and validation for direct and
@@ -40,6 +44,12 @@ func NormalizeDelegation(raw Delegation, getwd func() (string, error)) (Delegati
 		}
 		raw.CWD = cwd
 	}
+
+	absolute, err := filepath.Abs(raw.CWD)
+	if err != nil {
+		return Delegation{}, fmt.Errorf("resolve absolute cwd: %w", err)
+	}
+	raw.CWD = absolute
 
 	agent, err := normalizeAgent(raw.Agent)
 	if err != nil {

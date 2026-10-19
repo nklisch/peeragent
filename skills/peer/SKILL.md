@@ -171,6 +171,16 @@ on recursive peeragent calls. A short line in the prompt is enough, e.g.
 "Do this work directly — do not call the peeragent peer skill to hand it off
 again; use your own harness's sub-agents if you need help."
 
+Job controls locate newly launched jobs by id from any directory; `--cwd`
+remains an explicit override. Resume uses the directory last recorded for that
+agent/session unless overridden. Older unindexed jobs/sessions still need their
+original directory or `--cwd`. Index write failures appear as
+`metadata.index_warning`; use `--cwd` when the lookup index is unavailable.
+
+Unknown options (including `--list` and `--background`) and empty/missing option
+values exit `2` before any job starts. Put `--` before literal task text that
+starts with a dash. Validate session variables before constructing a resume call.
+
 ## Result Handling
 
 - `status: success` — report what changed and what verification ran.
@@ -186,6 +196,12 @@ again; use your own harness's sub-agents if you need help."
     `PEERAGENT_BIN`. If the
     platform is misdetected, `PEERAGENT_TARGET_OVERRIDE=<goos>-<goarch>`
     selects a present binary. Do not retry in a loop.
+- `status: capacity_exhausted` — Codex stopped for model capacity. Preserve
+  `metadata.agent_session` for resumption. Async `--retry-capacity N` opts into
+  N additional attempts with a default ten-minute backoff (override with
+  `--capacity-backoff <duration>`). Retries resume that session under one job id;
+  they stop without a session id or when the budget is spent. Other failures
+  are never retried. `metadata.capacity_retries` counts additional attempts.
 - `status: running` — keep monitoring the async job; report only an interim
   update if useful, then retrieve its terminal result before concluding.
 - `status: cancelled` — only after `--cancel`; report cleanly.
@@ -208,10 +224,12 @@ Use advanced modes only when the request calls for them:
 - `--resume <agent-session>` — continue a prior target-agent session when
   the previous result included `metadata.agent_session`. Use it for continuity
   inside one multi-pass workflow; omit it for an independent second opinion.
-- `--cwd <path>` — repo directory the peer runs in.
+- `--cwd <path>` — override the indexed job/session or default task directory.
 - `--prompt-file <path>` — read large prompts from a file.
 - `--async` — preferred for substantive work; starts a background job and
   returns a `job_id` immediately with `status: running`.
+- `--retry-capacity <N>` — opt into at most N capacity retries (async Codex only).
+- `--capacity-backoff <duration>` — positive retry delay (default `10m`).
 - `--status <job-id>` — check an async job.
 - `--result <job-id>` — fetch an async job's current or final result.
 - `--wait <job-id>` — stay attached until an async job has a terminal result;
