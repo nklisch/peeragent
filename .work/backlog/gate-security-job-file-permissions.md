@@ -7,7 +7,7 @@ depends_on: []
 release_binding: 0.5.0
 gate_origin: security
 created: 2026-07-12
-updated: 2026-07-12
+updated: 2026-10-19
 ---
 
 # Restrict async job file permissions
@@ -28,6 +28,13 @@ AtomicWriteFile(path, content, 0o644)
 ```
 
 Prompts, results, logs, and job metadata are readable by other local users who can traverse the checkout.
+
+Session-control review on 2026-10-19 confirmed these older store defaults remain
+unchanged. The new locator index requests `0700` for newly created directories
+and uses `0600` temporary entry files, but `MkdirAll` does not tighten existing
+directories. An existing shared state root therefore remains shared; the index
+does not establish private permissions for all pre-existing paths. Unix mode
+tests cover newly created entries only, not native Windows access controls.
 
 ## Remediation direction
 Default job directories to 0700 and sensitive files to 0600, with an explicit opt-in if shared runs are needed.

@@ -293,6 +293,43 @@ func TestRecoveredCapacityDiagnosticDoesNotRetryCompletedWork(t *testing.T) {
 	}
 }
 
+func TestCapacityClassificationUsesTerminalOutcome(t *testing.T) {
+	for _, tt := range []struct {
+		name, stdout, stderr string
+		wantCapacity         bool
+	}{
+		{"ordinary failure after capacity history", `{"type":"thread.started","thread_id":"review-session"}
+{"type":"error","message":"Selected model is at capacity, retrying"}
+{"type":"turn.failed","error":{"message":"Authentication token expired"}}`, "", false},
+		{"ordinary failure with historical stderr", `{"type":"turn.failed","error":{"message":"Authentication token expired"}}`, "WARN recovered earlier error: Selected model is at capacity", false},
+		{"ordinary failure with capacity diagnostic on stderr", `{"type":"turn.failed","error":{"message":"Authentication token expired"}}`, "Selected model is at capacity", false},
+		{"stderr historical mention without terminal event", "", "WARN recovered earlier error: Selected model is at capacity", false},
+		{"stderr diagnostic without terminal event", "", "Selected model is at capacity", true},
+		{"stderr error diagnostic without terminal event", "", "error: Selected model is at capacity, try again later", true},
+		{"ordinary quoted diagnostic", `{"type":"turn.failed","error":{"message":"Failed to write 'Selected model is at capacity.log'"}}`, "", false},
+		{"later capacity terminal event", `{"type":"turn.failed","error":{"message":"Authentication token expired"}}
+{"type":"turn.failed","error":{"message":"Selected model is at capacity"}}`, "", true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			res := Result{ExitCode: 1, Stdout: tt.stdout, Stderr: tt.stderr}
+			normalizeJSONResult(&res)
+			if res.CapacityExhausted != tt.wantCapacity {
+				t.Fatalf("capacity = %v, want %v: %#v", res.CapacityExhausted, tt.wantCapacity, res)
+			}
+		})
+	}
+}
+
+func TestOrphanFilteringPreservesQuotedFilename(t *testing.T) {
+	raw := "Orphan custom tool call: call_123\nERROR failed to write diagnostic file '/repo/Orphan custom tool call.log': Permission denied\n"
+	res := Result{Stderr: raw}
+	normalizeJSONResult(&res)
+	want := "ERROR failed to write diagnostic file '/repo/Orphan custom tool call.log': Permission denied"
+	if res.Stderr != want || res.RawStderr != raw {
+		t.Fatalf("stderr normalization: %#v", res)
+	}
+}
+
 func TestResumeKeepsProfileOnParentCommand(t *testing.T) {
 	args := buildResumeArgs(Options{Profile: "retry-profile", Resume: "session", Prompt: "continue"})
 	wantPrefix := []string{"exec", "--profile", "retry-profile", "resume", "--json"}

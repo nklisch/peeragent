@@ -3,14 +3,16 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/nklisch/peeragent/internal/jobs"
-	"github.com/nklisch/peeragent/internal/result"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/nklisch/peeragent/internal/jobs"
+	"github.com/nklisch/peeragent/internal/result"
 )
 
 // A copy of the test executable acts as Codex; no model or live job is used.
@@ -36,6 +38,11 @@ func fakeCodexMain() {
 	}
 	if os.Getenv("PEERAGENT_FAKE_MODE") == "ordinary" {
 		fmt.Println(`{"type":"error","message":"ordinary target failure"}`)
+		os.Exit(1)
+	}
+	if os.Getenv("PEERAGENT_FAKE_MODE") == "ordinary-after-capacity" {
+		fmt.Println(`{"type":"error","message":"Selected model is at capacity, retrying"}`)
+		fmt.Println(`{"type":"turn.failed","error":{"message":"Authentication token expired"}}`)
 		os.Exit(1)
 	}
 	if len(calls) == 1 || os.Getenv("PEERAGENT_FAKE_MODE") == "always" {
@@ -107,7 +114,7 @@ func TestUnknownOptionsNeverStartAJob(t *testing.T) {
 }
 
 func TestAsyncCapacityRetryAndCrossDirectoryControls(t *testing.T) {
-	for _, mode := range []string{"once", "always", "no-session", "default", "ordinary"} {
+	for _, mode := range []string{"once", "always", "no-session", "default", "ordinary", "ordinary-after-capacity"} {
 		t.Run(mode, func(t *testing.T) {
 			cwd, record := fakeCodexEnvironment(t)
 			t.Setenv("PEERAGENT_FAKE_MODE", mode)
@@ -122,10 +129,10 @@ func TestAsyncCapacityRetryAndCrossDirectoryControls(t *testing.T) {
 			if mode != "once" {
 				wantStatus = result.StatusCapacity
 			}
-			if mode == "no-session" || mode == "default" || mode == "ordinary" {
+			if mode == "no-session" || mode == "default" || mode == "ordinary" || mode == "ordinary-after-capacity" {
 				wantCalls = 1
 			}
-			if mode == "ordinary" {
+			if mode == "ordinary" || mode == "ordinary-after-capacity" {
 				wantStatus = result.StatusFailed
 			}
 			if terminal.Status != wantStatus || terminal.Metadata.JobID != launched.Metadata.JobID {
@@ -178,5 +185,58 @@ func TestAsyncCapacityRetryAndCrossDirectoryControls(t *testing.T) {
 				t.Fatalf("nonterminal state: %#v", job)
 			}
 		})
+	}
+}
+
+func TestAsyncCancelDuringCapacityBackoff(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("process-group cancellation is unix-only")
+	}
+	cwd, record := fakeCodexEnvironment(t)
+	t.Setenv("PEERAGENT_FAKE_MODE", "always")
+	launched := cliResult(t, cwd, "--async", "--retry-capacity", "1", "--capacity-backoff", "1h", "do work")
+	jobID := launched.Metadata.JobID
+	// Always clean up the job we launched, including when readiness fails.
+	t.Cleanup(func() { cliResult(t, cwd, "--cancel", jobID) })
+	store := jobs.NewStore(cwd)
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		job, err := store.Load(jobID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// Resume is persisted only after the capacity attempt has exited and
+		// the retry has been scheduled. The hour-long backoff cannot elapse here.
+		if job.Status == jobs.StatusRunning && job.Spec.Resume == "fake-session" {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("job never reached capacity backoff: %#v", job)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	pid, err := store.ReadPID(jobID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cancelled := cliResult(t, cwd, "--cancel", jobID)
+	if cancelled.Status != result.StatusCancelled {
+		t.Fatalf("cancel result: %#v", cancelled)
+	}
+	assertProcessGone(t, pid)
+	terminal := cliResult(t, cwd, "--wait", jobID)
+	if terminal.Status != result.StatusCancelled || terminal.Metadata.CapacityRetries != 0 {
+		t.Fatalf("terminal result: %#v", terminal)
+	}
+	content, err := os.ReadFile(record)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var calls []json.RawMessage
+	if err := json.Unmarshal(content, &calls); err != nil {
+		t.Fatal(err)
+	}
+	if len(calls) != 1 {
+		t.Fatalf("attempt started after cancellation: %s", content)
 	}
 }

@@ -228,8 +228,10 @@ Default result output is compact. For Codex JSONL output, peeragent records the
 latest completed `agent_message` as the visible stdout detail instead of joining
 intermediate assistant messages. Hosts that need more context can resume with
 `metadata.agent_session` or inspect the raw target stdout/stderr stored at
-`metadata.log_path` when that field is present. Codex “Orphan custom tool call”
-lines are filtered from the visible stderr summary, while raw logs retain them.
+`metadata.log_path` when that field is present. Lines beginning with the Codex
+diagnostic prefix “Orphan custom tool call:” are filtered from the visible stderr
+summary, while raw logs retain them. Other diagnostics mentioning that phrase
+remain visible.
 
 ## Exit Codes
 
@@ -267,7 +269,10 @@ entries when the target returns a session. It is a locator, not job truth.
 uses a continuation prompt and the same session, model, access, effort and job
 id. Every attempt gets a separate raw log; the final result points to its own
 attempt's log. Only explicit Codex capacity diagnostics trigger retries, never
-ordinary failures or a final agent message discussing capacity. The existing
+ordinary failures or a final agent message discussing capacity. The last structured
+`turn.failed` or `turn.completed` event determines the outcome, overriding earlier
+capacity history. Stderr capacity diagnostics are considered only when no structured
+terminal event exists; historical or quoted mentions do not qualify. The existing
 cancel/finish lock protects terminal state from later retry completion.
 
 `--cancel` writes `job.json` and `result.json` as cancelled before signalling.

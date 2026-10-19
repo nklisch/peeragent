@@ -125,15 +125,19 @@ type codexEvent struct {
 
 func normalizeJSONResult(result *Result) {
 	// Classify the explicit Codex diagnostic before compacting JSONL to the final message.
-	session, text, capacity, completed := parseJSONL(result.Stdout)
-	result.CapacityExhausted = capacity || (containsCapacity(result.Stderr) && (result.ExitCode != 0 || !completed))
+	session, text, capacity, terminal := parseJSONL(result.Stdout)
+	result.CapacityExhausted = capacity
 	if result.RawStderr == "" {
 		result.RawStderr = result.Stderr
 	}
 	lines := strings.Split(result.Stderr, "\n")
 	filtered := lines[:0]
 	for _, line := range lines {
-		if !strings.Contains(line, "Orphan custom tool call") {
+		// A structured terminal outcome is authoritative over stderr history.
+		if !terminal && !result.CapacityExhausted && isCapacityDiagnostic(line) {
+			result.CapacityExhausted = true
+		}
+		if !strings.HasPrefix(strings.TrimSpace(line), "Orphan custom tool call:") {
 			filtered = append(filtered, line)
 		}
 	}
@@ -146,11 +150,19 @@ func normalizeJSONResult(result *Result) {
 	}
 }
 
-func containsCapacity(text string) bool {
-	return strings.Contains(strings.ToLower(text), "selected model is at capacity")
+func isCapacityDiagnostic(text string) bool {
+	text = strings.TrimSpace(strings.ToLower(text))
+	text = strings.TrimSpace(strings.TrimPrefix(text, "error:"))
+	const diagnostic = "selected model is at capacity"
+	if !strings.HasPrefix(text, diagnostic) {
+		return false
+	}
+	// Require the diagnostic's own prefix, not a quoted or historical mention.
+	suffix := strings.TrimPrefix(text, diagnostic)
+	return suffix == "" || strings.ContainsRune(" \t.,:;!?", rune(suffix[0]))
 }
 
-func parseJSONL(output string) (session, message string, capacity, completed bool) {
+func parseJSONL(output string) (session, message string, capacity, terminal bool) {
 	for _, raw := range strings.Split(output, "\n") {
 		line := strings.TrimSpace(raw)
 		if line == "" {
@@ -158,9 +170,8 @@ func parseJSONL(output string) (session, message string, capacity, completed boo
 		}
 		var event codexEvent
 		if err := json.Unmarshal([]byte(line), &event); err != nil {
-			if strings.HasPrefix(strings.ToLower(line), "selected model is at capacity") {
+			if !terminal && isCapacityDiagnostic(line) {
 				capacity = true
-				completed = false
 			}
 			continue
 		}
@@ -173,15 +184,17 @@ func parseJSONL(output string) (session, message string, capacity, completed boo
 			if event.Item.Type == "agent_message" && event.Item.Text != "" {
 				message = event.Item.Text
 			}
-		case "error", "turn.failed":
-			if containsCapacity(event.Message) || containsCapacity(event.Error.Message) {
+		case "error":
+			if !terminal && (isCapacityDiagnostic(event.Message) || isCapacityDiagnostic(event.Error.Message)) {
 				capacity = true
-				completed = false
 			}
+		case "turn.failed":
+			capacity = isCapacityDiagnostic(event.Message) || isCapacityDiagnostic(event.Error.Message)
+			terminal = true
 		case "turn.completed":
 			// A transient capacity diagnostic followed by completion is not a stop.
 			capacity = false
-			completed = true
+			terminal = true
 		}
 	}
 	return

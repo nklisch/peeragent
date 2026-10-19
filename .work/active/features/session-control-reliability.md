@@ -62,8 +62,10 @@ No merge, push, release, or committed binary refresh is authorized in this unit.
 - Target-process hangs after a final message remain tracked separately in
   `async-codex-job-never-exits-after-final-message`; capacity handling still
   waits for target process exit.
-- Clearing or losing the cache index requires `--cwd` again; moving a checkout
-  likewise needs an explicit directory override. The index is a locator only.
+- Clearing or losing the cache index requires `--cwd` again. Moving a checkout
+  also leaves persisted absolute job paths stale, so `--cwd` alone does not
+  recover result/wait behavior; tracked in `moved-job-result-path`. The index
+  is a locator only.
 - Real model calls and native macOS/Windows runtime behavior are not exercised
   by fake-agent checks on Linux.
 
