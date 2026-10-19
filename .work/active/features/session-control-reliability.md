@@ -47,7 +47,9 @@ wait/status/result/cancel and resume, explicit directory precedence, capacity
 classification and one-job retries with a fake executable and shortened delay,
 retry exhaustion, missing sessions, default no-retry, and ordinary failures.
 Index tests cover concurrent writes, agent namespaces and Unix permissions;
-service tests verify index-write failures do not prevent delegation.
+service tests verify index-write failures do not prevent delegation. Application,
+CLI and input test harnesses use a private index inherited by their
+helper processes, so ordinary test runs do not pollute the user cache.
 
 README, help, foundation docs, and both bundled skill copies describe the
 new behavior. Verification results will be recorded here at review handoff.

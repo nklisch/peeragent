@@ -17,6 +17,7 @@ import (
 	"github.com/nklisch/peeragent/internal/app"
 	"github.com/nklisch/peeragent/internal/jobs"
 	"github.com/nklisch/peeragent/internal/result"
+	"github.com/nklisch/peeragent/internal/testsupport"
 )
 
 func TestMain(m *testing.M) {
@@ -28,7 +29,7 @@ func TestMain(m *testing.M) {
 		main()
 		return
 	}
-	os.Exit(m.Run())
+	os.Exit(testsupport.RunWithPrivateState(m.Run))
 }
 
 func testHelperMainRequested(marker string, args []string) bool {
