@@ -3,6 +3,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -132,4 +133,54 @@ func assertProcessGone(t *testing.T, pid int) {
 func processExists(pid int) bool {
 	err := syscall.Kill(pid, 0)
 	return err == nil || err == syscall.EPERM
+}
+
+func TestAsyncCancelDuringCapacityBackoff(t *testing.T) {
+	cwd, record := fakeCodexEnvironment(t)
+	t.Setenv("PEERAGENT_FAKE_MODE", "always")
+	launched := cliResult(t, cwd, "--async", "--retry-capacity", "1", "--capacity-backoff", "1h", "do work")
+	jobID := launched.Metadata.JobID
+	// Always clean up the job we launched, including when readiness fails.
+	t.Cleanup(func() { cliResult(t, cwd, "--cancel", jobID) })
+	store := jobs.NewStore(cwd)
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		job, err := store.Load(jobID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// Resume is persisted only after the capacity attempt has exited and
+		// the retry has been scheduled. The hour-long backoff cannot elapse here.
+		if job.Status == jobs.StatusRunning && job.Spec.Resume == "fake-session" {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("job never reached capacity backoff: %#v", job)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	pid, err := store.ReadPID(jobID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cancelled := cliResult(t, cwd, "--cancel", jobID)
+	if cancelled.Status != result.StatusCancelled {
+		t.Fatalf("cancel result: %#v", cancelled)
+	}
+	assertProcessGone(t, pid)
+	terminal := cliResult(t, cwd, "--wait", jobID)
+	if terminal.Status != result.StatusCancelled || terminal.Metadata.CapacityRetries != 0 {
+		t.Fatalf("terminal result: %#v", terminal)
+	}
+	content, err := os.ReadFile(record)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var calls []json.RawMessage
+	if err := json.Unmarshal(content, &calls); err != nil {
+		t.Fatal(err)
+	}
+	if len(calls) != 1 {
+		t.Fatalf("attempt started after cancellation: %s", content)
+	}
 }
