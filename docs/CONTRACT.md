@@ -263,6 +263,9 @@ files `0600` on Unix. Independent atomic entries support concurrent launches
 without one shared read/modify/write file. The index can be deleted; explicit
 `--cwd` remains usable. Job entries are written before launch and session
 entries when the target returns a session. It is a locator, not job truth.
+On Windows, transient sharing or access-denied errors during index replacement
+are retried up to ten attempts with at most 450ms of delay. Other errors return
+immediately; persistent write failures still warn without blocking delegation.
 
 `job.json` persists the capacity retry limit and backoff in `spec`, and updates
 `spec.resume` before retrying. During backoff the job stays running. A retry

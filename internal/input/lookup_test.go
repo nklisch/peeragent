@@ -1,8 +1,9 @@
 package input
 
 import (
-	"github.com/nklisch/peeragent/internal/jobs"
 	"testing"
+
+	"github.com/nklisch/peeragent/internal/jobs"
 )
 
 func TestIndexedDirectoriesAndExplicitOverride(t *testing.T) {
@@ -29,7 +30,7 @@ func TestIndexedDirectoriesAndExplicitOverride(t *testing.T) {
 		}
 		args = append(args, "--cwd", "/explicit")
 		req, err = Parse(args, nil, fixedCWD)
-		if err != nil || req.CWD != "/explicit" {
+		if err != nil || req.CWD != absoluteFixturePath(t, "/explicit") {
 			t.Fatalf("%s override = %q, %v", flag, req.CWD, err)
 		}
 	}

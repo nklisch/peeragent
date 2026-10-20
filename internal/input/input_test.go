@@ -2,6 +2,7 @@ package input
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -16,7 +17,7 @@ func TestParseArgs(t *testing.T) {
 	if req.TaskText != "implement the thing" {
 		t.Fatalf("TaskText = %q", req.TaskText)
 	}
-	if req.CWD != "/repo" {
+	if req.CWD != absoluteFixturePath(t, "/repo") {
 		t.Fatalf("CWD = %q", req.CWD)
 	}
 }
@@ -124,7 +125,7 @@ func TestParseCWDOverride(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if req.CWD != "/other" {
+	if req.CWD != absoluteFixturePath(t, "/other") {
 		t.Fatalf("CWD = %q", req.CWD)
 	}
 }
@@ -749,4 +750,14 @@ func TestCapacityRetryOptions(t *testing.T) {
 	if err != nil || req.RetryCapacity != 12 || req.CapacityBackoff.String() != "1ms" {
 		t.Fatalf("retry: %#v %v", req, err)
 	}
+}
+
+// Keep fixture spelling independent of the host's drive and path separator.
+func absoluteFixturePath(t *testing.T, path string) string {
+	t.Helper()
+	absolute, err := filepath.Abs(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return absolute
 }

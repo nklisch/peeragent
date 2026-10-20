@@ -17,7 +17,7 @@ func TestNormalizeDelegationDefaultsAndCanonicalizes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.TaskText != "do work" || got.CWD != "/repo" || got.Agent != "zai" || got.Effort != "xhigh" || got.Model != "glm-5.2" {
+	if got.TaskText != "do work" || got.CWD != absoluteFixturePath(t, "/repo") || got.Agent != "zai" || got.Effort != "xhigh" || got.Model != "glm-5.2" {
 		t.Fatalf("delegation = %#v", got)
 	}
 	if got.Profile != "profile-a" || got.Resume != "session-1" {
@@ -53,7 +53,7 @@ func TestParseUsesCanonicalDelegationNormalization(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if req.Agent != "zai" || req.Effort != "xhigh" || req.Model != "glm-5.2" || req.CWD != "/repo" {
+	if req.Agent != "zai" || req.Effort != "xhigh" || req.Model != "glm-5.2" || req.CWD != absoluteFixturePath(t, "/repo") {
 		t.Fatalf("request = %#v", req)
 	}
 }
