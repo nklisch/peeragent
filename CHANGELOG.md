@@ -1,5 +1,27 @@
 # Changelog
 
+## v0.9.0
+
+### Features
+- `--retry-capacity N` (async Codex jobs) resumes the same session after a
+  "model is at capacity" stop, under one job id, waiting `--capacity-backoff`
+  (ten minutes by default) between attempts. A capacity stop now ends with its
+  own terminal status, `capacity_exhausted`, carrying the session to resume.
+- `--wait`, `--status`, `--result`, `--cancel` and `--resume` find a job or
+  session from any directory through a private per-user index; `--cwd` still
+  wins when given.
+
+### Fixes
+- Unknown options and empty option values are usage errors (exit 2) before any
+  job starts; previously `--list` or `--background` started a real job. Task
+  text that begins with a dash still works after `--`.
+- Only a capacity stop is retried: the job's terminal event decides, so an
+  ordinary failure after an earlier capacity warning is never retried.
+- Codex's "Orphan custom tool call" diagnostics are filtered from the visible
+  error output and kept in the raw log.
+- The source shim keeps the program's exit code from any working directory.
+- Windows: v0.8.2 and v0.8.3's shim launch fixes are included.
+
 ## v0.8.1
 
 ### Features
