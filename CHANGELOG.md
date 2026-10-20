@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.9.1
+
+### Fixes
+- Windows: concurrent writes to the same job or session index entry retry
+  briefly when Windows denies the replacement, instead of warning and leaving
+  the entry missing.
+- Windows: path-handling tests expect the absolute working directory each
+  platform produces, so the Windows test suite passes again.
+
 ## v0.9.0
 
 ### Features
