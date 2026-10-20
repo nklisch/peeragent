@@ -25,7 +25,10 @@ type Runner interface {
 type OSRunner struct{}
 
 func (OSRunner) Run(ctx context.Context, name string, args []string, cwd string) (Result, error) {
-	cmd := exec.CommandContext(ctx, name, args...)
+	cmd, err := commandContext(ctx, name, args)
+	if err != nil {
+		return Result{ExitCode: 1}, fmt.Errorf("run %s: %w", name, err)
+	}
 	cmd.Dir = cwd
 
 	var stdout bytes.Buffer
@@ -33,7 +36,7 @@ func (OSRunner) Run(ctx context.Context, name string, args []string, cwd string)
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
-	err := cmd.Run()
+	err = cmd.Run()
 	stdoutText := stdout.String()
 	stderrText := stderr.String()
 	result := Result{

@@ -1,2 +1,5 @@
 .peeragent/
 dist/
+AGENTS.local.md
+.env
+.env.*
