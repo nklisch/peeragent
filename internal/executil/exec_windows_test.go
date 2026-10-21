@@ -42,7 +42,7 @@ func TestOSRunnerBatchShim(t *testing.T) {
 				}
 				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 				defer cancel()
-				got, err := (OSRunner{}).Run(ctx, path, args, dir)
+				got, err := (OSRunner{}).Run(ctx, path, args, dir, "")
 				if err != nil || got.ExitCode != 0 {
 					t.Fatalf("Run = %+v, %v", got, err)
 				}
@@ -54,7 +54,7 @@ func TestOSRunnerBatchShim(t *testing.T) {
 					t.Fatalf("shell injection marker: %v", err)
 				}
 				for _, arg := range []string{"before\x00after"} {
-					got, err := (OSRunner{}).Run(ctx, path, []string{arg}, dir)
+					got, err := (OSRunner{}).Run(ctx, path, []string{arg}, dir, "")
 					if err == nil || got.ExitCode != 1 || got.Stdout != "" {
 						t.Fatalf("NUL argument launched: %+v, %v", got, err)
 					}

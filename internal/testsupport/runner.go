@@ -14,14 +14,16 @@ type RecordingRunner struct {
 	Name   string
 	Args   []string
 	CWD    string
+	Stdin  string
 	Result executil.Result
 }
 
 var _ executil.Runner = (*RecordingRunner)(nil)
 
-func (r *RecordingRunner) Run(_ context.Context, name string, args []string, cwd string) (executil.Result, error) {
+func (r *RecordingRunner) Run(_ context.Context, name string, args []string, cwd string, stdin string) (executil.Result, error) {
 	r.Name = name
 	r.Args = args
 	r.CWD = cwd
+	r.Stdin = stdin
 	return r.Result, nil
 }

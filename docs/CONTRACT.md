@@ -47,6 +47,11 @@ options; `--` makes every following argument literal task text. Every valued
 option requires a non-empty value and cannot consume the next option as its
 value. This validation happens before reading prompts or launching work.
 
+Codex receives the constructed prompt through stdin with `-` as its prompt
+argument, for both new and resumed sessions. This also applies to file-based
+tasks and avoids command-line size limits when Windows resolves `codex` to an
+npm `.cmd` shim.
+
 Options:
 
 - `--agent <codex|gemini|claude|zai>`: Select the target agent. Defaults to

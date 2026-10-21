@@ -70,9 +70,11 @@ runner preserves quoted arguments and shell characters when a shim forwards
 variables and expand after shell parsing, preserving multiline tasks without
 interpreting their contents as commands. This requires the shim to preserve
 delayed expansion at its forwarding command, as npm shims do. Native launches
-retain their normal argument handling. A quoted argument exceeding cmd.exe's
-8191-character limit is rejected before launch rather than silently dropped;
-use a native agent executable for tasks beyond that batch limit.
+retain their normal argument handling. Codex prompts are sent through stdin
+for both new and resumed sessions, so large tasks (including `--prompt-file`
+input) bypass Windows command-line limits. Other targets still pass prompts as
+arguments: a quoted argument exceeding cmd.exe's 8191-character limit is
+rejected before launch; use a native agent executable for those tasks.
 
 ## Using It
 

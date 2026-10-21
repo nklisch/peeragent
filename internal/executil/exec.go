@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"strings"
 )
 
 type Result struct {
@@ -19,17 +20,20 @@ type Result struct {
 }
 
 type Runner interface {
-	Run(ctx context.Context, name string, args []string, cwd string) (Result, error)
+	Run(ctx context.Context, name string, args []string, cwd string, stdin string) (Result, error)
 }
 
 type OSRunner struct{}
 
-func (OSRunner) Run(ctx context.Context, name string, args []string, cwd string) (Result, error) {
+func (OSRunner) Run(ctx context.Context, name string, args []string, cwd string, stdin string) (Result, error) {
 	cmd, err := commandContext(ctx, name, args)
 	if err != nil {
 		return Result{ExitCode: 1}, fmt.Errorf("run %s: %w", name, err)
 	}
 	cmd.Dir = cwd
+	if stdin != "" {
+		cmd.Stdin = strings.NewReader(stdin)
+	}
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer

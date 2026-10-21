@@ -33,7 +33,9 @@ func ExecWithRunner(ctx context.Context, run executil.Runner, opts Options) (Res
 	if err != nil {
 		return Result{ExitCode: 127}, errors.New("codex CLI not found in PATH")
 	}
-	result, err := run.Run(ctx, path, buildArgs(opts), opts.CWD)
+	// Codex reads the '-' prompt from stdin, avoiding command-line size limits
+	// and shell quoting even when PATH resolves to a Windows npm shim.
+	result, err := run.Run(ctx, path, buildArgs(opts), opts.CWD, opts.Prompt)
 	normalizeJSONResult(&result)
 	return result, err
 }
@@ -54,7 +56,7 @@ func buildArgs(opts Options) []string {
 		args = append(args, profileArgs...)
 		args = append(args, modelArgs(opts.Model)...)
 		args = append(args, effortArgs(opts.Effort)...)
-		return append(args, opts.Prompt)
+		return append(args, "-")
 	}
 	args := []string{
 		"exec",
@@ -66,7 +68,7 @@ func buildArgs(opts Options) []string {
 	args = append(args, approvalArgs()...)
 	args = append(args, modelArgs(opts.Model)...)
 	args = append(args, effortArgs(opts.Effort)...)
-	return append(args, opts.Prompt)
+	return append(args, "-")
 }
 
 func buildResumeArgs(opts Options) []string {
@@ -79,7 +81,7 @@ func buildResumeArgs(opts Options) []string {
 	}
 	args = append(args, modelArgs(opts.Model)...)
 	args = append(args, effortArgs(opts.Effort)...)
-	return append(args, opts.Resume, opts.Prompt)
+	return append(args, opts.Resume, "-")
 }
 
 func profileArgs(profile string) []string {

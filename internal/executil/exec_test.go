@@ -4,11 +4,41 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
+
+func TestOSRunnerNativeStdin(t *testing.T) {
+	self, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PEERAGENT_STDIN_HELPER", "1")
+	input := strings.Repeat("quotes: \" & | % !\r\nUnicode: café 日本語\n", 2000)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	got, err := (OSRunner{}).Run(ctx, self, []string{"-test.run=^TestStdinHelper$"}, t.TempDir(), input)
+	if err != nil || got.ExitCode != 0 {
+		t.Fatalf("Run = %+v, %v", got, err)
+	}
+	if got.Stdout != input {
+		t.Fatalf("stdin changed: got %d bytes, want %d", len(got.Stdout), len(input))
+	}
+}
+
+func TestStdinHelper(t *testing.T) {
+	if os.Getenv("PEERAGENT_STDIN_HELPER") != "1" {
+		return
+	}
+	if _, err := io.Copy(os.Stdout, os.Stdin); err != nil {
+		t.Fatal(err)
+	}
+	os.Exit(0)
+}
 
 func TestOSRunnerNativeArguments(t *testing.T) {
 	self, err := os.Executable()
@@ -19,7 +49,7 @@ func TestOSRunnerNativeArguments(t *testing.T) {
 	args := []string{"", "task with spaces", `say "OK" & | ( ) ^ % !`, `C:\path with spaces\`, "multi\nline\r\ntext", "unicode: café 日本語"}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	got, err := (OSRunner{}).Run(ctx, self, append([]string{"-test.run=^TestBatchArgHelper$", "--"}, args...), t.TempDir())
+	got, err := (OSRunner{}).Run(ctx, self, append([]string{"-test.run=^TestBatchArgHelper$", "--"}, args...), t.TempDir(), "")
 	if err != nil || got.ExitCode != 0 {
 		t.Fatalf("Run = %+v, %v", got, err)
 	}

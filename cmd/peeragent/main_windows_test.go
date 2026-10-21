@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -30,44 +31,68 @@ func TestWindowsCLIWithNpmShim(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "codex.cmd"), []byte(shim), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	task := "Reply with \"OK\" & | ( ) ^ % !\nTake no other action."
-	for _, resume := range []string{"", "fixture-thread"} {
-		t.Run("resume="+resume, func(t *testing.T) {
-			capture := filepath.Join(t.TempDir(), "args.json")
-			args := []string{"--agent", "codex", "--cwd", dir}
-			if resume != "" {
-				args = append(args, "--resume", resume)
+	for _, size := range []int{1, 200, 2000} {
+		task := strings.Repeat("Reply with \"OK\" & | ( ) ^ % !\r\nUnicode: café 日本語\n", size)
+		for _, resume := range []string{"", "fixture-thread"} {
+			for _, fullAccess := range []bool{false, true} {
+				t.Run(fmt.Sprintf("size=%d/resume=%s/fullAccess=%t", size, resume, fullAccess), func(t *testing.T) {
+					capture := filepath.Join(t.TempDir(), "args.json")
+					args := []string{"--agent", "codex", "--cwd", dir}
+					if resume != "" {
+						args = append(args, "--resume", resume)
+					}
+					if fullAccess {
+						args = append(args, "--full-access")
+					}
+					if size == 1 {
+						args = append(args, task)
+					} else {
+						brief := filepath.Join(t.TempDir(), "brief.md")
+						if err := os.WriteFile(brief, []byte(task), 0o600); err != nil {
+							t.Fatal(err)
+						}
+						args = append(args, "--prompt-file", brief)
+					}
+					ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+					defer cancel()
+					cmd := exec.CommandContext(ctx, self, args...)
+					cmd.Env = append(os.Environ(), "PEERAGENT_TEST_HELPER_MAIN=1", "PEERAGENT_CLI_CAPTURE="+capture, "PATH="+dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+					output, err := cmd.CombinedOutput()
+					if err != nil {
+						t.Fatalf("CLI failed: %v\n%s", err, output)
+					}
+					got := decodeResult(t, output)
+					if got.Status != result.StatusSuccess || !strings.Contains(got.Details, "stdout:\nOK") {
+						t.Fatalf("CLI result = %+v", got)
+					}
+					encoded, err := os.ReadFile(capture)
+					if err != nil {
+						t.Fatal(err)
+					}
+					var captured codexCLIInput
+					if err := json.Unmarshal(encoded, &captured); err != nil {
+						t.Fatal(err)
+					}
+					want := prompt.BuildForAgent("Codex", task)
+					if captured.Stdin != want {
+						t.Fatalf("stdin differs from prompt: got %d bytes, want %d", len(captured.Stdin), len(want))
+					}
+					forwarded := captured.Args
+					if len(forwarded) == 0 || forwarded[len(forwarded)-1] != "-" {
+						t.Fatalf("missing stdin marker: %q", forwarded)
+					}
+					if resume != "" && (forwarded[len(forwarded)-2] != resume || got.Metadata.AgentSession != resume) {
+						t.Fatalf("resume ID missing from %q", forwarded)
+					}
+				})
 			}
-			args = append(args, task)
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			defer cancel()
-			cmd := exec.CommandContext(ctx, self, args...)
-			cmd.Env = append(os.Environ(), "PEERAGENT_TEST_HELPER_MAIN=1", "PEERAGENT_CLI_CAPTURE="+capture, "PATH="+dir+string(os.PathListSeparator)+os.Getenv("PATH"))
-			output, err := cmd.CombinedOutput()
-			if err != nil {
-				t.Fatalf("CLI failed: %v\n%s", err, output)
-			}
-			got := decodeResult(t, output)
-			if got.Status != result.StatusSuccess || !strings.Contains(got.Details, "stdout:\nOK") {
-				t.Fatalf("CLI result = %+v", got)
-			}
-			encoded, err := os.ReadFile(capture)
-			if err != nil {
-				t.Fatal(err)
-			}
-			var forwarded []string
-			if err := json.Unmarshal(encoded, &forwarded); err != nil {
-				t.Fatal(err)
-			}
-			want := prompt.BuildForAgent("Codex", task)
-			if len(forwarded) == 0 || forwarded[len(forwarded)-1] != want {
-				t.Fatalf("forwarded prompt = %q, want %q", forwarded, want)
-			}
-			if resume != "" && (forwarded[len(forwarded)-2] != resume || got.Metadata.AgentSession != resume) {
-				t.Fatalf("resume ID missing from %q", forwarded)
-			}
-		})
+		}
 	}
+}
+
+type codexCLIInput struct {
+	Args  []string
+	Stdin string
 }
 
 func TestWindowsCLIArgHelper(t *testing.T) {
@@ -77,7 +102,11 @@ func TestWindowsCLIArgHelper(t *testing.T) {
 	}
 	for i, arg := range os.Args {
 		if arg == "--" {
-			encoded, err := json.Marshal(os.Args[i+1:])
+			stdin, err := io.ReadAll(os.Stdin)
+			if err != nil {
+				t.Fatal(err)
+			}
+			encoded, err := json.Marshal(codexCLIInput{Args: os.Args[i+1:], Stdin: string(stdin)})
 			if err != nil {
 				t.Fatal(err)
 			}

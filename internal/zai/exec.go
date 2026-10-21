@@ -32,7 +32,7 @@ func ExecWithRunner(ctx context.Context, run executil.Runner, opts Options) (Res
 	if err != nil {
 		return Result{ExitCode: 127}, errors.New("Pi CLI not found in PATH")
 	}
-	result, err := run.Run(ctx, path, buildArgs(opts), opts.CWD)
+	result, err := run.Run(ctx, path, buildArgs(opts), opts.CWD, "")
 	result.AgentSession = opts.Resume
 	return result, err
 }
