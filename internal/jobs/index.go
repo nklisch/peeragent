@@ -47,7 +47,7 @@ func writeIndex(kind, key, cwd string) error {
 	if err := file.Close(); err != nil {
 		return err
 	}
-	return renameIndex(file.Name(), path)
+	return replaceFile(file.Name(), path)
 }
 
 func readIndex(kind, key string) (string, error) {

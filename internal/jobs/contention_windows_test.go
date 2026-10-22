@@ -8,11 +8,11 @@ import (
 	"time"
 )
 
-func TestIndexRenameRetriesWindowsContention(t *testing.T) {
+func TestReplaceFileRetriesWindowsContention(t *testing.T) {
 	for _, code := range []syscall.Errno{syscall.ERROR_ACCESS_DENIED, 32} {
 		t.Run(code.Error(), func(t *testing.T) {
 			calls, waits := 0, 0
-			err := renameIndexWithRetry("source", "destination", func(oldpath, newpath string) error {
+			err := replaceFileWithRetry("source", "destination", func(oldpath, newpath string) error {
 				if oldpath != "source" || newpath != "destination" {
 					t.Fatalf("rename paths = %q, %q", oldpath, newpath)
 				}
@@ -34,13 +34,13 @@ func TestIndexRenameRetriesWindowsContention(t *testing.T) {
 	}
 }
 
-func TestIndexRenameReturnsPermanentWindowsErrors(t *testing.T) {
+func TestReplaceFileReturnsPermanentWindowsErrors(t *testing.T) {
 	for _, code := range []syscall.Errno{syscall.ERROR_ACCESS_DENIED, syscall.ERROR_FILE_NOT_FOUND} {
 		t.Run(code.Error(), func(t *testing.T) {
 			want := &os.LinkError{Op: "rename", Err: code}
 			calls := 0
 			var totalDelay time.Duration
-			err := renameIndexWithRetry("source", "destination", func(string, string) error {
+			err := replaceFileWithRetry("source", "destination", func(string, string) error {
 				calls++
 				return want
 			}, func(delay time.Duration) { totalDelay += delay })
@@ -55,5 +55,18 @@ func TestIndexRenameReturnsPermanentWindowsErrors(t *testing.T) {
 				t.Fatalf("retry budget: calls=%d delay=%s", calls, totalDelay)
 			}
 		})
+	}
+}
+
+func TestLockBusyTreatsPendingDeletionAsHeld(t *testing.T) {
+	for _, code := range []syscall.Errno{syscall.ERROR_FILE_EXISTS, syscall.ERROR_ACCESS_DENIED, 32} {
+		if !lockBusy(&os.PathError{Op: "open", Path: "lock", Err: code}) {
+			t.Fatalf("lockBusy(%v) = false, want retry", code)
+		}
+	}
+	for _, code := range []syscall.Errno{syscall.ERROR_PATH_NOT_FOUND, syscall.ERROR_FILE_NOT_FOUND} {
+		if lockBusy(&os.PathError{Op: "open", Path: "lock", Err: code}) {
+			t.Fatalf("lockBusy(%v) = true, want immediate error", code)
+		}
 	}
 }

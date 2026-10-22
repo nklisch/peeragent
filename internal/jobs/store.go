@@ -240,11 +240,11 @@ func withFileLock(lockPath string, fn func() error) error {
 			defer os.Remove(lockPath)
 			return fn()
 		}
-		if !os.IsExist(err) {
+		if !lockBusy(err) {
 			return err
 		}
 		if time.Now().After(deadline) {
-			return fmt.Errorf("acquire job lock %s: timed out after %s", lockPath, jobLockTimeout)
+			return fmt.Errorf("acquire job lock %s: timed out after %s: %w", lockPath, jobLockTimeout, err)
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
@@ -271,7 +271,7 @@ func AtomicWriteFile(path string, content []byte, perm os.FileMode) error {
 		_ = os.Remove(tmp)
 		return err
 	}
-	if err := os.Rename(tmp, path); err != nil {
+	if err := replaceFile(tmp, path); err != nil {
 		_ = os.Remove(tmp)
 		return err
 	}
