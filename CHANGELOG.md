@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.11.1
+
+### Fixes
+- Windows: wait for the job lock instead of failing with "Access is denied" when another command has just released
+  it. The released lock file can stay pending deletion for a moment, which made a `tell` that arrived while the job
+  read its inbox fail. A lock that times out now reports the last error it saw.
+- Windows: retry every atomic file replace (job state, inbox read state, the job index) for up to 450 ms while another
+  process briefly holds the destination open, as the job index already did.
+
 ## v0.11.0
 
 ### Features
