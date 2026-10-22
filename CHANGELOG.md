@@ -1,5 +1,30 @@
 # Changelog
 
+## v0.10.0
+
+### Features
+- `--wait-any <job-id>...` blocks until the first of several jobs finishes and prints that job's terminal result,
+  with `--wait`'s exit semantics. `job-id@directory` names an unindexed job. An unknown id is a usage error before
+  any wait.
+- `--status` accepts several job ids and prints one compact record per job: status, model, effort, session,
+  start time, capacity backoff, and head commit. JSON by default, `--text` for a table. Single-job output is
+  unchanged.
+- A Codex job's session id is recorded as soon as Codex reports it, so `--status`, `--result` and a later `--resume`
+  have it while the job runs and after a cancel.
+- Terminal results always carry the agent's final message untruncated, or a pointer to the file holding it, across
+  running, failed, cancelled and capacity-retried jobs.
+- `--retry-capacity` is described beside `--async` in help, the README and the skills.
+
+### Fixes
+- An async Codex job that logged its final message and `task_complete`, but never exited, stays `running` no longer.
+  A terminal event starts a short completion grace, after which only the job's own process tree is stopped. Any new
+  agent activity during the grace cancels it, so a session that continues after `turn.completed` isn't cut off.
+- Cleanup keeps ownership of the job's process group until its last signal, so it can never signal a process-group
+  number the system has reused.
+- Pipe draining has no timeout before completion, so a launcher that starts the agent in the background and exits
+  no longer cuts the agent off.
+- Cancellation reaches the whole job even when a large prompt is still being written to a descendant that holds stdin.
+
 ## v0.9.1
 
 ### Fixes
