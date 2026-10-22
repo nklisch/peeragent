@@ -85,7 +85,7 @@ func resumeHint(session string) string {
 // labelPart cannot inject a header, a newline, or terminal escape sequences.
 func labelPart(text string) string {
 	return strings.Map(func(r rune) rune {
-		if r == '⟦' || r == '⟧' || unicode.IsControl(r) || unicode.IsSpace(r) {
+		if r == '⟦' || r == '⟧' || unicode.IsControl(r) || (unicode.IsSpace(r) && r != ' ') {
 			return '_'
 		}
 		return r

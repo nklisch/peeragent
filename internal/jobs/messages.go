@@ -186,9 +186,3 @@ func (s Store) ReadInbox(id string, deliver func([]Message) error) error {
 		return s.MarkInboxReadLocked(id, len(m.Inbox))
 	})
 }
-
-func (s Store) ConsumeInbox(id string) ([]Message, error) {
-	var entries []Message
-	err := s.ReadInbox(id, func(batch []Message) error { entries = batch; return nil })
-	return entries, err
-}

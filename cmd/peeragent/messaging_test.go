@@ -340,7 +340,7 @@ func TestConcurrentTellAndInboxLoseNoMessages(t *testing.T) {
 	}
 	// Reading while writers are active proves that cursor and append share a lock.
 	for range 4 {
-		entries, err := store.ConsumeInbox(job.ID)
+		entries, err := consumeTestInbox(store, job.ID)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -358,7 +358,7 @@ func TestConcurrentTellAndInboxLoseNoMessages(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	entries, err := store.ConsumeInbox(job.ID)
+	entries, err := consumeTestInbox(store, job.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -504,4 +504,10 @@ func TestConcurrentSaySharesJobRateLimit(t *testing.T) {
 	if err != nil || len(m.Outbox) != count || m.Stats().OutboxSent != 3 {
 		t.Fatalf("mailbox %#v %v", m, err)
 	}
+}
+
+func consumeTestInbox(store jobs.Store, id string) ([]jobs.Message, error) {
+	var entries []jobs.Message
+	err := store.ReadInbox(id, func(batch []jobs.Message) error { entries = batch; return nil })
+	return entries, err
 }

@@ -90,6 +90,10 @@ func TestCapacityContinuationCarriesUnreadInbox(t *testing.T) {
 }
 
 func TestHeaderSanitizesLabelComponents(t *testing.T) {
+	spaced := messageHeader(jobs.Job{ID: "job", CWD: filepath.Join("repo", "work tree"), Branch: "feature/messages", Spec: jobs.ExecSpec{Agent: "codex"}})
+	if !strings.Contains(spaced, "work tree@feature/messages") {
+		t.Fatalf("worktree name changed: %q", spaced)
+	}
 	header := messageHeader(jobs.Job{ID: "job", CWD: filepath.Join("repo", "bad⟦name\n"), Branch: "bad⟧branch\x1b", Spec: jobs.ExecSpec{Agent: "codex⟦"}})
 	if strings.Count(header, "⟦") != 1 || strings.Count(header, "⟧") != 1 || strings.ContainsAny(header, "\n\x1b") {
 		t.Fatalf("header %q", header)

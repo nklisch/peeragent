@@ -39,7 +39,7 @@ this header before the body:
 ```
 
 The branch is captured at launch (`unknown` when unavailable; `HEAD` for a
-detached checkout). Whitespace, control characters and header brackets in label
+detached checkout). Line-breaking whitespace, control characters and header brackets in label
 components are replaced with underscores. In the body, `⟦`/`⟧` become `[`/`]`,
 and control characters become spaces. A body cannot create another supported
 origin header. Quotes and shell syntax remain literal text. Use `--` before
