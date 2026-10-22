@@ -17,7 +17,7 @@ func TestLiveSessionAndUntruncatedMessageSurviveCancellation(t *testing.T) {
 	launched := cliResult(t, cwd, "--async", "work")
 	id := launched.Metadata.JobID
 	t.Cleanup(func() { cliResult(t, cwd, "--cancel", id) })
-	waitForObservation(t, cwd, id, func(res result.Result) bool { return res.Metadata.AgentSession == "fake-session" })
+	waitForObservation(t, cwd, id, "--status", func(res result.Result) bool { return res.Metadata.AgentSession == "fake-session" })
 	// The session can arrive before the following message is persisted.
 	deadline := time.Now().Add(20 * time.Second)
 	var running result.Result

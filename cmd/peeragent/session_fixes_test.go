@@ -37,6 +37,18 @@ func fakeCodexMain() {
 		fmt.Println(`{"type":"thread.started","thread_id":"fake-session"}`)
 	}
 	mode := os.Getenv("PEERAGENT_FAKE_MODE")
+	if mode == "continuing-turn" {
+		fmt.Println(`{"type":"turn.completed"}`)
+		fmt.Println(`{"type":"turn.started"}`)
+		fmt.Println(`{"type":"agent_message","message":"continuation is running"}`)
+		// Continue beyond the original five-second grace, then announce true
+		// completion and remain alive to exercise the fresh watchdog deadline.
+		time.Sleep(6 * time.Second)
+		fmt.Println(`{"type":"task_complete","last_agent_message":"finished continuing"}`)
+		for {
+			time.Sleep(time.Hour)
+		}
+	}
 	if mode == "live" || mode == "final-hang" || mode == "failed-message" || mode == "capacity-message" || mode == "capacity-prior-message" {
 		if mode == "capacity-prior-message" && len(calls) > 1 {
 			fmt.Println(`{"type":"turn.failed","error":{"message":"ordinary target failure"}}`)

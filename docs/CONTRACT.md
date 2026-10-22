@@ -335,15 +335,25 @@ when a subsequent capacity attempt has no message. This file holds the latest
 completed message, which may be a progress update if interrupted before a final
 reply. Raw per-attempt logs remain separate.
 
-Terminal `turn.completed`, `turn.failed`, `task_complete` (including `event_msg`
-envelopes), and messages marked `final`/`final_answer` start a five-second grace
-period. Unphased `item.completed` agent messages may be progress and do not
-start shutdown. During the grace period status says “final message received,
-process still alive” and sets `metadata.final_received`. If the child remains
-alive, peeragent stops only its owned process group (Job Object on Windows),
-reaps the child and derives its outcome from the last terminal event. Explicit
+Terminal `turn.failed`, `task_complete` (including `event_msg` envelopes),
+and messages marked `final`/`final_answer` start a five-second grace period.
+`turn.completed` starts a provisional grace: a following `turn.started`,
+`item.started`, or other agent/tool activity cancels it and clears
+`metadata.final_received`. A later completion starts fresh grace. Explicit
+session completion is not downgraded by a later turn marker. Unphased
+`item.completed` agent messages may be progress and do not start shutdown.
+During grace status says “final message received, process still alive” and sets
+`metadata.final_received`.
+
+After confirmed completion grace, peeragent stops only its owned process group
+(Job Object on Windows), closes its own pipe readers, reaps the child and derives
+its outcome from the last terminal event. Linux and macOS observe leader exit
+without reaping, keeping the group number reserved until its last possible
+signal. Group signalling is revoked before reap, so cleanup cannot target a
+reused group number. Before completion or cancellation, pipe draining has no
+timeout, including when a launcher exits ahead of its worker. Explicit
 cancellation still wins through the existing terminal lock. A JSONL line without
-a trailing newline is observed when the process exits.
+a trailing newline is observed when its stdout stream reaches EOF.
 
 `job.json` also records `capacity_backoff_until` and the count of retries started.
 The job remains `running` during backoff; compact multi-job status exposes it.

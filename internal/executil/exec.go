@@ -27,8 +27,8 @@ type Runner interface {
 
 type OSRunner struct {
 	// ObserveStdout receives complete lines, without a scanner size limit.
-	// A true return starts the completion grace period exactly once.
-	ObserveStdout   func(string) (bool, error)
+	// Pending starts/restarts grace; Active cancels it; Unchanged preserves it.
+	ObserveStdout   func(string) (CompletionObservation, error)
 	CompletionGrace time.Duration
 }
 

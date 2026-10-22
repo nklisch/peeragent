@@ -402,8 +402,11 @@ message marked with a final phase) starts a five-second completion grace period.
 During that period, status says “final message received, process still alive”.
 If Codex stays alive, peeragent ends its own child and owned process group
 (Windows Job Object on Windows), preserving the terminal event's outcome.
-Ordinary completed messages without a final phase can be progress updates and
-do not start this timer. An unterminated JSONL line is processed on process exit.
+A `turn.completed` event is provisional: new turn, item, agent or tool activity
+cancels its timer, and later completion starts fresh grace. Ordinary completed
+messages without a final phase can be progress updates and do not start this
+timer. Launcher exit alone does not limit how long worker output can drain.
+An unterminated JSONL line is processed when stdout reaches EOF.
 
 Cancel the job:
 

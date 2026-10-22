@@ -26,14 +26,14 @@ var lookPath = exec.LookPath
 
 func Exec(ctx context.Context, opts Options) (Result, error) {
 	state := streamState{}
-	return execWithRunner(ctx, executil.OSRunner{ObserveStdout: func(line string) (bool, error) {
+	return execWithRunner(ctx, executil.OSRunner{ObserveStdout: func(line string) (executil.CompletionObservation, error) {
 		progress, changed := state.consume(line)
 		if changed {
 			if err := executil.ReportProgress(ctx, progress); err != nil {
-				return false, err
+				return executil.CompletionUnchanged, err
 			}
 		}
-		return state.terminal, nil
+		return state.observation, nil
 	}}, opts, &state)
 }
 
@@ -158,9 +158,12 @@ type codexEvent struct {
 type streamState struct {
 	session, message            string
 	capacity, terminal, success bool
+	turnComplete                bool
+	observation                 executil.CompletionObservation
 }
 
 func (s *streamState) consume(line string) (executil.Progress, bool) {
+	s.observation = executil.CompletionUnchanged
 	var event codexEvent
 	if err := json.Unmarshal([]byte(line), &event); err != nil {
 		if !s.terminal && isCapacityDiagnostic(line) {
@@ -174,6 +177,10 @@ func (s *streamState) consume(line string) (executil.Progress, bool) {
 		}
 	}
 	oldSession, oldMessage, oldTerminal := s.session, s.message, s.terminal
+	if s.turnComplete && isActivityEvent(event.Type) {
+		s.turnComplete, s.terminal = false, false
+		s.observation = executil.CompletionActive
+	}
 	switch event.Type {
 	case "thread.started":
 		if event.ThreadID != "" {
@@ -202,6 +209,8 @@ func (s *streamState) consume(line string) (executil.Progress, bool) {
 			}
 			if item.Phase == "final" || item.Phase == "final_answer" {
 				s.terminal, s.success, s.capacity = true, true, false
+				s.turnComplete = false
+				s.observation = executil.CompletionPending
 			}
 		}
 	case "agent_message":
@@ -215,7 +224,15 @@ func (s *streamState) consume(line string) (executil.Progress, bool) {
 	case "turn.failed":
 		s.capacity = isCapacityDiagnostic(event.Message) || isCapacityDiagnostic(event.Error.Message)
 		s.terminal, s.success = true, false
+		s.turnComplete = false
+		s.observation = executil.CompletionPending
 	case "turn.completed", "task_complete":
+		// A later turn marker must not downgrade an explicit session completion.
+		if event.Type == "turn.completed" && s.terminal && !s.turnComplete {
+			break
+		}
+		s.turnComplete = event.Type == "turn.completed"
+		s.observation = executil.CompletionPending
 		if event.LastAgentMessage != "" {
 			s.message = event.LastAgentMessage
 		}
@@ -227,6 +244,18 @@ func (s *streamState) consume(line string) (executil.Progress, bool) {
 		progress.Message = s.message
 	}
 	return progress, changed
+}
+
+// Turn completion is provisional: stop hooks and goals can continue the same
+// session. Agent/tool activity revokes that candidate, while task_complete and
+// explicitly final messages remain session completion observations.
+func isActivityEvent(kind string) bool {
+	return kind == "turn.started" || kind == "response_item" ||
+		strings.HasPrefix(kind, "item.") || strings.HasPrefix(kind, "agent_") ||
+		strings.HasPrefix(kind, "agent.") || strings.HasPrefix(kind, "response.") ||
+		strings.HasPrefix(kind, "function_call") ||
+		strings.Contains(kind, "tool") || strings.HasPrefix(kind, "exec_command_") ||
+		strings.HasPrefix(kind, "web_search_") || strings.HasPrefix(kind, "patch_apply_")
 }
 
 func normalizeJSONResult(result *Result) {

@@ -36,7 +36,8 @@ installed-plugin changes, committed binary refresh, tag or push.
   results include them or expose `metadata.message_path`, including after
   cancellation, failure and capacity retry. Per-attempt raw logs remain intact.
 - Explicit Codex completion/failure events and messages marked with a final
-  phase start a five-second grace period. Status reports “final message received,
+  phase start a five-second grace period. A provisional `turn.completed` is
+  revoked by continuing agent/tool activity; later completion restarts grace. Status reports “final message received,
   process still alive”. On expiry, the runner ends only its owned child/group
   (Windows Job Object), reaps it and uses the terminal-event outcome. Ordinary
   unphased messages can be progress and never initiate shutdown. Natural target
@@ -48,10 +49,10 @@ installed-plugin changes, committed binary refresh, tag or push.
 
 A separate harness reviewer inspected implementation, lifecycle contracts,
 process ownership and compatibility without rebuilding. Accepted and fixed the
-inherited-output-pipe finding: `Cmd.WaitDelay` could beat the completion timer,
-return a false failure and leave a descendant alive. The wait-error path now
-ends the owned tree and preserves terminal-event completion for that case. A
-fake descendant deliberately retains output after the direct child exits.
+inherited-output-pipe finding during the initial implementation. The subsequent
+owner-accepted review found the unconditional pipe deadline could interrupt an
+active worker, and group signals could outlive the leader's ownership. Both are
+fixed in the correction round below.
 
 Self-review removed a second parse of Codex stdout after streaming and avoided
 reading completed-message files during each running wait poll. Message pointers
@@ -74,7 +75,7 @@ session with the next instruction.
   in Codex's private session log; their stdout was not captured. A target that
   emits no terminal stdout event and no explicitly final message still requires
   ordinary exit or cancellation. No private-session-log tailer was added.
-- JSONL records without a trailing newline are processed when the process exits.
+- JSONL records without a trailing newline are processed at stdout EOF.
   Intermediate unphased messages cannot reliably distinguish final output.
 - Multi-status fails before printing records when any job cannot be loaded;
   single-job missing-id exit 4 remains unchanged. No tracker reorganization beyond
@@ -139,3 +140,40 @@ validator directly, with no `heavy` and no PATH override. The earlier archive
 copy lacked Git metadata; it was deleted and replaced by the disposable Git
 worktree. Disposable checkout, test binaries and probes were removed after
 verification. No performance or runtime timing measurements were made.
+
+
+## Accepted review corrections (2026-10-22)
+
+- **Keep ownership through the last Unix group signal.** The runner observes
+  leader exit without reaping (`waitid`/`WNOWAIT` on Linux, `EVFILT_PROC`/
+  `NOTE_EXIT` on macOS). A shared ownership lock revokes every group signal
+  before the explicit reap can release the group number. Windows retains its
+  Job Object and process handle. `TestOwnedGroupNeverSignalsReusedNumber`
+  simulates reuse after leader exit/reap, including cleanup during reap; no real
+  unrelated process is touched. `TestExitObservationLeavesLeaderWaitable`
+  checks that actual exit observation leaves the child's status collectible.
+- **Keep ordinary pipe draining unbounded.** Removed the unconditional
+  `Cmd.WaitDelay`. Stdout/stderr draining and exit observation are independent;
+  forced reader closure occurs only for terminal grace, cancellation or a
+  concrete I/O/observation failure requiring cleanup. The inherited-pipe test
+  still covers terminal cleanup, while
+  `TestLauncherExitDoesNotTimeOutActiveWorkerPipes` lets a finite worker outlive
+  its launcher and the former deadline, then checks its entire output and
+  successful outcome.
+- **Allow Codex continuation after turn completion.** Completion observations
+  can start, cancel or restart grace; a generation check rejects stale timer
+  wake-ups. `turn.completed` is provisional and following turn/item/agent/tool
+  events cancel it, including persisted `final_received`. `task_complete` and
+  explicitly final messages remain session completion. Parser tests cover each
+  activity kind and prevent later turn markers from downgrading explicit
+  completion. `TestContinuedCodexTurnGetsFreshCompletionGrace` runs a fake
+  continued turn past the original grace, then emits `task_complete` and hangs
+  until the fresh watchdog cleans it up.
+
+Platform references: [Apple kqueue documentation](https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man2/kqueue.2.html)
+defines process exit notification separately from reap. [Go's exit-wait implementation](https://go.dev/src/os/wait_waitid.go)
+uses Linux `WNOWAIT` and records the stopped-process problem with Darwin
+`waitid`, which is why this implementation uses kqueue there.
+
+Correction-round frozen-tree verification is pending. The earlier verification
+above remains evidence for the previous code SHA, not for these corrections.

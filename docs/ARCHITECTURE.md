@@ -184,14 +184,22 @@ while preserving the session id. The async child optionally retries that result
 with the same session and execution settings, a continuation prompt, and a
 bounded retry count and configurable backoff. Each attempt retains its raw log.
 The job stays running until the final attempt, and terminal cancellation wins
-against later completion. The Codex adapter observes stdout as it arrives, persisting the session id and
-latest completed message under the same lock as cancellation. Explicit terminal
-events and messages marked with a final phase start a five-second grace period.
-Status exposes that a final message arrived while the child is still alive.
-After the grace period the shared runner ends the owned target process group
-(Windows Job Object on Windows) and uses the terminal event's outcome. Ordinary
-unphased progress messages never start shutdown. Async Unix workers forward
-cancellation through their context to the separately owned Codex process group.
+against later completion. The Codex adapter observes stdout as it arrives,
+persisting the session id and latest completed message under the same lock as
+cancellation. Explicit terminal events and messages marked with a final phase
+start a five-second grace period. A `turn.completed` candidate is revoked by
+subsequent turn, item, agent or tool activity; later completion restarts grace.
+Status exposes the current candidate while the child is still alive.
+
+The runner drains stdout and stderr independently of leader exit. Linux uses
+`waitid` with `WNOWAIT`; macOS uses a process-exit kqueue notification. Both
+leave the leader unreaped, reserving the group number through its last possible
+signal. Group signalling is revoked before the explicit reap. After completion
+grace or cancellation, owned-tree cleanup closes the runner's pipe readers so
+escaped descriptor holders cannot stall cleanup. Windows retains its Job Object
+and process handle. Ordinary draining has no pipe timeout. Unphased progress
+messages never initiate shutdown. Async Unix workers forward cancellation
+through their context to the separately owned Codex process group.
 
 Cancellation writes cancelled `job.json` and `result.json` state before
 signalling. On unix, it sends SIGTERM to the recorded process group, waits up

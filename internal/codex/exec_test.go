@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/nklisch/peeragent/internal/executil"
 	"github.com/nklisch/peeragent/internal/testsupport"
 )
 
@@ -397,5 +398,45 @@ func TestProgressMessageDoesNotEndTurn(t *testing.T) {
 	normalizeJSONResult(&res)
 	if !res.CapacityExhausted || res.ExitCode != 1 {
 		t.Fatalf("capacity shutdown outcome: %#v", res)
+	}
+}
+
+func TestTurnCompletionRevokedByActivity(t *testing.T) {
+	for _, activity := range []string{
+		`{"type":"turn.started"}`, `{"type":"item.started","item":{"type":"command_execution"}}`,
+		`{"type":"item.updated"}`, `{"type":"agent_message","message":"continuing"}`,
+		`{"type":"event_msg","payload":{"type":"exec_command_begin"}}`,
+		`{"type":"event_msg","payload":{"type":"mcp_tool_call_begin"}}`,
+	} {
+		t.Run(activity, func(t *testing.T) {
+			state := streamState{}
+			state.consume(`{"type":"turn.completed"}`)
+			if state.observation != executil.CompletionPending || !state.terminal {
+				t.Fatal("turn did not start grace")
+			}
+			progress, changed := state.consume(activity)
+			if !changed || progress.FinalReceived || state.terminal || state.observation != executil.CompletionActive {
+				t.Fatalf("activity did not cancel grace: %#v", state)
+			}
+			state.consume(`{"type":"task_complete","last_agent_message":"finished continuing"}`)
+			if !state.terminal || state.turnComplete || state.message != "finished continuing" || state.observation != executil.CompletionPending {
+				t.Fatal("later completion did not start fresh grace")
+			}
+		})
+	}
+}
+
+func TestExplicitSessionCompletionIsNotDowngradedByTurnMarker(t *testing.T) {
+	for _, final := range []string{
+		`{"type":"task_complete"}`,
+		`{"type":"item.completed","item":{"type":"agent_message","phase":"final_answer","text":"done"}}`,
+	} {
+		state := streamState{}
+		state.consume(final)
+		state.consume(`{"type":"turn.completed"}`)
+		state.consume(`{"type":"turn.started"}`)
+		if !state.terminal || state.turnComplete || state.observation != executil.CompletionUnchanged {
+			t.Fatal("session completion was downgraded")
+		}
 	}
 }

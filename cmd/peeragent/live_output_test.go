@@ -9,11 +9,11 @@ import (
 	"github.com/nklisch/peeragent/internal/result"
 )
 
-func waitForObservation(t *testing.T, cwd, id string, predicate func(result.Result) bool) result.Result {
+func waitForObservation(t *testing.T, cwd, id, control string, predicate func(result.Result) bool) result.Result {
 	t.Helper()
 	deadline := time.Now().Add(20 * time.Second) // Safety bound; readiness decides success.
 	for time.Now().Before(deadline) {
-		res := cliResult(t, cwd, "--status", id)
+		res := cliResult(t, cwd, control, id)
 		if predicate(res) {
 			return res
 		}
@@ -29,7 +29,7 @@ func TestTaskCompleteStopsOwnedHangingCodex(t *testing.T) {
 	launched := cliResult(t, cwd, "--async", "work")
 	id := launched.Metadata.JobID
 	t.Cleanup(func() { cliResult(t, cwd, "--cancel", id) })
-	observed := waitForObservation(t, cwd, id, func(res result.Result) bool { return res.Metadata.FinalReceived })
+	observed := waitForObservation(t, cwd, id, "--status", func(res result.Result) bool { return res.Metadata.FinalReceived })
 	if observed.Status != result.StatusRunning || observed.Summary != "final message received, process still alive" {
 		t.Fatalf("grace status: %#v", observed)
 	}
@@ -69,5 +69,20 @@ func TestCapacityRetryPreservesMessagePointer(t *testing.T) {
 	}
 	if string(text) != strings.Repeat("complete report — ", 12000) {
 		t.Fatalf("prior attempt report changed: %d bytes", len(text))
+	}
+}
+
+func TestContinuedCodexTurnGetsFreshCompletionGrace(t *testing.T) {
+	cwd, _ := fakeCodexEnvironment(t)
+	t.Setenv("PEERAGENT_FAKE_MODE", "continuing-turn")
+	launched := cliResult(t, cwd, "--async", "work")
+	id := launched.Metadata.JobID
+	t.Cleanup(func() { cliResult(t, cwd, "--cancel", id) })
+	waitForObservation(t, cwd, id, "--result", func(res result.Result) bool {
+		return strings.Contains(res.Details, "continuation is running") && !res.Metadata.FinalReceived
+	})
+	terminal := cliResult(t, cwd, "--wait", id)
+	if terminal.Status != result.StatusSuccess || terminal.Metadata.ExitCode != 0 || terminal.Details != "stdout:\nfinished continuing" {
+		t.Fatalf("continuing turn stopped early: status=%s exit=%d details=%q", terminal.Status, terminal.Metadata.ExitCode, terminal.Details)
 	}
 }
