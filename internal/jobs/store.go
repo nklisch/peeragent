@@ -211,7 +211,10 @@ func (s Store) WithJobLock(id string, fn func() error) error {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
-	lockPath := filepath.Join(dir, "lock")
+	return withFileLock(filepath.Join(dir, "lock"), fn)
+}
+
+func withFileLock(lockPath string, fn func() error) error {
 	deadline := time.Now().Add(jobLockTimeout)
 	for {
 		file, err := os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
@@ -232,7 +235,7 @@ func (s Store) WithJobLock(id string, fn func() error) error {
 			return err
 		}
 		if time.Now().After(deadline) {
-			return fmt.Errorf("acquire job lock %s: timed out after %s", id, jobLockTimeout)
+			return fmt.Errorf("acquire job lock %s: timed out after %s", lockPath, jobLockTimeout)
 		}
 		time.Sleep(10 * time.Millisecond)
 	}

@@ -14,7 +14,7 @@ import (
 	"github.com/nklisch/peeragent/internal/jobs"
 )
 
-const ValidOptions = "--agent --async --sandbox --full-access --worktree --effort --model --profile --resume --cwd --prompt-file --json --text --status --result --wait --wait-any --cancel --retry-capacity --capacity-backoff --help -h"
+const ValidOptions = "--agent --async --sandbox --full-access --worktree --effort --model --profile --resume --allow-concurrent-session --cwd --prompt-file --json --text --status --result --wait --wait-any --cancel --retry-capacity --capacity-backoff --help -h"
 
 type JobReference struct {
 	JobID string
@@ -22,27 +22,28 @@ type JobReference struct {
 }
 
 type Request struct {
-	StatusJobs      []JobReference
-	WaitAnyJobs     []JobReference
-	RetryCapacity   int
-	CapacityBackoff time.Duration
-	TaskText        string
-	CWD             string
-	JSON            bool
-	Agent           string
-	FullAccess      bool
-	Worktree        bool
-	Profile         string
-	Effort          string
-	Model           string
-	Resume          string
-	Async           bool
-	JobRunID        string
-	StatusJobID     string
-	ResultJobID     string
-	WaitJobID       string
-	CancelJobID     string
-	Help            bool
+	AllowConcurrentSession bool
+	StatusJobs             []JobReference
+	WaitAnyJobs            []JobReference
+	RetryCapacity          int
+	CapacityBackoff        time.Duration
+	TaskText               string
+	CWD                    string
+	JSON                   bool
+	Agent                  string
+	FullAccess             bool
+	Worktree               bool
+	Profile                string
+	Effort                 string
+	Model                  string
+	Resume                 string
+	Async                  bool
+	JobRunID               string
+	StatusJobID            string
+	ResultJobID            string
+	WaitJobID              string
+	CancelJobID            string
+	Help                   bool
 }
 
 func Parse(args []string, stdin io.Reader, getwd func() (string, error)) (Request, error) {
@@ -131,26 +132,27 @@ func Parse(args []string, stdin io.Reader, getwd func() (string, error)) (Reques
 	}
 
 	return Request{
-		StatusJobs:      parsed.statusJobs,
-		WaitAnyJobs:     parsed.waitAnyJobs,
-		RetryCapacity:   parsed.retryCapacity,
-		CapacityBackoff: parsed.capacityBackoff,
-		TaskText:        delegation.TaskText,
-		CWD:             delegation.CWD,
-		JSON:            parsed.json,
-		Agent:           delegation.Agent,
-		FullAccess:      delegation.FullAccess,
-		Worktree:        parsed.worktree,
-		Profile:         delegation.Profile,
-		Effort:          delegation.Effort,
-		Model:           delegation.Model,
-		Resume:          delegation.Resume,
-		Async:           parsed.async,
-		JobRunID:        parsed.jobRunID,
-		StatusJobID:     parsed.statusJobID,
-		ResultJobID:     parsed.resultJobID,
-		WaitJobID:       parsed.waitJobID,
-		CancelJobID:     parsed.cancelJobID,
+		AllowConcurrentSession: parsed.allowConcurrentSession,
+		StatusJobs:             parsed.statusJobs,
+		WaitAnyJobs:            parsed.waitAnyJobs,
+		RetryCapacity:          parsed.retryCapacity,
+		CapacityBackoff:        parsed.capacityBackoff,
+		TaskText:               delegation.TaskText,
+		CWD:                    delegation.CWD,
+		JSON:                   parsed.json,
+		Agent:                  delegation.Agent,
+		FullAccess:             delegation.FullAccess,
+		Worktree:               parsed.worktree,
+		Profile:                delegation.Profile,
+		Effort:                 delegation.Effort,
+		Model:                  delegation.Model,
+		Resume:                 delegation.Resume,
+		Async:                  parsed.async,
+		JobRunID:               parsed.jobRunID,
+		StatusJobID:            parsed.statusJobID,
+		ResultJobID:            parsed.resultJobID,
+		WaitJobID:              parsed.waitJobID,
+		CancelJobID:            parsed.cancelJobID,
 	}, nil
 }
 
@@ -244,6 +246,7 @@ func isInteractiveTTY(stdin io.Reader) bool {
 }
 
 type parsedArgs struct {
+	allowConcurrentSession  bool
 	statusIDs, waitAnyIDs   []string
 	statusJobs, waitAnyJobs []JobReference
 	retryCapacity           int
@@ -337,6 +340,8 @@ func parseArgs(args []string) (parsedArgs, error) {
 		case "--resume":
 			i++
 			parsed.resume = strings.TrimSpace(args[i])
+		case "--allow-concurrent-session":
+			parsed.allowConcurrentSession = true
 		case "--async":
 			parsed.async = true
 		case "--job-run":
@@ -394,7 +399,7 @@ func parseArgs(args []string) (parsedArgs, error) {
 		}
 	}
 	if (parsed.retrySet || parsed.backoffSet) && (!parsed.async || parsed.agent != "codex" || parsed.jobRunID != "" || len(parsed.statusIDs) > 0 || len(parsed.waitAnyIDs) > 0 || parsed.statusJobID != "" || parsed.waitJobID != "" || parsed.resultJobID != "" || parsed.cancelJobID != "") {
-		return parsedArgs{}, errors.New("capacity retry options require --async --agent codex")
+		return parsedArgs{}, errors.New("capacity retry options require an async Codex launch; add --async (also with --resume), use --agent codex, and omit job-control options")
 	}
 	if parsed.sandbox && parsed.fullAccess {
 		return parsedArgs{}, errors.New("--sandbox cannot be combined with --full-access")

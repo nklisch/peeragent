@@ -115,6 +115,10 @@ func (s *Service) Launch(ctx context.Context, delegation input.Delegation) (resu
 		return failedDelegationResult(delegation, err), err
 	}
 
+	return protectSession(delegation, func() (result.Result, error) { return s.launch(delegation) })
+}
+
+func (s *Service) launch(delegation input.Delegation) (result.Result, error) {
 	store := jobs.NewStore(delegation.CWD)
 	job, err := store.Create(delegation.CWD, execSpecFromDelegation(delegation), delegation.TaskText)
 	if err != nil {

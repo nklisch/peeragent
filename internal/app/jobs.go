@@ -38,7 +38,11 @@ func (s *Service) JobStatus(ctx context.Context, raw JobRequest) (result.Result,
 		return result.Result{}, fmt.Errorf("load async job %q: %w", req.JobID, err)
 	}
 
-	return jobStatusResult(req, job), nil
+	res := jobStatusResult(req, job)
+	if err := addProgress(&res, job); err != nil {
+		return result.Result{}, err
+	}
+	return res, nil
 }
 
 // JobResult returns the persisted terminal result, or running while the child
@@ -155,6 +159,9 @@ func jobStatusResult(req JobRequest, job jobs.Job) result.Result {
 		res.Summary = "final message received, process still alive"
 	}
 	res.Metadata.FinalReceived = job.FinalReceived
+	if job.Status == jobs.StatusCapacity {
+		res.Summary = result.CapacitySummary(job.Spec.Resume)
+	}
 	return res
 }
 

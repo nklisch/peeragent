@@ -85,7 +85,7 @@ func ResultFromExecution(delegation input.Delegation, execResult executil.Result
 
 	if execResult.CapacityExhausted {
 		status = result.StatusCapacity
-		summary = "Codex selected model is at capacity"
+		summary = result.CapacitySummary(agentSession(delegation, execResult))
 		if execResult.ExitCode == 0 {
 			execResult.ExitCode = 1
 		}

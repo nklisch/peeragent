@@ -1,8 +1,10 @@
 package app
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/nklisch/peeragent/internal/executil"
 	"github.com/nklisch/peeragent/internal/jobs"
@@ -18,6 +20,26 @@ func RecordJobProgress(store jobs.Store, id string, progress executil.Progress) 
 			return err
 		}
 		if jobs.IsTerminalStatus(job.Status) {
+			return nil
+		}
+		if progress.Event != "" || progress.Message != "" {
+			preview := progress.LastMessage
+			if preview == "" && progress.Message == "" {
+				previous, err := jobs.ReadProgress(job.LogPath)
+				if err != nil {
+					return fmt.Errorf("read previous job progress: %w", err)
+				}
+				preview = previous.LastMessage
+			}
+			if preview == "" && progress.Message != "" {
+				preview = executil.MessagePreview(progress.Message)
+			}
+			if err := jobs.AppendProgress(job.LogPath, jobs.Progress{At: timePointer(), Event: progress.Event, LastMessage: preview}); err != nil {
+				return fmt.Errorf("append job %s progress: %w", id, err)
+			}
+		}
+		changed := progress.AgentSession != "" && progress.AgentSession != job.Spec.Resume || progress.Message != "" || job.FinalReceived != progress.FinalReceived
+		if !changed {
 			return nil
 		}
 		if progress.AgentSession != "" {
@@ -40,6 +62,9 @@ func enrichJobResult(res *result.Result, job jobs.Job) error {
 	}
 	res.Metadata.MessagePath = job.MessagePath
 	res.Metadata.FinalReceived = job.FinalReceived
+	if res.Status == result.StatusCapacity {
+		res.Summary = result.CapacitySummary(res.Metadata.AgentSession)
+	}
 	if res.Details == "" && job.MessagePath != "" {
 		text, err := os.ReadFile(job.MessagePath)
 		if err != nil {
@@ -47,5 +72,17 @@ func enrichJobResult(res *result.Result, job jobs.Job) error {
 		}
 		res.Details = executionDetails(string(text), "")
 	}
+	return nil
+}
+
+func timePointer() *time.Time { now := time.Now().UTC(); return &now }
+
+func addProgress(res *result.Result, job jobs.Job) error {
+	progress, err := jobs.ReadProgress(job.LogPath)
+	if err != nil {
+		return fmt.Errorf("read job %s progress: %w", job.ID, err)
+	}
+	res.Metadata.LastEventAt = progress.At
+	res.Metadata.LastMessage = progress.LastMessage
 	return nil
 }

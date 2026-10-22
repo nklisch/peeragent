@@ -63,6 +63,7 @@ Flags:
                                   claude default xhigh, accepts high|xhigh).
   --profile <name>                Codex profile override.
   --resume <agent-session>        Resume in its recorded directory unless --cwd is set.
+  --allow-concurrent-session       Allow another job to write the same agent session.
   --sandbox                       Use the default target mode (Gemini still
                                   auto-approves tools but sandboxes terminals).
   --full-access                   Run the target CLI without sandboxing.
@@ -71,8 +72,10 @@ Flags:
   --prompt-file <path>            Read task text from a file.
   --async                         Start a background job and return its id.
                                   Add --retry-capacity N for opt-in Codex recovery.
-  --retry-capacity <N>            Retry Codex capacity stops up to N times (async only).
-  --capacity-backoff <duration>   Delay between capacity retries (default 10m).
+  --retry-capacity <N>            Retry capacity stops up to N times; requires --async --agent codex,
+                                  including with --resume.
+  --capacity-backoff <duration>   Delay between capacity retries (default 10m); requires
+                                  --async --agent codex, including with --resume.
   --status <job-id>...            One job: existing result; several: JSONL or --text table.
   --result <job-id>               Print a background job's current/final result.
   --wait <job-id>                 Wait for and print a job's terminal result.
@@ -157,16 +160,37 @@ func run(args []string) error {
 		os.Exit(1)
 	}
 
-	delegation := delegationFromRequest(req)
-	res, execResult, _ := applicationService.DelegateWithExecution(context.Background(), delegation)
-	attachExecutionLog(req, &res, execResult, "")
-	if err := writeResult(req, res); err != nil {
+	// Use the same tracked worker for blocking and detached launches, so every
+	// launch has a job id and session protection uses one process/PID contract.
+	res, err := applicationService.Launch(context.Background(), delegationFromRequest(req))
+	if err != nil {
+		if writeErr := writeResult(req, res); writeErr != nil {
+			return writeErr
+		}
+		if res.Metadata.ExitCode == 2 {
+			return &usageError{}
+		}
 		return err
 	}
-	if res.Status != result.StatusSuccess {
-		os.Exit(1)
+	if !req.JSON {
+		fmt.Printf("Job: %s\n", res.Metadata.JobID)
 	}
-	return nil
+	for {
+		terminal, err := applicationService.PollJobResult(context.Background(), app.JobRequest{CWD: req.CWD, JobID: res.Metadata.JobID})
+		if err != nil {
+			return err
+		}
+		if terminal.Status != result.StatusRunning {
+			if err := writeResult(req, terminal); err != nil {
+				return err
+			}
+			if terminal.Status != result.StatusSuccess {
+				os.Exit(1)
+			}
+			return nil
+		}
+		time.Sleep(jobWaitInterval)
+	}
 }
 
 func launchAsync(req input.Request) error {
@@ -175,7 +199,10 @@ func launchAsync(req input.Request) error {
 		return writeErr
 	}
 	if err != nil {
-		os.Exit(1)
+		if res.Metadata.ExitCode == 2 {
+			return &usageError{}
+		}
+		return err
 	}
 	return nil
 }
@@ -465,9 +492,6 @@ func writeResult(req input.Request, res result.Result) error {
 		return err
 	}
 	text := result.FormatText(res)
-	if len(req.WaitAnyJobs) > 0 && res.Metadata.JobID != "" {
-		text += fmt.Sprintf("\n- job_id: %s", res.Metadata.JobID)
-	}
 	_, err := fmt.Fprintln(os.Stdout, text)
 	return err
 }
@@ -537,16 +561,17 @@ func resultFromExecution(req input.Request, execResult executil.Result, execErr 
 
 func delegationFromRequest(req input.Request) input.Delegation {
 	return input.Delegation{
-		RetryCapacity:   req.RetryCapacity,
-		CapacityBackoff: req.CapacityBackoff,
-		TaskText:        req.TaskText,
-		CWD:             req.CWD,
-		Agent:           agentID(req),
-		FullAccess:      req.FullAccess,
-		Profile:         req.Profile,
-		Effort:          req.Effort,
-		Model:           req.Model,
-		Resume:          req.Resume,
+		AllowConcurrentSession: req.AllowConcurrentSession,
+		RetryCapacity:          req.RetryCapacity,
+		CapacityBackoff:        req.CapacityBackoff,
+		TaskText:               req.TaskText,
+		CWD:                    req.CWD,
+		Agent:                  agentID(req),
+		FullAccess:             req.FullAccess,
+		Profile:                req.Profile,
+		Effort:                 req.Effort,
+		Model:                  req.Model,
+		Resume:                 req.Resume,
 	}
 }
 

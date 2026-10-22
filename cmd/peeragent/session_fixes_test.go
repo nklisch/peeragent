@@ -37,6 +37,21 @@ func fakeCodexMain() {
 		fmt.Println(`{"type":"thread.started","thread_id":"fake-session"}`)
 	}
 	mode := os.Getenv("PEERAGENT_FAKE_MODE")
+	if mode == "incident-direct" || mode == "incident-compaction" {
+		if len(calls) == 1 {
+			fmt.Println(`{"type":"item.completed","item":{"type":"agent_message","text":"The baseline link build is still queued."}}`)
+			diagnostic := "Selected model is at capacity. Please try a different model."
+			if mode == "incident-compaction" {
+				diagnostic = "Error running remote compact task: " + diagnostic
+			}
+			fmt.Printf("{\"type\":\"error\",\"message\":%q}\n", diagnostic)
+			fmt.Printf("{\"type\":\"turn.failed\",\"error\":{\"message\":%q}}\n", diagnostic)
+			os.Exit(1)
+		}
+		fmt.Println(`{"type":"item.completed","item":{"type":"agent_message","text":"continued successfully"}}`)
+		fmt.Println(`{"type":"turn.completed"}`)
+		return
+	}
 	if mode == "continuing-turn" {
 		fmt.Println(`{"type":"turn.completed"}`)
 		fmt.Println(`{"type":"turn.started"}`)

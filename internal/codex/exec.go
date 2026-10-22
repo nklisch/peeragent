@@ -156,7 +156,7 @@ type codexEvent struct {
 // A completed agent_message without a final phase is also used for progress by
 // Codex, so it must not start a shutdown timer on its own.
 type streamState struct {
-	session, message            string
+	session, message, preview   string
 	capacity, terminal, success bool
 	turnComplete                bool
 	observation                 executil.CompletionObservation
@@ -239,11 +239,14 @@ func (s *streamState) consume(line string) (executil.Progress, bool) {
 		s.capacity, s.terminal, s.success = false, true, true
 	}
 	changed := oldSession != s.session || oldMessage != s.message || oldTerminal != s.terminal
-	progress := executil.Progress{AgentSession: s.session, FinalReceived: s.terminal}
+	if oldMessage != s.message {
+		s.preview = executil.MessagePreview(s.message)
+	}
+	progress := executil.Progress{AgentSession: s.session, FinalReceived: s.terminal, Event: event.Type, LastMessage: s.preview}
 	if oldMessage != s.message {
 		progress.Message = s.message
 	}
-	return progress, changed
+	return progress, changed || event.Type != ""
 }
 
 // Turn completion is provisional: stop hooks and goals can continue the same
@@ -302,6 +305,9 @@ func normalizeStreamResult(result *Result, state streamState) {
 func isCapacityDiagnostic(text string) bool {
 	text = strings.TrimSpace(strings.ToLower(text))
 	text = strings.TrimSpace(strings.TrimPrefix(text, "error:"))
+	// Codex compaction propagates the same capacity error with this context.
+	// Only unwrap its known diagnostic prefix; quoted/history mentions stay inert.
+	text = strings.TrimSpace(strings.TrimPrefix(text, "error running remote compact task:"))
 	const diagnostic = "selected model is at capacity"
 	if !strings.HasPrefix(text, diagnostic) {
 		return false

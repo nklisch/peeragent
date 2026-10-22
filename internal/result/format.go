@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 )
 
 func FormatJSON(res Result) ([]byte, error) {
@@ -36,6 +37,15 @@ func FormatText(res Result) string {
 	}
 
 	b.WriteString("Metadata:\n")
+	if res.Metadata.JobID != "" {
+		fmt.Fprintf(&b, "- job_id: %s\n", res.Metadata.JobID)
+	}
+	if res.Metadata.LastEventAt != nil {
+		fmt.Fprintf(&b, "- last_event_at: %s\n", res.Metadata.LastEventAt.Format(time.RFC3339Nano))
+	}
+	if res.Metadata.LastMessage != "" {
+		fmt.Fprintf(&b, "- last_message: %s\n", res.Metadata.LastMessage)
+	}
 	if res.Metadata.IndexWarning != "" {
 		fmt.Fprintf(&b, "- index_warning: %s\n", res.Metadata.IndexWarning)
 	}

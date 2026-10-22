@@ -12,16 +12,17 @@ import (
 // adapter. CLI job-control fields intentionally live on Request instead: they
 // describe how to inspect a job, not work to send to a target agent.
 type Delegation struct {
-	RetryCapacity   int
-	CapacityBackoff time.Duration
-	TaskText        string
-	CWD             string
-	Agent           string
-	FullAccess      bool
-	Profile         string
-	Effort          string
-	Model           string
-	Resume          string
+	AllowConcurrentSession bool
+	RetryCapacity          int
+	CapacityBackoff        time.Duration
+	TaskText               string
+	CWD                    string
+	Agent                  string
+	FullAccess             bool
+	Profile                string
+	Effort                 string
+	Model                  string
+	Resume                 string
 }
 
 // NormalizeDelegation applies boundary defaults and validation for direct and

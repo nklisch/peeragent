@@ -1,5 +1,7 @@
 package result
 
+import "time"
+
 type Status string
 
 const (
@@ -27,18 +29,20 @@ type Verification struct {
 }
 
 type Metadata struct {
-	MessagePath     string `json:"message_path,omitempty"`
-	FinalReceived   bool   `json:"final_received,omitempty"`
-	IndexWarning    string `json:"index_warning,omitempty"`
-	CapacityRetries int    `json:"capacity_retries,omitempty"`
-	CWD             string `json:"cwd,omitempty"`
-	Agent           string `json:"agent,omitempty"`
-	Access          string `json:"access,omitempty"`
-	Profile         string `json:"profile,omitempty"`
-	Effort          string `json:"effort,omitempty"`
-	Model           string `json:"model,omitempty"`
-	ExitCode        int    `json:"exit_code"`
-	AgentSession    string `json:"agent_session,omitempty"`
-	JobID           string `json:"job_id,omitempty"`
-	LogPath         string `json:"log_path,omitempty"`
+	LastEventAt     *time.Time `json:"last_event_at,omitempty"`
+	LastMessage     string     `json:"last_message,omitempty"`
+	MessagePath     string     `json:"message_path,omitempty"`
+	FinalReceived   bool       `json:"final_received,omitempty"`
+	IndexWarning    string     `json:"index_warning,omitempty"`
+	CapacityRetries int        `json:"capacity_retries,omitempty"`
+	CWD             string     `json:"cwd,omitempty"`
+	Agent           string     `json:"agent,omitempty"`
+	Access          string     `json:"access,omitempty"`
+	Profile         string     `json:"profile,omitempty"`
+	Effort          string     `json:"effort,omitempty"`
+	Model           string     `json:"model,omitempty"`
+	ExitCode        int        `json:"exit_code"`
+	AgentSession    string     `json:"agent_session,omitempty"`
+	JobID           string     `json:"job_id,omitempty"`
+	LogPath         string     `json:"log_path,omitempty"`
 }
