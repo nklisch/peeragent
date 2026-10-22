@@ -406,3 +406,40 @@ reads only 8 KiB per job. Blocking calls now pay for a worker process and tracke
 state, making one shared lifecycle/protection path possible. No performance or
 runtime timing measurements were made. No additional in-scope work is deferred;
 owner review, merge and release remain with godot-41.
+
+
+## Round 3 accepted correction: collect blocking worker exits
+
+Godot-41 accepted the review finding “An exited but uncollected Unix worker
+still blocks a resume” for immediate correction. The blocking launcher released
+its worker handle and polled only for a terminal result. An abnormal worker exit
+could therefore hang the caller indefinitely and leave an uncollected Unix
+child which `kill(pid, 0)` mistook for an active session writer.
+
+- Blocking launches now retain a worker handle and collect its exit through
+  `exec.Cmd.Wait`, including the native handle on Windows. The caller watches
+  both persisted completion and worker exit. An exit without a terminal result
+  produces a durable failed job with the worker's exact status and `agent.log`
+  pointer, removes its PID, and returns CLI exit 1. No wall-clock deadline was
+  introduced. A zero-status worker without a result is also a failed job.
+- Existing terminal/cancellation results take precedence and are not rewritten
+  on normal worker exit. Failure repair uses the existing guarded finish path,
+  preserving cancellation if it commits concurrently. Async launches keep their
+  existing released-handle behavior.
+- Unix liveness no longer treats an exited, uncollected process as a writer:
+  Linux checks its process state, and macOS uses a zero-time native exit event.
+  Failed observation degrades to the existing process probe. No probe collects
+  another owner's child or signals any process. The concurrency override remains.
+- `TestExitedUnreapedWorkerDoesNotBlockResume` reproduces the review's Linux
+  counterexample using `waitid(WEXITED | WNOWAIT)`. It failed before correction
+  with usage exit 2, then passed after the fix. `TestBlockingWorkerExitWithoutResult`
+  covers retained ownership and missing-result exits 0/23, stored failure/logs/PID
+  cleanup and resumption. `TestWorkerExitPreservesTerminalWinner` covers success,
+  failure, capacity and cancellation. `TestBlockingCLIWorkerExitReturnsFailureAndAllowsResume`
+  verifies the actual blocking caller returns exit 1 with worker status 23,
+  exposes its logs, persists the failed state and permits the next resume.
+
+CHANGELOG Unreleased and the lifecycle docs describe the correction. The first
+counterexample output is retained in `fix-1-counterexample.log` in this unit's
+scratch. Native macOS/Windows runtime checks remain unavailable in this Linux
+unit; qualification is recorded below after the frozen run.

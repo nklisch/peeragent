@@ -162,7 +162,7 @@ func run(args []string) error {
 
 	// Use the same tracked worker for blocking and detached launches, so every
 	// launch has a job id and session protection uses one process/PID contract.
-	res, err := applicationService.Launch(context.Background(), delegationFromRequest(req))
+	res, worker, err := applicationService.LaunchBlocking(context.Background(), delegationFromRequest(req))
 	if err != nil {
 		if writeErr := writeResult(req, res); writeErr != nil {
 			return writeErr
@@ -175,21 +175,48 @@ func run(args []string) error {
 	if !req.JSON {
 		fmt.Fprintf(os.Stderr, "Job: %s\n", res.Metadata.JobID)
 	}
+	terminal, err := waitForBlockingWorker(req, res.Metadata.JobID, worker)
+	if err != nil {
+		return err
+	}
+	if err := writeResult(req, terminal); err != nil {
+		return err
+	}
+	if terminal.Status != result.StatusSuccess {
+		os.Exit(1)
+	}
+	return nil
+}
+
+// Watch persisted completion and the owned worker together. An exited worker
+// cannot leave the caller polling forever for a result it will never write.
+func waitForBlockingWorker(req input.Request, id string, worker app.JobWorker) (result.Result, error) {
+	type workerExit struct {
+		code int
+		err  error
+	}
+	exited := make(chan workerExit, 1)
+	go func() { code, err := worker.Wait(); exited <- workerExit{code, err} }()
+	request := app.JobRequest{CWD: req.CWD, JobID: id}
+	ticker := time.NewTicker(jobWaitInterval)
+	defer ticker.Stop()
+	finish := func(exit workerExit) (result.Result, error) {
+		return applicationService.WorkerExited(context.Background(), request, exit.code, exit.err)
+	}
 	for {
-		terminal, err := applicationService.PollJobResult(context.Background(), app.JobRequest{CWD: req.CWD, JobID: res.Metadata.JobID})
+		res, err := applicationService.PollJobResult(context.Background(), request)
 		if err != nil {
-			return err
+			return result.Result{}, err
 		}
-		if terminal.Status != result.StatusRunning {
-			if err := writeResult(req, terminal); err != nil {
-				return err
-			}
-			if terminal.Status != result.StatusSuccess {
-				os.Exit(1)
-			}
-			return nil
+		if res.Status != result.StatusRunning {
+			// A terminal write can precede worker exit; keep ownership until collected.
+			return finish(<-exited)
 		}
-		time.Sleep(jobWaitInterval)
+		select {
+		case exit := <-exited:
+			return finish(exit)
+		case <-ticker.C:
+		}
 	}
 }
 

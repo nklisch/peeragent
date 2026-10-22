@@ -285,6 +285,17 @@ spaces. Relative directories resolve against the caller's directory.
 Blocking and async CLI launches use the same tracked worker. Their state is
 stored under:
 
+Blocking callers retain the native worker handle and collect its exit while
+watching the result file. A worker exit without a terminal result records
+`failed`, the worker's exit status in `metadata.exit_code`, and its `agent.log`
+path in `metadata.log_path`. Even an exit status of zero without a terminal
+result is a failed job; the blocking CLI returns exit `1`. No wall-clock
+failure deadline is used. A terminal result or cancellation already recorded
+keeps precedence. Normal terminal results are read without being rewritten.
+Collected worker exits remove the PID sidecar. Unix liveness checks also ignore
+exited, uncollected workers (Linux process state; macOS native exit events).
+Windows retains the worker's native handle until its wait completes.
+
 ```text
 .peeragent/jobs/<job-id>/
   job.json       lifecycle + ExecSpec + live session/completion/backoff observations

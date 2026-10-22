@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -22,6 +23,10 @@ func TestMain(m *testing.M) {
 		return
 	}
 	if testHelperMainRequested(os.Getenv("PEERAGENT_TEST_HELPER_MAIN"), os.Args) {
+		if len(os.Args) > 1 && os.Args[1] == "--job-run" && os.Getenv("PEERAGENT_FAKE_WORKER_EXIT") == "1" {
+			fmt.Fprintln(os.Stderr, "fake worker exited before writing its result")
+			os.Exit(23)
+		}
 		main()
 		return
 	}

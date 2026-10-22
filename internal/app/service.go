@@ -19,6 +19,7 @@ import (
 type Options struct {
 	Executor          TargetExecutor
 	Launcher          JobLauncher
+	BlockingLauncher  BlockingJobLauncher
 	Executable        func() (string, error)
 	WorkingDirectory  func() (string, error)
 	ProcessController ProcessController
@@ -27,6 +28,7 @@ type Options struct {
 type Service struct {
 	executor          TargetExecutor
 	launcher          JobLauncher
+	blockingLauncher  BlockingJobLauncher
 	executable        func() (string, error)
 	workingDirectory  func() (string, error)
 	processController ProcessController
@@ -34,6 +36,15 @@ type Service struct {
 
 type TargetExecutor interface {
 	Execute(context.Context, input.Delegation) (executil.Result, error)
+}
+
+// JobWorker retains the native child handle until Wait collects its exit.
+type JobWorker interface {
+	Wait() (int, error)
+}
+
+type BlockingJobLauncher interface {
+	Start(executable string, job jobs.Job) (JobWorker, error)
 }
 
 type JobLauncher interface {
@@ -47,6 +58,9 @@ func NewService(opts Options) *Service {
 	if opts.Launcher == nil {
 		opts.Launcher = ProcessLauncher{}
 	}
+	if opts.BlockingLauncher == nil {
+		opts.BlockingLauncher = ProcessLauncher{}
+	}
 	if opts.Executable == nil {
 		opts.Executable = os.Executable
 	}
@@ -59,6 +73,7 @@ func NewService(opts Options) *Service {
 	return &Service{
 		executor:          opts.Executor,
 		launcher:          opts.Launcher,
+		blockingLauncher:  opts.BlockingLauncher,
 		executable:        opts.Executable,
 		workingDirectory:  opts.WorkingDirectory,
 		processController: opts.ProcessController,
@@ -103,7 +118,31 @@ func (s *Service) DelegateWithExecution(ctx context.Context, delegation input.De
 // before starting the child, preserving the existing cancellation and terminal
 // race behavior while moving process startup behind an injectable port.
 func (s *Service) Launch(ctx context.Context, delegation input.Delegation) (result.Result, error) {
-	if s == nil || s.launcher == nil {
+	var start func(string, jobs.Job) error
+	if s != nil && s.launcher != nil {
+		start = s.launcher.Launch
+	}
+	return s.launchJob(ctx, delegation, start)
+}
+
+// LaunchBlocking keeps the worker handle instead of releasing it. The caller
+// must Wait exactly once, on every successful launch, including failure results.
+func (s *Service) LaunchBlocking(ctx context.Context, delegation input.Delegation) (result.Result, JobWorker, error) {
+	var worker JobWorker
+	var start func(string, jobs.Job) error
+	if s != nil && s.blockingLauncher != nil {
+		start = func(executable string, job jobs.Job) error {
+			var err error
+			worker, err = s.blockingLauncher.Start(executable, job)
+			return err
+		}
+	}
+	res, err := s.launchJob(ctx, delegation, start)
+	return res, worker, err
+}
+
+func (s *Service) launchJob(ctx context.Context, delegation input.Delegation, start func(string, jobs.Job) error) (result.Result, error) {
+	if s == nil || start == nil {
 		err := errors.New("delegation service has no job launcher")
 		return failedDelegationResult(delegation, err), err
 	}
@@ -114,11 +153,10 @@ func (s *Service) Launch(ctx context.Context, delegation input.Delegation) (resu
 	if err := ctx.Err(); err != nil {
 		return failedDelegationResult(delegation, err), err
 	}
-
-	return protectSession(delegation, func() (result.Result, error) { return s.launch(delegation) })
+	return protectSession(delegation, func() (result.Result, error) { return s.launch(delegation, start) })
 }
 
-func (s *Service) launch(delegation input.Delegation) (result.Result, error) {
+func (s *Service) launch(delegation input.Delegation, start func(string, jobs.Job) error) (result.Result, error) {
 	store := jobs.NewStore(delegation.CWD)
 	job, err := store.Create(delegation.CWD, execSpecFromDelegation(delegation), delegation.TaskText)
 	if err != nil {
@@ -132,7 +170,7 @@ func (s *Service) launch(delegation input.Delegation) (result.Result, error) {
 		wrapped := fmt.Errorf("resolve peeragent executable: %w", err)
 		return failedJobResult(delegation, job, wrapped), wrapped
 	}
-	if err := s.launcher.Launch(executable, job); err != nil {
+	if err := start(executable, job); err != nil {
 		wrapped := fmt.Errorf("launch async job: %w", err)
 		return failedJobResult(delegation, job, wrapped), wrapped
 	}
@@ -213,7 +251,7 @@ func agentDisplayName(delegation input.Delegation) string {
 	return agentDefinition(delegation.Agent).DisplayName
 }
 
-// ProcessLauncher is the production async process adapter. It intentionally
+// ProcessLauncher is the production worker process adapter. It intentionally
 // owns only process setup; job state remains owned by the application service
 // and jobs.Store so other inbound adapters can use the same state contract.
 //
@@ -227,50 +265,74 @@ type ProcessLauncher struct {
 	releaseProcess func(*os.Process) error
 }
 
+// Launch detaches the handle for async callers; Start retains it for blocking
+// callers. Both paths persist the PID inside the session check/start lock.
 func (l ProcessLauncher) Launch(executable string, job jobs.Job) error {
+	worker, err := l.start(executable, job)
+	if err != nil {
+		return err
+	}
+	release := l.releaseProcess
+	if release == nil {
+		release = func(process *os.Process) error { return process.Release() }
+	}
+	if err := release(worker.cmd.Process); err != nil {
+		_ = jobs.NewStore(job.CWD).RemovePID(job.ID)
+		cleanupStartedProcess(worker.cmd)
+		return err
+	}
+	return nil
+}
+
+func (l ProcessLauncher) Start(executable string, job jobs.Job) (JobWorker, error) {
+	worker, err := l.start(executable, job)
+	if err != nil {
+		return nil, err
+	}
+	return worker, nil
+}
+
+type processWorker struct{ cmd *exec.Cmd }
+
+func (w *processWorker) Wait() (int, error) {
+	err := w.cmd.Wait()
+	var exit *exec.ExitError
+	if errors.As(err, &exit) {
+		return exit.ExitCode(), nil
+	}
+	if err != nil {
+		return 1, err
+	}
+	return w.cmd.ProcessState.ExitCode(), nil
+}
+
+func (l ProcessLauncher) start(executable string, job jobs.Job) (*processWorker, error) {
 	command := l.command
 	if command == nil {
 		command = exec.Command
 	}
 	writePID := l.writePID
 	if writePID == nil {
-		writePID = func(store jobs.Store, id string, pid int) error {
-			return store.WritePID(id, pid)
-		}
+		writePID = func(store jobs.Store, id string, pid int) error { return store.WritePID(id, pid) }
 	}
-	releaseProcess := l.releaseProcess
-	if releaseProcess == nil {
-		releaseProcess = func(process *os.Process) error {
-			return process.Release()
-		}
-	}
-
 	cmd := command(executable, "--job-run", job.ID, "--cwd", job.CWD)
 	cmd.Dir = job.CWD
-
 	logFile, err := os.OpenFile(job.LogPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer logFile.Close()
-	cmd.Stdout = logFile
-	cmd.Stderr = logFile
+	cmd.Stdout, cmd.Stderr = logFile, logFile
 	jobs.ApplyDetachAttrs(cmd)
-
 	if err := cmd.Start(); err != nil {
-		return err
+		return nil, err
 	}
 	store := jobs.NewStore(job.CWD)
 	if err := writePID(store, job.ID, cmd.Process.Pid); err != nil {
 		cleanupStartedProcess(cmd)
-		return err
+		return nil, err
 	}
-	if err := releaseProcess(cmd.Process); err != nil {
-		_ = store.RemovePID(job.ID)
-		cleanupStartedProcess(cmd)
-		return err
-	}
-	return nil
+	return &processWorker{cmd: cmd}, nil
 }
 
 func cleanupStartedProcess(cmd *exec.Cmd) {

@@ -10,6 +10,8 @@
   `--allow-concurrent-session` permits intentional overlap; terminal jobs and exited processes do not block.
 
 ### Fixes
+- Blocking launches retain and collect their worker's exit. A worker that exits without a terminal result now fails
+  with its exit status and log path instead of hanging the caller. Exited, uncollected Unix workers no longer block resumes.
 - Recognize model-capacity failures during remote context compaction, retaining terminal-event precedence and opt-in retries.
 - Capacity results and status explain the stop and show the resume command before the last agent message.
 - Retry-option errors and help explicitly require `--async --agent codex`, including with `--resume`.
