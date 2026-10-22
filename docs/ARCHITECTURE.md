@@ -191,12 +191,15 @@ start a five-second grace period. A `turn.completed` candidate is revoked by
 subsequent turn, item, agent or tool activity; later completion restarts grace.
 Status exposes the current candidate while the child is still alive.
 
-The runner drains stdout and stderr independently of leader exit. Linux uses
+The runner keeps stdin copying and stdout/stderr draining inside its cancellable
+lifecycle, independently of leader exit. It passes a file-backed stdin to
+`Cmd`, so `Cmd.Wait` has no hidden input-copy goroutine to block on. All copying
+finishes before the explicit reap. Linux uses
 `waitid` with `WNOWAIT`; macOS uses a process-exit kqueue notification. Both
 leave the leader unreaped, reserving the group number through its last possible
 signal. Group signalling is revoked before the explicit reap. After completion
-grace or cancellation, owned-tree cleanup closes the runner's pipe readers so
-escaped descriptor holders cannot stall cleanup. Windows retains its Job Object
+grace or cancellation, owned-tree cleanup closes the runner's stdin writer and output readers so
+retained descriptors cannot stall cleanup. Windows retains its Job Object
 and process handle. Ordinary draining has no pipe timeout. Unphased progress
 messages never initiate shutdown. Async Unix workers forward cancellation
 through their context to the separately owned Codex process group.

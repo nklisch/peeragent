@@ -346,12 +346,14 @@ During grace status says “final message received, process still alive” and s
 `metadata.final_received`.
 
 After confirmed completion grace, peeragent stops only its owned process group
-(Job Object on Windows), closes its own pipe readers, reaps the child and derives
+(Job Object on Windows), closes its own stdin writer and output readers, joins all input/output copies,
+reaps the child and derives
 its outcome from the last terminal event. Linux and macOS observe leader exit
 without reaping, keeping the group number reserved until its last possible
 signal. Group signalling is revoked before reap, so cleanup cannot target a
-reused group number. Before completion or cancellation, pipe draining has no
-timeout, including when a launcher exits ahead of its worker. Explicit
+reused group number. Before completion or cancellation, input/output copying has no
+timeout, including when a launcher exits ahead of its worker. Pending stdin
+copying remains cancellable and cannot move the runner into a blocking reap. Explicit
 cancellation still wins through the existing terminal lock. A JSONL line without
 a trailing newline is observed when its stdout stream reaches EOF.
 

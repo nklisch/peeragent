@@ -229,3 +229,44 @@ No release, tag, push, committed binary refresh, installed-plugin change or
 other session's job-folder access. No new CLI flag or exit-code changes in this
 round. Follow-ups remain native platform execution, the existing Windows
 startup assignment race, and completion visible only in private session logs.
+
+
+## Blocked stdin cancellation correction (2026-10-22)
+
+Owner accepted the follow-up review's stdin blocker. A prompt exceeding pipe
+capacity, an exited launcher and an output-closed worker holding stdin could
+send the runner into `Cmd.Wait` while Go's hidden input copier was blocked.
+That made later cancellation unable to reach owned-tree cleanup.
+
+The observed runner now uses `StdinPipe` and owns prompt copying itself.
+Input completion stays in the select loop, alongside exit and output draining;
+all copies finish before the synchronous reap. Forced cleanup explicitly closes
+the stdin writer on every platform. No background `Cmd.Wait` was introduced on
+Linux/macOS, and the unreaped leader continues to reserve its group number.
+Early target stdin closure preserves Go's broken-pipe handling on Unix,
+Windows and Plan 9; unexpected copy errors remain visible.
+
+`TestCancelBlockedStdinAfterLauncherExit` creates the exact Linux descriptor
+state, checks actual pipe capacity against the prompt length, then pauses the
+runner after it consumed both output EOFs and launcher exit. A small unexported
+runner test seam supplies that deterministic decision boundary. It cancels
+there, then requires cancellation to return, the leader to be reaped and the
+worker to be stopped. Fixture cleanup has a scoped release file if assertions
+fail, so it never needs to guess process ids or kill an unrelated group.
+`TestOSRunnerNativeStdin` now covers observed and ordinary delivery, while
+`TestOSRunnerObservedEarlyStdinClose` pins successful early stdin closure.
+
+The initial unstaged regression passed against old code because cancellation
+could arrive before the bad wait. The final staged test passed with the fix and failed with the previous
+implementation (only its readiness seam was backported). The expected old-code
+failure is “blocked stdin prevented cancellation from returning”; fixture cleanup
+then releases its own worker. No expected outcome was weakened.
+
+Focused checks passed: measured 9 top-level / 11 total test passes, covering
+blocked-input cancellation, full prompt delivery, early stdin closure, group
+ownership, waitable exit, observer failure and inherited output pipes. A focused
+`go test -race` on the three stdin cases also passed: measured 3 top-level / 5
+total test passes. The fake measured an 8388608-byte prompt and 65536-byte pipe
+capacity. These are byte counts, not performance estimates. Native build/vet
+and diff checks passed before the fix commit. Frozen-tree qualification is
+pending below.

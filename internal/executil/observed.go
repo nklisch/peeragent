@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"sync"
 	"time"
@@ -109,6 +110,19 @@ func (r OSRunner) runObserved(ctx context.Context, cmd *exec.Cmd, stdout *bytes.
 	// must not start an os/exec pipe deadline or reap the Unix group leader.
 	cmd.Cancel = nil
 	cmd.WaitDelay = 0
+	// Supplying an *os.File to Cmd prevents its hidden stdin-copy goroutine.
+	// Keep prompt copying in this select loop until it finishes or is cancelled.
+	source := cmd.Stdin
+	cmd.Stdin = nil
+	var input io.WriteCloser
+	if source != nil {
+		var err error
+		input, err = cmd.StdinPipe()
+		if err != nil {
+			return false, err
+		}
+		defer input.Close()
+	}
 	stderr := cmd.Stderr
 	cmd.Stdout, cmd.Stderr = nil, nil
 	out, err := cmd.StdoutPipe()
@@ -127,6 +141,9 @@ func (r OSRunner) runObserved(ctx context.Context, cmd *exec.Cmd, stdout *bytes.
 	owned, err := ownProcess(cmd)
 	if err != nil {
 		_ = cmd.Process.Kill()
+		if input != nil {
+			_ = input.Close()
+		}
 		_ = out.Close()
 		_ = errout.Close()
 		_ = cmd.Wait()
@@ -146,6 +163,21 @@ func (r OSRunner) runObserved(ctx context.Context, cmd *exec.Cmd, stdout *bytes.
 	go func() { _, err := io.Copy(stderr, errout); drained <- err }()
 	exited := make(chan error, 1)
 	go func() { exited <- owned.waitExit() }()
+	var inputDone chan error
+	if input != nil {
+		inputDone = make(chan error, 1)
+		go func() {
+			_, err := io.Copy(input, source)
+			if ignoreStdinCopyError(err) {
+				err = nil
+			}
+			if closeErr := input.Close(); err == nil {
+				err = closeErr
+			}
+			inputDone <- err
+		}()
+	}
+	var inputErr error
 	remaining := 2
 	exitObserved := false
 	var timer *time.Timer
@@ -157,9 +189,12 @@ func (r OSRunner) runObserved(ctx context.Context, cmd *exec.Cmd, stdout *bytes.
 		}
 	}()
 
-	// A forced stop closes only our pipe ends, so an escaped descriptor holder
-	// cannot keep cleanup blocked. All copy goroutines finish before buffers read.
+	// A forced stop closes our input writer and output readers, so retained
+	// descriptors cannot block copying. Join all copies before the explicit reap.
 	force := func() (error, error) {
+		if input != nil {
+			_ = input.Close()
+		}
 		stopErr := owned.stop()
 		if stopErr != nil {
 			_ = cmd.Process.Kill()
@@ -170,19 +205,34 @@ func (r OSRunner) runObserved(ctx context.Context, cmd *exec.Cmd, stdout *bytes.
 			<-drained
 			remaining--
 		}
+		if inputDone != nil {
+			inputErr = <-inputDone
+			inputDone = nil
+		}
 		if !exitObserved {
 			<-exited
 			exitObserved = true
 		}
 		return stopErr, owned.reap()
 	}
+	afterOutputDrain := r.afterOutputDrain
 	for {
-		if exitObserved && remaining == 0 {
+		if exitObserved && remaining == 0 && afterOutputDrain != nil {
+			afterOutputDrain()
+			afterOutputDrain = nil
+		}
+		if exitObserved && remaining == 0 && inputDone == nil {
 			// No more observations are possible. Revoke group signals before reaping;
 			// a natural nonzero exit never causes a late numeric group signal.
-			return false, owned.reap()
+			err := owned.reap()
+			if err == nil {
+				err = inputErr
+			}
+			return false, err
 		}
 		select {
+		case inputErr = <-inputDone:
+			inputDone = nil
 		case err := <-exited:
 			exitObserved = true
 			if err != nil {
@@ -223,6 +273,9 @@ func (r OSRunner) runObserved(ctx context.Context, cmd *exec.Cmd, stdout *bytes.
 			stopErr, waitErr := force()
 			if writer.failure != nil {
 				return false, writer.failure
+			}
+			if inputErr != nil && !errors.Is(inputErr, os.ErrClosed) {
+				return false, inputErr
 			}
 			if stopErr != nil {
 				return false, fmt.Errorf("stop completed target: %w", stopErr)

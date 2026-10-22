@@ -19,15 +19,26 @@ func TestOSRunnerNativeStdin(t *testing.T) {
 	}
 	t.Setenv("PEERAGENT_STDIN_HELPER", "1")
 	input := strings.Repeat("quotes: \" & | % !\r\nUnicode: café 日本語\n", 2000)
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	got, err := (OSRunner{}).Run(ctx, self, []string{"-test.run=^TestStdinHelper$"}, t.TempDir(), input)
-	if err != nil || got.ExitCode != 0 {
-		t.Fatalf("Run = %+v, %v", got, err)
+	for _, observed := range []bool{false, true} {
+		name := "ordinary"
+		runner := OSRunner{}
+		if observed {
+			name = "observed"
+			runner.ObserveStdout = func(string) (CompletionObservation, error) { return CompletionUnchanged, nil }
+		}
+		t.Run(name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			got, err := runner.Run(ctx, self, []string{"-test.run=^TestStdinHelper$"}, t.TempDir(), input)
+			if err != nil || got.ExitCode != 0 {
+				t.Fatalf("Run = %+v, %v", got, err)
+			}
+			if got.Stdout != input {
+				t.Fatalf("stdin changed: got %d bytes, want %d", len(got.Stdout), len(input))
+			}
+		})
 	}
-	if got.Stdout != input {
-		t.Fatalf("stdin changed: got %d bytes, want %d", len(got.Stdout), len(input))
-	}
+
 }
 
 func TestStdinHelper(t *testing.T) {
@@ -74,4 +85,22 @@ func TestBatchArgHelper(t *testing.T) {
 		}
 	}
 	t.Fatal("missing argument marker")
+}
+
+func TestEarlyStdinCloseHelper(t *testing.T) {
+	if os.Getenv("PEERAGENT_EARLY_STDIN_CLOSE") != "1" {
+		return
+	}
+	_ = os.Stdin.Close()
+	os.Exit(0)
+}
+
+func TestOSRunnerObservedEarlyStdinClose(t *testing.T) {
+	t.Setenv("PEERAGENT_EARLY_STDIN_CLOSE", "1")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	got, err := (OSRunner{ObserveStdout: func(string) (CompletionObservation, error) { return CompletionUnchanged, nil }}).Run(ctx, os.Args[0], []string{"-test.run=^TestEarlyStdinCloseHelper$"}, t.TempDir(), strings.Repeat("prompt", 100000))
+	if err != nil || got.ExitCode != 0 {
+		t.Fatalf("early stdin close changed target success: exit=%d err=%v", got.ExitCode, err)
+	}
 }

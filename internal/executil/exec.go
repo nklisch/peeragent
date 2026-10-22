@@ -30,6 +30,8 @@ type OSRunner struct {
 	// Pending starts/restarts grace; Active cancels it; Unchanged preserves it.
 	ObserveStdout   func(string) (CompletionObservation, error)
 	CompletionGrace time.Duration
+	// Test seam: pause at the drained-output decision before checking input/reap.
+	afterOutputDrain func()
 }
 
 func (r OSRunner) Run(ctx context.Context, name string, args []string, cwd string, stdin string) (Result, error) {
