@@ -178,3 +178,62 @@ func TestCommandsSnapshotEachMailboxOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestCarriedReplyIsNotDeliveredAgainByRunningInbox(t *testing.T) {
+	cwd, _ := fakeMessagingEnvironment(t)
+	store := jobs.NewStore(cwd)
+	job, err := store.Create(cwd, jobs.ExecSpec{Agent: "codex", RetryCapacity: 1, CapacityBackoff: time.Nanosecond}, "task")
+	if err != nil {
+		t.Fatal(err)
+	}
+	prior := applicationService
+	t.Cleanup(func() { applicationService = prior })
+	calls := 0
+	applicationService = app.NewService(app.Options{Executor: messagingExecutor(func(ctx context.Context, request input.Delegation) (executil.Result, error) {
+		calls++
+		service := app.NewService(app.Options{})
+		if calls == 1 {
+			if err := service.Tell(ctx, app.JobRequest{CWD: cwd, JobID: job.ID}, "launcher", "apply this instruction once"); err != nil {
+				t.Fatal(err)
+			}
+			return executil.Result{TurnStarted: true, CapacityExhausted: true, ExitCode: 1, AgentSession: "reserved-session"}, nil
+		}
+		if strings.Count(request.TaskText, "apply this instruction once") != 1 {
+			t.Fatalf("prompt %q", request.TaskText)
+		}
+		if err := executil.ReportProgress(ctx, executil.Progress{Event: "turn.started"}); err != nil {
+			t.Fatal(err)
+		}
+		stdout, stderr, err := messageCLI(t, job, "inbox")
+		if err != nil || stdout != "" || stderr != "" {
+			t.Fatalf("carried reply redelivered: stdout=%q notice=%q err=%v", stdout, stderr, err)
+		}
+		status, err := service.JobStatus(context.Background(), app.JobRequest{CWD: cwd, JobID: job.ID})
+		if err != nil || status.Metadata.InboxUnread != 0 {
+			t.Fatalf("reserved status %#v %v", status, err)
+		}
+		if err := service.Tell(ctx, app.JobRequest{CWD: cwd, JobID: job.ID}, "launcher", "later reply"); err != nil {
+			t.Fatal(err)
+		}
+		stdout, stderr, err = messageCLI(t, job, "--status", job.ID, "--cwd", cwd)
+		if err != nil || !strings.Contains(stderr, "1 unread message(s)") || decodeResult(t, []byte(stdout)).Metadata.InboxUnread != 1 {
+			t.Fatalf("later status %q %q %v", stdout, stderr, err)
+		}
+		stdout, stderr, err = messageCLI(t, job, "inbox")
+		if err != nil || strings.Contains(stdout, "apply this instruction once") || !strings.Contains(stdout, "later reply") || !strings.Contains(stderr, "1 unread message(s)") {
+			t.Fatalf("later inbox %q %q %v", stdout, stderr, err)
+		}
+		stdout, stderr, err = messageCLI(t, job, "inbox")
+		if err != nil || stdout != "" || stderr != "" {
+			t.Fatalf("second inbox %q %q %v", stdout, stderr, err)
+		}
+		return executil.Result{TurnStarted: true, Stdout: "accepted", AgentSession: "reserved-session"}, nil
+	})})
+	if err := runAsyncJob(input.Request{CWD: cwd, JobRunID: job.ID}); err != nil {
+		t.Fatal(err)
+	}
+	mailbox, err := store.Mailbox(job.ID)
+	if err != nil || calls != 2 || mailbox.Read != 2 || mailbox.UnreadCount() != 0 {
+		t.Fatalf("final calls=%d mailbox=%#v err=%v", calls, mailbox, err)
+	}
+}

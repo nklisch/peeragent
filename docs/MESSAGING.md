@@ -23,16 +23,30 @@ requested. `--no-preamble` sends task text without the standard execution or
 messaging instructions; the mailbox and unread notices remain available.
 
 A resume records references to previous jobs for the same agent/session. Each
-attempt includes a fresh snapshot of their unread entries, in time order; jobs
-found through directory aliases are deduplicated by their recorded job ID.
-Capacity continuations also include their own unread inbox. Replies remain
-unread through target startup failure, cancellation, and capacity refusal, so
-they reach the next attempt or a later resume. Acknowledgement waits for a
-non-capacity execution outcome after the target emitted its first event (print
-response for a non-streaming target). A worker process alone is insufficient.
-Only the included snapshot is acknowledged; later arrivals remain unread, and
-repeated acknowledgement cannot advance the cursor again. Replies stay archived
-in the originating job's conversation after reading.
+attempt reserves a fresh snapshot of their unread entries before putting them
+in its prompt. Directory aliases are deduplicated by recorded job ID. Capacity
+continuations also reserve replies from their own inbox.
+
+Replies have three states: unread, reserved by an attempt, and read. Reserved
+replies are hidden from inbox output, unread notices and status counts, so the
+running target does not receive the prompt's carried reply again through
+`peeragent inbox`. Later replies remain independently readable. Reading them
+cannot accidentally acknowledge an earlier reserved reply.
+
+A non-capacity execution outcome after target output accepts the attempt and
+marks its reserved entries read. Target startup failure, cancellation and
+capacity refusal release the reservation, making those replies unread again
+for the next attempt or a later resume. A worker process alone is insufficient.
+An attempt's terminal outcome is recorded before settling source mailboxes,
+so repeated settlement cannot consume a reply twice. Replies stay archived in
+the originating job's conversation regardless of their delivery state.
+
+On each mailbox read, reservations belonging to a dead worker without a terminal
+attempt outcome are released. A recorded acceptance is committed even if the
+worker exited before finishing mailbox settlement. Recovery uses the attempt's
+recorded process ID and never signals a process. A crash before an acceptance
+record may therefore cause a later attempt to receive the reply again; the
+reservation prevents duplicate delivery within the running attempt.
 
 ## Outbound messages
 

@@ -224,23 +224,29 @@ func (s *Service) Say(ctx context.Context, raw JobRequest, text string) error {
 	return nil
 }
 
-// TurnInbox is the unread snapshot included in one target attempt. It remains
-// recoverable until an emitted target event and a non-capacity outcome confirm
-// acceptance. Startup and capacity failures leave the original cursors untouched.
+// TurnInbox reserves replies for one attempt so prompt delivery and an inbox
+// command cannot deliver the same entry. Its durable outcome lets readers
+// commit acceptance or recover unread replies after a worker crash.
 type TurnInbox struct {
 	Text    string
-	batches []inboxBatch
+	batches []jobs.InboxSource
 	owner   jobs.InboxSource
-}
-type inboxBatch struct {
-	source jobs.InboxSource
-	count  int
+	attempt jobs.InboxAttempt
 }
 
-func PrepareTurnInbox(ctx context.Context, job jobs.Job) (TurnInbox, error) {
+func PrepareTurnInbox(ctx context.Context, job jobs.Job) (carry TurnInbox, prepareErr error) {
+	attempt, err := jobs.BeginInboxAttempt(job)
+	if err != nil {
+		return carry, err
+	}
+	carry = TurnInbox{owner: jobs.InboxSource{JobID: job.ID, CWD: job.CWD}, attempt: attempt}
+	defer func() {
+		if prepareErr != nil {
+			prepareErr = errors.Join(prepareErr, carry.Acknowledge(executil.Result{}, prepareErr))
+		}
+	}()
 	sources := append([]jobs.InboxSource{}, job.InboxSources...)
 	sources = append(sources, jobs.InboxSource{JobID: job.ID, CWD: job.CWD})
-	carry := TurnInbox{owner: jobs.InboxSource{JobID: job.ID, CWD: job.CWD}}
 	type incoming struct {
 		id    string
 		entry jobs.Message
@@ -252,22 +258,19 @@ func PrepareTurnInbox(ctx context.Context, job jobs.Job) (TurnInbox, error) {
 			continue
 		}
 		seen[source.JobID] = true
-		m, err := jobs.MailboxSnapshot(ctx, jobs.NewStore(source.CWD), source.JobID)
+		carry.batches = append(carry.batches, source)
+		messages, err := jobs.ReserveInbox(ctx, jobs.NewStore(source.CWD), source.JobID, attempt)
 		if err != nil {
-			return carry, fmt.Errorf("read resume inbox for %s: %w", source.JobID, err)
+			return carry, fmt.Errorf("reserve resume inbox for %s: %w", source.JobID, err)
 		}
-		if m.Read == len(m.Inbox) {
-			continue
-		}
-		carry.batches = append(carry.batches, inboxBatch{source, len(m.Inbox)})
-		for _, entry := range m.Inbox[m.Read:] {
+		for _, entry := range messages {
 			entries = append(entries, incoming{source.JobID, entry})
 		}
 	}
 	sort.SliceStable(entries, func(i, j int) bool { return entries[i].entry.Time.Before(entries[j].entry.Time) })
 	var text strings.Builder
 	if len(entries) > 0 {
-		text.WriteString("\n\nUnread launcher messages carried into this resume:\n")
+		text.WriteString("\n\nLauncher messages reserved for this attempt:\n")
 	}
 	for _, item := range entries {
 		fmt.Fprintf(&text, "[%s · %s · job %s] %s\n", item.entry.Time.Format(time.RFC3339Nano), item.entry.From, item.id, item.entry.Text)
@@ -277,35 +280,25 @@ func PrepareTurnInbox(ctx context.Context, job jobs.Job) (TurnInbox, error) {
 }
 
 func (c TurnInbox) Acknowledge(execution executil.Result, executionErr error) error {
-	if executionErr != nil || !execution.TurnStarted || execution.CapacityExhausted {
+	if c.attempt.ID == "" {
 		return nil
 	}
-	if len(c.batches) == 0 {
-		return nil
+	accepted := executionErr == nil && execution.TurnStarted && !execution.CapacityExhausted
+	var ownerErr error
+	if accepted {
+		var owner jobs.Job
+		owner, ownerErr = jobs.NewStore(c.owner.CWD).Load(c.owner.JobID)
+		accepted = ownerErr == nil && owner.Status != jobs.StatusCancelled
 	}
-	owner, err := jobs.NewStore(c.owner.CWD).Load(c.owner.JobID)
+	outcome, err := jobs.FinishInboxAttempt(c.attempt, accepted)
 	if err != nil {
-		return err
+		return errors.Join(ownerErr, err)
 	}
-	if owner.Status == jobs.StatusCancelled {
-		return nil
+	var settleErr error
+	for _, source := range c.batches {
+		settleErr = errors.Join(settleErr, jobs.NewStore(source.CWD).SettleInboxAttempt(source.JobID, c.attempt.ID, outcome))
 	}
-	for _, batch := range c.batches {
-		store := jobs.NewStore(batch.source.CWD)
-		if err := store.WithJobLock(batch.source.JobID, func() error {
-			read, err := store.ReadInboxCursorLocked(batch.source.JobID)
-			if err != nil {
-				return err
-			}
-			if read >= batch.count {
-				return nil
-			}
-			return store.MarkInboxReadLocked(batch.source.JobID, batch.count)
-		}); err != nil {
-			return err
-		}
-	}
-	return nil
+	return errors.Join(ownerErr, settleErr)
 }
 
 func addMessaging(ctx context.Context, res *result.Result, job jobs.Job, conversation bool) error {

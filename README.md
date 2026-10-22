@@ -372,8 +372,10 @@ per five minutes per job. Without a recorded launcher pane, or if Herdr refuses,
 Prompts instruct every target to check `peeragent inbox` after long steps and
 before handback. `--no-preamble` sends task text only. Each command inside a job
 announces unread replies on stderr. Resumes include unread messages in the new
-prompt; acknowledgement waits for target output and a non-capacity outcome.
-Startup failures and capacity refusals keep replies recoverable. Status shows `inbox_unread`,
+prompt and reserve them, hiding them from the running target's inbox and unread
+count. Target output and a non-capacity outcome mark them read; failure or
+capacity refusal releases them. A dead worker's unresolved reservation recovers
+on the next mailbox read. Later replies remain independently readable. Status shows `inbox_unread`,
 `outbox_sent`, and `last_message_at`; results include the ordered `conversation`
 after the agent message. See [messaging details](docs/MESSAGING.md).
 

@@ -129,10 +129,13 @@ The standard prompt includes instructions for checking and sending messages.
 `--no-preamble` persists in the execution spec and suppresses the whole standard
 execution/messaging preamble. Resumed prompts include unread entries from prior
 jobs for that agent/session; capacity continuations include their own unread
-inbox. These entries stay unread through startup failure, cancellation and
-capacity refusal. They are acknowledged after target output and a non-capacity
-outcome; starting the worker alone is insufficient. New arrivals beyond the
-included snapshot remain unread. Directory aliases are deduplicated by job ID.
+inbox. These entries are reserved by their attempt and hidden from inbox output,
+unread notices and status counts while the target runs. Target output and a
+non-capacity outcome mark them read; startup failure, cancellation and capacity
+refusal release them to unread. Later arrivals remain independently readable.
+A dead worker's unresolved reservations are released on the next mailbox read;
+a terminal acceptance record instead commits them read. Directory aliases are
+deduplicated by job ID.
 
 Single-job status adds `metadata.inbox_unread`, `metadata.outbox_sent`, and
 optional `metadata.last_message_at`; multi-job records carry the same fields
@@ -340,7 +343,8 @@ Windows retains the worker's native handle until its wait completes.
   prompt.txt     resolved task text, parent-written, child-read
   launcher.json  optional private Herdr address/binary, mode 0600
   inbox.jsonl    launcher replies {time, from, text}, mode 0600
-  inbox-read     acknowledged entry count, mode 0600
+  inbox-state.json  read prefix + independently read/reserved entries, mode 0600
+  inbox-attempts/   per-attempt worker PID and running/accepted/released outcome, private
   outbox.jsonl   timestamped outbound messages/outcomes, mode 0600
   pid            child PID/PGID for cancel, present while running
   agent.log      live compact Codex progress JSONL + background wrapper diagnostics

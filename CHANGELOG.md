@@ -16,7 +16,8 @@
 
 ### Fixes
 - Keep carried replies unread through target startup failure, cancellation and capacity refusal; acknowledge only
-  accepted turns. Deduplicate alias-discovered jobs by recorded job ID so resumes include each reply once.
+  accepted turns. Reserve carried replies by attempt so the running inbox cannot deliver them again, while later
+  replies remain readable. Recover abandoned reservations on the next read after a worker crash. Deduplicate alias-discovered jobs by recorded job ID so resumes include each reply once.
 - Flatten Unicode separators, explicit direction formatting and common header-bracket look-alikes. Share one
   mailbox snapshot per job per command, and append outbound outcomes without rescanning history.
 - Clarify that labelled messaging guides well-meaning same-user agents; it is not an adversarial boundary.

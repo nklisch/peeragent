@@ -150,9 +150,11 @@ unlabelled input. A deliberately misbehaving job runs as the same user and can
 read the launcher state and invoke Herdr directly without labels. The preamble
 and `say` are the supported path, not an adversarial boundary.
 
-Resumed replies stay unread through target startup failure, cancellation and
-capacity refusal. Acknowledgement waits for target output and a non-capacity
-outcome; starting the wrapper alone does not consume them.
+Replies carried in a prompt are reserved by that attempt and hidden from its
+inbox, unread notice and status count while it runs. Target output and a
+non-capacity outcome mark them read. Startup failure, cancellation and capacity
+refusal release them to unread; a dead worker's unresolved reservation is
+released on the next mailbox read. Later replies remain independently readable.
 
 ## Async Lifecycle
 

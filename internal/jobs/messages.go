@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -35,10 +34,12 @@ type Mailbox struct {
 	Inbox  []Message
 	Outbox []Message
 	Read   int
+	state  inboxState
+	unread []int
 }
 
 func (m Mailbox) Stats() MessageStats {
-	stats := MessageStats{InboxUnread: len(m.Inbox) - m.Read}
+	stats := MessageStats{InboxUnread: m.UnreadCount()}
 	for _, entries := range [][]Message{m.Inbox, m.Outbox} {
 		for _, entry := range entries {
 			if entry.Status == "sent" {
@@ -105,34 +106,38 @@ func (s Store) ReadMailboxLocked(id string) (Mailbox, error) {
 			*file.entries = append(*file.entries, entry)
 		}
 	}
-	m.Read, err = s.ReadInboxCursorLocked(id)
+	m.state, err = s.readInboxStateLocked(id)
 	if err != nil {
 		return m, err
 	}
-	if m.Read < 0 || m.Read > len(m.Inbox) {
-		return m, fmt.Errorf("inbox cursor %d outside mailbox of %d", m.Read, len(m.Inbox))
+	if m.state.Read > len(m.Inbox) {
+		return m, fmt.Errorf("inbox cursor outside mailbox of %d", len(m.Inbox))
+	}
+	for index, entry := range m.state.Entries {
+		if index < m.state.Read || index >= len(m.Inbox) || (!entry.Read && entry.Attempt == nil) || (entry.Read && entry.Attempt != nil) {
+			return m, fmt.Errorf("invalid inbox entry state at %d", index)
+		}
+	}
+	if err := s.recoverInboxLocked(id, &m.state); err != nil {
+		return m, err
+	}
+	m.Read = m.state.Read
+	for index := m.Read; index < len(m.Inbox); index++ {
+		entry := m.state.Entries[index]
+		if !entry.Read && entry.Attempt == nil {
+			m.unread = append(m.unread, index)
+		}
 	}
 	return m, nil
 }
 
-// ReadInboxCursorLocked reads only the acknowledgement, without rescanning history.
-func (s Store) ReadInboxCursorLocked(id string) (int, error) {
-	dir, err := s.jobDir(id)
-	if err != nil {
-		return 0, err
+func (m Mailbox) UnreadCount() int { return len(m.unread) }
+func (m Mailbox) UnreadMessages() []Message {
+	entries := make([]Message, 0, len(m.unread))
+	for _, index := range m.unread {
+		entries = append(entries, m.Inbox[index])
 	}
-	data, err := os.ReadFile(filepath.Join(dir, "inbox-read"))
-	if os.IsNotExist(err) {
-		return 0, nil
-	}
-	if err != nil {
-		return 0, fmt.Errorf("read inbox cursor: %w", err)
-	}
-	read, err := strconv.Atoi(strings.TrimSpace(string(data)))
-	if err != nil || read < 0 {
-		return 0, fmt.Errorf("invalid inbox cursor %q", data)
-	}
-	return read, nil
+	return entries
 }
 
 // Mailbox snapshots a known job. Callers resolve the job before this read.
@@ -167,14 +172,6 @@ func (s Store) AppendMessageLocked(id, box string, entry Message) error {
 	return closeErr
 }
 
-func (s Store) MarkInboxReadLocked(id string, count int) error {
-	dir, err := s.jobDir(id)
-	if err != nil {
-		return err
-	}
-	return AtomicWriteFile(filepath.Join(dir, "inbox-read"), []byte(strconv.Itoa(count)+"\n"), 0o600)
-}
-
 // ReadInbox holds the same lock as tell through delivery and acknowledgement.
 // A failed output leaves the cursor unchanged; a concurrent append is either
 // delivered in this batch or stays unread for the next call.
@@ -191,9 +188,16 @@ func (s Store) ReadInboxContext(ctx context.Context, id string, deliver func([]M
 		if err != nil {
 			return err
 		}
-		if err := deliver(m.Inbox[m.Read:]); err != nil {
+		if err := deliver(m.UnreadMessages()); err != nil {
 			return err
 		}
-		return s.MarkInboxReadLocked(id, len(m.Inbox))
+		if len(m.unread) == 0 {
+			return nil
+		}
+		for _, index := range m.unread {
+			m.state.Entries[index] = inboxEntryState{Read: true}
+		}
+		m.state.advanceRead()
+		return s.writeInboxStateLocked(id, m.state)
 	})
 }

@@ -54,13 +54,6 @@ func TestResumeAcknowledgesOnlyAcceptedTargetTurn(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertInboxRead(t, store, old.ID, 0) // A worker process is not target acceptance.
-	carry, err := PrepareTurnInbox(context.Background(), launched)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if strings.Count(carry.Text, "first answer") != 1 {
-		t.Fatalf("carried %q", carry.Text)
-	}
 	for _, test := range []struct {
 		name      string
 		execution executil.Result
@@ -72,11 +65,30 @@ func TestResumeAcknowledgesOnlyAcceptedTargetTurn(t *testing.T) {
 		{"capacity after event", executil.Result{TurnStarted: true, CapacityExhausted: true}, nil},
 	} {
 		t.Run(test.name, func(t *testing.T) {
+			carry, err := PrepareTurnInbox(context.Background(), launched)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if strings.Count(carry.Text, "first answer") != 1 {
+				t.Fatalf("carried %q", carry.Text)
+			}
+			mailbox, err := store.Mailbox(old.ID)
+			if err != nil || mailbox.UnreadCount() != 0 {
+				t.Fatalf("reservation visible: %#v %v", mailbox, err)
+			}
 			if err := carry.Acknowledge(test.execution, test.err); err != nil {
 				t.Fatal(err)
 			}
 			assertInboxRead(t, store, old.ID, 0)
+			mailbox, err = store.Mailbox(old.ID)
+			if err != nil || mailbox.UnreadCount() != 1 {
+				t.Fatalf("reservation not released: %#v %v", mailbox, err)
+			}
 		})
+	}
+	carry, err := PrepareTurnInbox(context.Background(), launched)
+	if err != nil {
+		t.Fatal(err)
 	}
 	if err := store.WithJobLock(old.ID, func() error {
 		return store.AppendMessageLocked(old.ID, "inbox", jobs.Message{Text: "late answer", From: "launcher"})
@@ -88,7 +100,7 @@ func TestResumeAcknowledgesOnlyAcceptedTargetTurn(t *testing.T) {
 	}
 	assertInboxRead(t, store, old.ID, 1)
 	// A second acknowledgement must not rewrite the cursor or consume later mail.
-	cursor := filepath.Join(filepath.Dir(old.LogPath), "inbox-read")
+	cursor := filepath.Join(filepath.Dir(old.LogPath), "inbox-state.json")
 	epoch := time.Unix(1000, 0)
 	if err := os.Chtimes(cursor, epoch, epoch); err != nil {
 		t.Fatal(err)

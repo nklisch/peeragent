@@ -42,7 +42,7 @@ func printUnreadNotice() error {
 	if err != nil {
 		return fmt.Errorf("read current job inbox: %w", err)
 	}
-	if n := len(m.Inbox) - m.Read; n > 0 {
+	if n := m.UnreadCount(); n > 0 {
 		fmt.Fprintf(os.Stderr, "peeragent: %d unread message(s): run peeragent inbox\n", n)
 	}
 	return nil
@@ -104,7 +104,7 @@ func commandMessaging(ctx context.Context) (context.Context, func() error, error
 			return
 		}
 		seen = true
-		if n := len(m.Inbox) - m.Read; n > 0 {
+		if n := m.UnreadCount(); n > 0 {
 			fmt.Fprintf(os.Stderr, "peeragent: %d unread message(s): run peeragent inbox\n", n)
 		}
 	})

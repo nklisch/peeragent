@@ -1,7 +1,7 @@
 ---
 id: labelled-job-messaging
 kind: story
-stage: review
+stage: implementing
 tags: [infra, tests, docs, security]
 parent: null
 depends_on: []
@@ -127,3 +127,18 @@ Native macOS/Windows runtime qualification was unavailable on this Linux host;
 only their compiles were run. Delivery tests used fake Herdr and synthetic
 addresses throughout. No session was contacted, and no peeragent delegation,
 installed binary/plugin update, push or tag was performed. No blockers remain.
+
+## Attempt reservation correction
+
+The second correction brief,
+`/storage/scratch/workstations/briefs/peeragent-messaging-fix-2.md`, accepts the
+three-state delivery model: unread, reserved by an attempt, and read. Carried
+replies are reserved under the inbox lock and hidden from inbox output, notices
+and unread counts. Sparse read state lets later arrivals be consumed without
+acknowledging an earlier reserved reply. A terminal attempt outcome precedes
+mailbox settlement, and a read recovers abandoned reservations by the recorded
+worker PID without signalling anything.
+
+Focused regressions pass for the review's duplicate case, earlier loss cases,
+independent reservations, later arrivals and crash recovery. Final full suite,
+validator and cross-platform compile evidence is pending.

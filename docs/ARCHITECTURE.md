@@ -154,9 +154,14 @@ same messaging service and records an explicit unsupported-channel refusal.
 Session discovery is shared by the concurrent-resume check and unread-inbox
 carryover, avoiding two worktree scans. Jobs are deduplicated by recorded job
 ID across directory aliases. The job persists mailbox references, and the worker
-snapshots unread replies for each attempt. Only a target that emitted output
-and did not refuse for capacity acknowledges its included snapshot. Startup
-failure and cancellation preserve replies; cursors advance only once.
+reserves unread replies for each attempt. Reserved entries are excluded from
+inbox output and unread counts; sparse read state lets later arrivals be read
+independently. Only a target that emitted output and did not refuse for capacity
+accepts its reservation. Startup failure, cancellation and capacity refusal
+release it. The worker writes a terminal attempt outcome before settling its
+source mailboxes. Readers recover accepted entries from that record, or release
+abandoned reservations when the recorded worker process is gone. No process is
+signalled during recovery.
 [Messaging](MESSAGING.md) defines the user-visible commands and limits.
 
 ## Permission Model
