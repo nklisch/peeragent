@@ -440,3 +440,22 @@ func TestExplicitSessionCompletionIsNotDowngradedByTurnMarker(t *testing.T) {
 		}
 	}
 }
+
+func TestTurnStartedRequiresStructuredTargetEvent(t *testing.T) {
+	for _, test := range []struct {
+		output   string
+		started  bool
+		capacity bool
+	}{
+		{"", false, false},
+		{"codex startup failed", false, false},
+		{`{"type":"thread.started","thread_id":"session"}`, true, false},
+		{`{"type":"thread.started","thread_id":"session"}` + "\n" + `{"type":"turn.failed","error":{"message":"Selected model is at capacity"}}`, true, true},
+	} {
+		res := Result{Stdout: test.output}
+		normalizeJSONResult(&res)
+		if res.TurnStarted != test.started || res.CapacityExhausted != test.capacity {
+			t.Fatalf("output %q result %#v", test.output, res)
+		}
+	}
+}

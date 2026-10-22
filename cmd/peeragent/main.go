@@ -103,11 +103,24 @@ Wait-any ties use argument order and keep --wait exits (terminal outcomes exit 0
 PEERAGENT_STATE_DIR overrides the user cache directory used for the lookup index.
 `
 
-func run(args []string) error {
-	if err := printUnreadNotice(); err != nil {
+func run(args []string) error { return runCommand(context.Background(), args) }
+
+func runCommand(parent context.Context, args []string) (runErr error) {
+	ctx, ensureNotice, err := commandMessaging(parent)
+	if err != nil {
 		return err
 	}
 	req, err := input.Parse(args, os.Stdin, os.Getwd)
+	if err != nil || !commandReadsCurrentMailbox(req) {
+		if noticeErr := ensureNotice(); noticeErr != nil {
+			return noticeErr
+		}
+	}
+	defer func() {
+		if err := ensureNotice(); err != nil && runErr == nil {
+			runErr = err
+		}
+	}()
 	if err != nil {
 		if writeErr := writeResult(input.Request{JSON: true}, result.Result{
 			Status:       result.StatusFailed,
@@ -123,7 +136,7 @@ func run(args []string) error {
 		return &usageError{}
 	}
 	if req.MessageCommand != "" {
-		return runMessageCommand(req)
+		return runMessageCommand(ctx, req)
 	}
 	if req.Help {
 		fmt.Print(usageText)
@@ -133,25 +146,25 @@ func run(args []string) error {
 		return runAsyncJob(req)
 	}
 	if len(req.WaitAnyJobs) > 0 {
-		return waitForAnyJobResult(req)
+		return waitForAnyJobResult(ctx, req)
 	}
 	if len(req.StatusJobs) > 1 {
-		return showMultipleJobStatuses(req)
+		return showMultipleJobStatuses(ctx, req)
 	}
 	if req.StatusJobID != "" {
-		return showJobStatus(req)
+		return showJobStatus(ctx, req)
 	}
 	if req.ResultJobID != "" {
-		return showJobResult(req)
+		return showJobResult(ctx, req)
 	}
 	if req.WaitJobID != "" {
-		return waitForJobResult(req)
+		return waitForJobResult(ctx, req)
 	}
 	if req.CancelJobID != "" {
-		return cancelJob(req)
+		return cancelJob(ctx, req)
 	}
 	if req.Async {
-		return launchAsync(req)
+		return launchAsync(ctx, req)
 	}
 	if req.Worktree {
 		if err := writeResult(req, result.Result{
@@ -177,7 +190,7 @@ func run(args []string) error {
 
 	// Use the same tracked worker for blocking and detached launches, so every
 	// launch has a job id and session protection uses one process/PID contract.
-	res, worker, err := applicationService.LaunchBlocking(context.Background(), delegationFromRequest(req))
+	res, worker, err := applicationService.LaunchBlocking(ctx, delegationFromRequest(req))
 	if err != nil {
 		if writeErr := writeResult(req, res); writeErr != nil {
 			return writeErr
@@ -190,7 +203,7 @@ func run(args []string) error {
 	if !req.JSON {
 		fmt.Fprintf(os.Stderr, "Job: %s\n", res.Metadata.JobID)
 	}
-	terminal, err := waitForBlockingWorker(req, res.Metadata.JobID, worker)
+	terminal, err := waitForBlockingWorker(ctx, req, res.Metadata.JobID, worker)
 	if err != nil {
 		return err
 	}
@@ -205,7 +218,7 @@ func run(args []string) error {
 
 // Watch persisted completion and the owned worker together. An exited worker
 // cannot leave the caller polling forever for a result it will never write.
-func waitForBlockingWorker(req input.Request, id string, worker app.JobWorker) (result.Result, error) {
+func waitForBlockingWorker(ctx context.Context, req input.Request, id string, worker app.JobWorker) (result.Result, error) {
 	type workerExit struct {
 		code int
 		err  error
@@ -216,10 +229,10 @@ func waitForBlockingWorker(req input.Request, id string, worker app.JobWorker) (
 	ticker := time.NewTicker(jobWaitInterval)
 	defer ticker.Stop()
 	finish := func(exit workerExit) (result.Result, error) {
-		return applicationService.WorkerExited(context.Background(), request, exit.code, exit.err)
+		return applicationService.WorkerExited(ctx, request, exit.code, exit.err)
 	}
 	for {
-		res, err := applicationService.PollJobResult(context.Background(), request)
+		res, err := applicationService.PollJobResult(ctx, request)
 		if err != nil {
 			return result.Result{}, err
 		}
@@ -235,8 +248,8 @@ func waitForBlockingWorker(req input.Request, id string, worker app.JobWorker) (
 	}
 }
 
-func launchAsync(req input.Request) error {
-	res, err := applicationService.Launch(context.Background(), delegationFromRequest(req))
+func launchAsync(ctx context.Context, req input.Request) error {
+	res, err := applicationService.Launch(ctx, delegationFromRequest(req))
 	if writeErr := writeResult(req, res); writeErr != nil {
 		return writeErr
 	}
@@ -257,8 +270,8 @@ func jobRequests(refs []input.JobReference) []app.JobRequest {
 	return requests
 }
 
-func showMultipleJobStatuses(req input.Request) error {
-	records, err := applicationService.JobStatuses(context.Background(), jobRequests(req.StatusJobs))
+func showMultipleJobStatuses(ctx context.Context, req input.Request) error {
+	records, err := applicationService.JobStatuses(ctx, jobRequests(req.StatusJobs))
 	if err != nil {
 		return err
 	}
@@ -275,8 +288,8 @@ func showMultipleJobStatuses(req input.Request) error {
 	return err
 }
 
-func waitForAnyJobResult(req input.Request) error {
-	requests, err := applicationService.ResolveJobs(context.Background(), jobRequests(req.WaitAnyJobs))
+func waitForAnyJobResult(ctx context.Context, req input.Request) error {
+	requests, err := applicationService.ResolveJobs(ctx, jobRequests(req.WaitAnyJobs))
 	if err != nil {
 		if !errors.Is(err, fs.ErrNotExist) {
 			return err
@@ -290,46 +303,46 @@ func waitForAnyJobResult(req input.Request) error {
 	defer ticker.Stop()
 	for {
 		for _, request := range requests {
-			res, err := applicationService.PollJobResult(context.Background(), request)
+			res, err := applicationService.PollJobResult(ctx, request)
 			if err != nil {
 				return err
 			}
 			if res.Status != result.StatusRunning {
-				return writeJobControlResult(req, res)
+				return writeJobControlResult(ctx, req, res)
 			}
 		}
 		<-ticker.C
 	}
 }
 
-func showJobStatus(req input.Request) error {
-	res, err := applicationService.JobStatus(context.Background(), app.JobRequest{
+func showJobStatus(ctx context.Context, req input.Request) error {
+	res, err := applicationService.JobStatus(ctx, app.JobRequest{
 		CWD:   req.CWD,
 		JobID: req.StatusJobID,
 	})
 	if err != nil {
 		return err
 	}
-	return writeJobControlResult(req, res)
+	return writeJobControlResult(ctx, req, res)
 }
 
-func showJobResult(req input.Request) error {
-	res, err := applicationService.JobResult(context.Background(), app.JobRequest{
+func showJobResult(ctx context.Context, req input.Request) error {
+	res, err := applicationService.JobResult(ctx, app.JobRequest{
 		CWD:   req.CWD,
 		JobID: req.ResultJobID,
 	})
 	if err != nil {
 		return err
 	}
-	return writeJobControlResult(req, res)
+	return writeJobControlResult(ctx, req, res)
 }
 
-func waitForJobResult(req input.Request) error {
+func waitForJobResult(ctx context.Context, req input.Request) error {
 	ticker := time.NewTicker(jobWaitInterval)
 	defer ticker.Stop()
 
 	for {
-		res, err := applicationService.PollJobResult(context.Background(), app.JobRequest{
+		res, err := applicationService.PollJobResult(ctx, app.JobRequest{
 			CWD:   req.CWD,
 			JobID: req.WaitJobID,
 		})
@@ -337,24 +350,27 @@ func waitForJobResult(req input.Request) error {
 			return err
 		}
 		if res.Status != result.StatusRunning {
-			return writeJobControlResult(req, res)
+			return writeJobControlResult(ctx, req, res)
 		}
 		<-ticker.C
 	}
 }
 
-func cancelJob(req input.Request) error {
-	res, err := applicationService.CancelJob(context.Background(), app.JobRequest{
+func cancelJob(ctx context.Context, req input.Request) error {
+	res, err := applicationService.CancelJob(ctx, app.JobRequest{
 		CWD:   req.CWD,
 		JobID: req.CancelJobID,
 	})
 	if err != nil {
 		return err
 	}
-	return writeJobControlResult(req, res)
+	return writeJobControlResult(ctx, req, res)
 }
 
-func writeJobControlResult(req input.Request, res result.Result) error {
+func writeJobControlResult(ctx context.Context, req input.Request, res result.Result) error {
+	if err := ensureCommandNotice(ctx); err != nil {
+		return err
+	}
 	if err := writeResult(req, res); err != nil {
 		return err
 	}
@@ -411,14 +427,19 @@ func runAsyncJob(req input.Request) error {
 		if jobs.IsTerminalStatus(current.Status) {
 			return nil
 		}
-		if jobReq.Resume != "" && attempt > 0 {
-			carried, err := app.CarryRetryInbox(job)
+		attemptReq := jobReq
+		var carried app.TurnInbox
+		if jobReq.Resume != "" {
+			carried, err = app.PrepareTurnInbox(jobs.WithMailboxCommand(ctx, nil), current)
 			if err != nil {
 				return err
 			}
-			jobReq.TaskText += carried
+			attemptReq.TaskText += carried.Text
 		}
-		res, execResult, _ := applicationService.DelegateWithExecution(ctx, delegationFromRequest(jobReq))
+		res, execResult, execErr := applicationService.DelegateWithExecution(ctx, delegationFromRequest(attemptReq))
+		if err := carried.Acknowledge(execResult, execErr); err != nil {
+			return err
+		}
 		res.Metadata.JobID = job.ID
 		res.Metadata.CapacityRetries = attempt
 		logPath := jobTargetLogPath(job)

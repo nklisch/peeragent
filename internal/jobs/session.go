@@ -84,6 +84,7 @@ func SessionJobs(agent, session, cwd string) ([]Job, error) {
 		}
 	}
 	var matches []Job
+	seen := map[string]bool{}
 	for dir := range dirs {
 		store := NewStore(dir)
 		entries, err := os.ReadDir(store.Root)
@@ -104,7 +105,8 @@ func SessionJobs(agent, session, cwd string) ([]Job, error) {
 			if err != nil {
 				return nil, fmt.Errorf("load job %s: %w", entry.Name(), err)
 			}
-			if job.Spec.Agent == agent && job.Spec.Resume == session {
+			if job.Spec.Agent == agent && job.Spec.Resume == session && !seen[job.ID] {
+				seen[job.ID] = true
 				matches = append(matches, job)
 			}
 		}

@@ -11,6 +11,7 @@ import (
 )
 
 type Result struct {
+	TurnStarted       bool
 	CapacityExhausted bool
 	ExitCode          int
 	Stdout            string

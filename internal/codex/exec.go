@@ -157,6 +157,7 @@ type codexEvent struct {
 // A completed agent_message without a final phase is also used for progress by
 // Codex, so it must not start a shutdown timer on its own.
 type streamState struct {
+	started                     bool
 	session, message, preview   string
 	capacity, terminal, success bool
 	turnComplete                bool
@@ -176,6 +177,9 @@ func (s *streamState) consume(line string) (executil.Progress, bool) {
 		if err := json.Unmarshal(event.Payload, &event); err != nil {
 			return executil.Progress{}, false
 		}
+	}
+	if event.Type != "" {
+		s.started = true
 	}
 	oldMessage := s.message
 	if s.turnComplete && isActivityEvent(event.Type) {
@@ -271,6 +275,7 @@ func normalizeJSONResult(result *Result) {
 }
 
 func normalizeStreamResult(result *Result, state streamState) {
+	result.TurnStarted = state.started
 	session, text, capacity, terminal := state.session, state.message, state.capacity, state.terminal
 	if result.CompletionStopped && terminal {
 		result.ExitCode = 1

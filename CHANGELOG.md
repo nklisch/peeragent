@@ -14,6 +14,13 @@
   after the agent message. Launcher addresses live in a separate user-readable-only file.
 - Windows supports inbox/tell and reports `no launcher channel on this platform` for say.
 
+### Fixes
+- Keep carried replies unread through target startup failure, cancellation and capacity refusal; acknowledge only
+  accepted turns. Deduplicate alias-discovered jobs by recorded job ID so resumes include each reply once.
+- Flatten Unicode separators, explicit direction formatting and common header-bracket look-alikes. Share one
+  mailbox snapshot per job per command, and append outbound outcomes without rescanning history.
+- Clarify that labelled messaging guides well-meaning same-user agents; it is not an adversarial boundary.
+
 ## v0.10.1
 
 ### Security

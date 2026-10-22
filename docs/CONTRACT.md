@@ -129,7 +129,10 @@ The standard prompt includes instructions for checking and sending messages.
 `--no-preamble` persists in the execution spec and suppresses the whole standard
 execution/messaging preamble. Resumed prompts include unread entries from prior
 jobs for that agent/session; capacity continuations include their own unread
-inbox. New arrivals beyond the included snapshot remain unread.
+inbox. These entries stay unread through startup failure, cancellation and
+capacity refusal. They are acknowledged after target output and a non-capacity
+outcome; starting the worker alone is insufficient. New arrivals beyond the
+included snapshot remain unread. Directory aliases are deduplicated by job ID.
 
 Single-job status adds `metadata.inbox_unread`, `metadata.outbox_sent`, and
 optional `metadata.last_message_at`; multi-job records carry the same fields
@@ -333,7 +336,7 @@ Windows retains the worker's native handle until its wait completes.
 
 ```text
 .peeragent/jobs/<job-id>/
-  job.json       lifecycle + ExecSpec + live session/completion/backoff observations
+  job.json       lifecycle + ExecSpec + mailbox references + live observations
   prompt.txt     resolved task text, parent-written, child-read
   launcher.json  optional private Herdr address/binary, mode 0600
   inbox.jsonl    launcher replies {time, from, text}, mode 0600

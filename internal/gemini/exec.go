@@ -56,6 +56,7 @@ func normalizeResult(result *Result) {
 	var envelope printEnvelope
 	if json.Unmarshal([]byte(strings.TrimSpace(result.Stdout)), &envelope) == nil &&
 		(envelope.Status != "" || envelope.ConversationID != "") {
+		result.TurnStarted = true
 		if envelope.ConversationID != "" {
 			result.AgentSession = envelope.ConversationID
 		}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -405,7 +406,7 @@ func TestCancelJobWithoutPIDSidecarWritesTerminalState(t *testing.T) {
 	}
 
 	if err := captureStdout(func() error {
-		return cancelJob(input.Request{CWD: cwd, CancelJobID: job.ID, JSON: true})
+		return cancelJob(context.Background(), input.Request{CWD: cwd, CancelJobID: job.ID, JSON: true})
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -447,7 +448,7 @@ func TestCancelJobRepairsExistingTerminalResultWithoutOverwrite(t *testing.T) {
 	}
 
 	if err := captureStdout(func() error {
-		return cancelJob(input.Request{CWD: cwd, CancelJobID: job.ID, JSON: true})
+		return cancelJob(context.Background(), input.Request{CWD: cwd, CancelJobID: job.ID, JSON: true})
 	}); err != nil {
 		t.Fatal(err)
 	}

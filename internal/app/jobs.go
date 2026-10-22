@@ -39,7 +39,7 @@ func (s *Service) JobStatus(ctx context.Context, raw JobRequest) (result.Result,
 	}
 
 	res := jobStatusResult(req, job)
-	if err := addMessaging(&res, job, false); err != nil {
+	if err := addMessaging(ctx, &res, job, false); err != nil {
 		return result.Result{}, err
 	}
 	if err := addProgress(&res, job); err != nil {
@@ -89,7 +89,7 @@ func (s *Service) jobResult(ctx context.Context, raw JobRequest, includeRunningM
 			if err := enrichJobResult(&res, job); err != nil {
 				return result.Result{}, err
 			}
-			err := addMessaging(&res, job, true)
+			err := addMessaging(ctx, &res, job, true)
 			return res, err
 		}
 		return result.Result{}, fmt.Errorf("read async job %q result: %w", req.JobID, err)
@@ -102,7 +102,7 @@ func (s *Service) jobResult(ctx context.Context, raw JobRequest, includeRunningM
 	if err := enrichJobResult(&stored, job); err != nil {
 		return result.Result{}, err
 	}
-	if err := addMessaging(&stored, job, true); err != nil {
+	if err := addMessaging(ctx, &stored, job, true); err != nil {
 		return result.Result{}, err
 	}
 	return stored, nil

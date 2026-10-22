@@ -22,11 +22,17 @@ and to use `say` for questions it cannot settle or short status the launcher
 requested. `--no-preamble` sends task text without the standard execution or
 messaging instructions; the mailbox and unread notices remain available.
 
-A resume includes unread entries from previous jobs for the same agent/session,
-in time order, and acknowledges the included snapshot after successful worker
-startup. Failed startup consumes nothing. Later arrivals remain unread. Capacity
-continuations include and acknowledge their own unread inbox before execution.
-Replies stay archived in the originating job's conversation after reading.
+A resume records references to previous jobs for the same agent/session. Each
+attempt includes a fresh snapshot of their unread entries, in time order; jobs
+found through directory aliases are deduplicated by their recorded job ID.
+Capacity continuations also include their own unread inbox. Replies remain
+unread through target startup failure, cancellation, and capacity refusal, so
+they reach the next attempt or a later resume. Acknowledgement waits for a
+non-capacity execution outcome after the target emitted its first event (print
+response for a non-streaming target). A worker process alone is insufficient.
+Only the included snapshot is acknowledged; later arrivals remain unread, and
+repeated acknowledgement cannot advance the cursor again. Replies stay archived
+in the originating job's conversation after reading.
 
 ## Outbound messages
 
@@ -39,11 +45,14 @@ this header before the body:
 ```
 
 The branch is captured at launch (`unknown` when unavailable; `HEAD` for a
-detached checkout). Line-breaking whitespace, control characters and header brackets in label
-components are replaced with underscores. In the body, `⟦`/`⟧` become `[`/`]`,
-and control characters become spaces. A body cannot create another supported
-origin header. Quotes and shell syntax remain literal text. Use `--` before
-message text beginning with a dash.
+detached checkout). Line-breaking whitespace, control characters and header
+brackets in label components are replaced with underscores. Explicit direction
+formatting is removed from labels and bodies (U+200E/U+200F, U+202A–U+202E,
+U+2066–U+2069). In the body, `⟦⟧`, `〚〛` and `⟬⟭` become `[]`; Unicode vertical
+space, including U+2028/U+2029, and control characters become spaces. These are
+specific visual normalizations, not general Unicode spoof prevention. Quotes
+and shell syntax remain literal text. Use `--` before message text beginning
+with a dash.
 
 A message may contain at most 2,000 Unicode characters before sanitization. A
 job can attempt delivery at most three times in a rolling five-minute window.
@@ -53,14 +62,22 @@ interrupted during delivery leaves a `pending` entry that counts until that wind
 has a ten-second timeout. No recorded pane/binary or a Herdr delivery failure
 produces a one-line nonzero refusal naming the handback alternative. Sent and
 refused attempts are timestamped in `outbox.jsonl`; refusals include a reason.
+Pending reservations and their delivery outcomes share a message ID in this
+append-only journal. Readers fold outcomes into one message per ID, keeping
+concurrent sends intact without a second mailbox snapshot during delivery.
 
 At launch, the launcher records present `HERDR_PANE_ID`, `HERDR_SOCKET_PATH`,
 `HERDR_WORKSPACE_ID` values and the Herdr binary path (`HERDR_BIN_PATH`, falling back to PATH lookup) in `launcher.json`
 (mode 0600). No file is created without a pane. The file is separate from public
 job metadata and results. Targets still start without terminal-control variables
-unless the launcher deliberately uses `--keep-terminal-env`. This interface is
-for trusted local agents running as the same user; private files protect against
-other users rather than restrict the account owner.
+unless the launcher deliberately uses `--keep-terminal-env`.
+
+The labels and environment strip help well-meaning agents avoid accidental
+unlabelled input. A deliberately misbehaving job runs as the same user and can
+read the private launcher file, invoke Herdr directly without labels, or change
+its own state. The preamble and `say` define the supported path, not an
+adversarial boundary. Private files protect against other users; they do not
+restrict the account owner.
 
 Windows supports the mailbox and shared status/result path. `say` records a
 refusal and reports `no launcher channel on this platform; use your handback
@@ -74,3 +91,8 @@ sent/refused outbound attempts. Text tables expose the same values. `--result`
 adds an ordered `conversation` after `details`, with `direction`, `time`, `from`,
 `text` and outbound `status`/`reason`. Text output puts it after the agent message.
 Reading status or results does not mark replies read.
+
+Each command snapshots a job's mailbox once and shares that snapshot with its
+unread notice and output. Mutating inbox/say commands take that snapshot under
+the operation's lock. Counts are computed from history; no incremental counter
+state is maintained.

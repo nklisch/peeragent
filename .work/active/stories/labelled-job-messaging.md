@@ -1,7 +1,7 @@
 ---
 id: labelled-job-messaging
 kind: story
-stage: review
+stage: implementing
 tags: [infra, tests, docs, security]
 parent: null
 depends_on: []
@@ -31,7 +31,7 @@ binary changes or real session contact. The brief is
   acknowledgement. Failed output leaves replies unread. Commands announce
   unread counts on stderr. Prompts explain messaging unless `--no-preamble`.
 - Carry unread messages into resumed prompts; acknowledge only the included
-  snapshot after successful startup. Share session discovery with the existing
+  snapshot after target output and a non-capacity outcome. Share session discovery with the existing
   concurrent-resume check. Capacity continuations use their own mailbox.
 - Expose counts/time in both status forms and ordered conversation after agent
   details in results. Windows supports mailbox commands and records the explicit
@@ -83,3 +83,15 @@ No push, tag, installed binary update or installed plugin change was made.
 
 No in-scope work is deferred. Native macOS/Windows runtime qualification is
 unavailable on this Linux workstation; cross-compilation will be recorded.
+
+## Accepted review correction
+
+Godot-41 accepted all five findings from the review of `e999cc6`: preserve
+replies across refused/unstarted turns; deduplicate alias-discovered job IDs;
+flatten the named Unicode visual tricks; share one mailbox snapshot per job per
+command; and document the same-user, well-meaning-agent trust boundary honestly.
+The correction brief is
+`/storage/scratch/workstations/briefs/peeragent-messaging-fix-1.md`.
+
+Implementation and focused regressions are complete. Final frozen-source full
+suite, validator, Windows and macOS compile evidence is pending below.

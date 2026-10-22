@@ -145,6 +145,15 @@ counts/time; `--result` includes the ordered conversation after the agent messag
 Resumes carry unread replies into their prompt. `--no-preamble` suppresses the
 standard execution/messaging instructions and sends task text only.
 
+Labels and the environment strip help well-meaning agents avoid accidental
+unlabelled input. A deliberately misbehaving job runs as the same user and can
+read the launcher state and invoke Herdr directly without labels. The preamble
+and `say` are the supported path, not an adversarial boundary.
+
+Resumed replies stay unread through target startup failure, cancellation and
+capacity refusal. Acknowledgement waits for target output and a non-capacity
+outcome; starting the wrapper alone does not consume them.
+
 ## Async Lifecycle
 
 Prefer `--async` for normal implementation, research, and review passes so a

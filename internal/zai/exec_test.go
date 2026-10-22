@@ -118,3 +118,17 @@ func stubLookPath(t *testing.T) {
 		lookPath = previous
 	})
 }
+
+func TestTurnStartedRequiresPrintResponse(t *testing.T) {
+	stubLookPath(t)
+	for _, test := range []struct {
+		output  string
+		started bool
+	}{{"", false}, {" \n", false}, {"answer", true}} {
+		runner := &testsupport.RecordingRunner{Result: Result{Stdout: test.output}}
+		res, err := ExecWithRunner(context.Background(), runner, Options{CWD: "/repo", Prompt: "task"})
+		if err != nil || res.TurnStarted != test.started {
+			t.Fatalf("output %q started %t err %v", test.output, res.TurnStarted, err)
+		}
+	}
+}

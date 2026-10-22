@@ -158,11 +158,6 @@ func (s *Service) launchJob(ctx context.Context, delegation input.Delegation, st
 }
 
 func (s *Service) launch(delegation input.Delegation, start func(string, jobs.Job) error, previous []jobs.Job) (result.Result, error) {
-	carry, err := prepareResumeInbox(previous)
-	if err != nil {
-		return failedDelegationResult(delegation, err), err
-	}
-	delegation.TaskText += carry.text
 	store := jobs.NewStore(delegation.CWD)
 	job, err := store.Create(delegation.CWD, execSpecFromDelegation(delegation), delegation.TaskText)
 	if err != nil {
@@ -170,6 +165,9 @@ func (s *Service) launch(delegation input.Delegation, start func(string, jobs.Jo
 		return failedDelegationResult(delegation, wrapped), wrapped
 	}
 
+	for _, prior := range previous {
+		job.InboxSources = append(job.InboxSources, jobs.InboxSource{JobID: prior.ID, CWD: prior.CWD})
+	}
 	if branch, err := exec.Command("git", "-C", job.CWD, "rev-parse", "--abbrev-ref", "HEAD").Output(); err == nil {
 		job.Branch = strings.TrimSpace(string(branch))
 	}
@@ -191,9 +189,6 @@ func (s *Service) launch(delegation input.Delegation, start func(string, jobs.Jo
 	}
 
 	res := runningJobResult(delegation, job)
-	if err := carry.acknowledge(); err != nil {
-		return res, fmt.Errorf("job started but resume inbox acknowledgement failed: %w", err)
-	}
 	if indexErr != nil {
 		res.Metadata.IndexWarning = indexErr.Error()
 	}

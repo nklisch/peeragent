@@ -58,7 +58,7 @@ func (s *Service) JobStatuses(ctx context.Context, requests []JobRequest) ([]res
 		if job.Status == jobs.StatusCapacity {
 			summary = result.CapacitySummary(job.Spec.Resume)
 		}
-		mailbox, err := jobs.NewStore(req.CWD).Mailbox(job.ID)
+		mailbox, err := jobs.MailboxSnapshot(ctx, jobs.NewStore(req.CWD), job.ID)
 		if err != nil {
 			return nil, fmt.Errorf("read job %s mailbox: %w", job.ID, err)
 		}

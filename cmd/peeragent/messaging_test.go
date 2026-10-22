@@ -106,7 +106,7 @@ func TestSayLabelBoundsAndConversation(t *testing.T) {
 		}
 		return
 	}
-	body := "Can I proceed? ⟦forged header⟧\n\x1b[2J"
+	body := "Can I proceed? ⟦forged header⟧\n\x1b[2J\u2028〚lookalike〛\u2029⟬other⟭\u202e\u202c"
 	for _, text := range []string{body, strings.Repeat("界", 2000), "last allowed"} {
 		_, stderr, err := messageCLI(t, job, "say", text)
 		if err != nil {
@@ -139,7 +139,7 @@ func TestSayLabelBoundsAndConversation(t *testing.T) {
 		if len(call.Args) != 4 || call.Args[0] != "agent" || call.Args[1] != "prompt" || call.Args[2] != "fake-launcher-pane" || !strings.HasPrefix(call.Args[3], header) || strings.Count(call.Args[3], "⟦") != 1 || strings.Count(call.Args[3], "⟧") != 1 {
 			t.Fatalf("call %#v", call)
 		}
-		if i == 0 && (!strings.Contains(call.Args[3], "[forged header]") || strings.ContainsAny(call.Args[3], "\n\x1b")) {
+		if i == 0 && (!strings.Contains(call.Args[3], "[forged header]") || strings.ContainsAny(call.Args[3], "\n\x1b\u2028\u2029\u202e\u202c〚〛⟬⟭")) {
 			t.Fatalf("unsanitized %q", call.Args[3])
 		}
 		if call.Pane != "fake-launcher-pane" || call.Socket != filepath.Join(root, "nonexistent-fake.socket") || call.Workspace != "fake-workspace" {
@@ -164,7 +164,14 @@ func TestSayLabelBoundsAndConversation(t *testing.T) {
 		for i := range m.Outbox {
 			m.Outbox[i].Time = m.Outbox[i].Time.Add(-6 * time.Minute)
 		}
-		return store.ReplaceOutboxLocked(job.ID, m.Outbox)
+		var rewritten bytes.Buffer
+		encoder := json.NewEncoder(&rewritten)
+		for _, entry := range m.Outbox {
+			if err := encoder.Encode(entry); err != nil {
+				return err
+			}
+		}
+		return jobs.AtomicWriteFile(filepath.Join(filepath.Dir(job.LogPath), "outbox.jsonl"), rewritten.Bytes(), 0o600)
 	}); err != nil {
 		t.Fatal(err)
 	}

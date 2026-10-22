@@ -130,3 +130,16 @@ func stubLookPath(t *testing.T) {
 		lookPath = previous
 	})
 }
+
+func TestTurnStartedRequiresPrintEnvelope(t *testing.T) {
+	for _, test := range []struct {
+		output  string
+		started bool
+	}{{"", false}, {"startup failed", false}, {`{"session_id":"session","result":"answer"}`, true}} {
+		res := Result{Stdout: test.output}
+		normalizeJSONResult(&res)
+		if res.TurnStarted != test.started {
+			t.Fatalf("output %q started %t", test.output, res.TurnStarted)
+		}
+	}
+}

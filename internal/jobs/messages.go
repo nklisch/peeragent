@@ -1,6 +1,7 @@
 package jobs
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -14,6 +15,7 @@ import (
 // Message is a mailbox entry. Outbound entries also record delivery/refusal;
 // pending reserves a rate-limit slot while delivery runs outside the job lock.
 type Message struct {
+	ID                string    `json:"id,omitempty"`
 	Time              time.Time `json:"time"`
 	From              string    `json:"from"`
 	Text              string    `json:"text"`
@@ -84,6 +86,7 @@ func (s Store) ReadMailboxLocked(id string) (Mailbox, error) {
 		if err != nil {
 			return m, fmt.Errorf("read %s: %w", file.name, err)
 		}
+		positions := map[string]int{}
 		for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
 			if line == "" {
 				continue
@@ -92,23 +95,44 @@ func (s Store) ReadMailboxLocked(id string) (Mailbox, error) {
 			if err := json.Unmarshal([]byte(line), &entry); err != nil {
 				return m, fmt.Errorf("decode %s: %w", file.name, err)
 			}
+			if file.name == "outbox.jsonl" && entry.ID != "" {
+				if position, found := positions[entry.ID]; found {
+					(*file.entries)[position] = entry
+					continue
+				}
+				positions[entry.ID] = len(*file.entries)
+			}
 			*file.entries = append(*file.entries, entry)
 		}
 	}
-	data, err := os.ReadFile(filepath.Join(dir, "inbox-read"))
-	if err != nil && !os.IsNotExist(err) {
-		return m, fmt.Errorf("read inbox cursor: %w", err)
-	}
-	if err == nil {
-		m.Read, err = strconv.Atoi(strings.TrimSpace(string(data)))
-		if err != nil {
-			return m, fmt.Errorf("decode inbox cursor: %w", err)
-		}
+	m.Read, err = s.ReadInboxCursorLocked(id)
+	if err != nil {
+		return m, err
 	}
 	if m.Read < 0 || m.Read > len(m.Inbox) {
 		return m, fmt.Errorf("inbox cursor %d outside mailbox of %d", m.Read, len(m.Inbox))
 	}
 	return m, nil
+}
+
+// ReadInboxCursorLocked reads only the acknowledgement, without rescanning history.
+func (s Store) ReadInboxCursorLocked(id string) (int, error) {
+	dir, err := s.jobDir(id)
+	if err != nil {
+		return 0, err
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "inbox-read"))
+	if os.IsNotExist(err) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, fmt.Errorf("read inbox cursor: %w", err)
+	}
+	read, err := strconv.Atoi(strings.TrimSpace(string(data)))
+	if err != nil || read < 0 {
+		return 0, fmt.Errorf("invalid inbox cursor %q", data)
+	}
+	return read, nil
 }
 
 // Mailbox snapshots a known job. Callers resolve the job before this read.
@@ -143,23 +167,6 @@ func (s Store) AppendMessageLocked(id, box string, entry Message) error {
 	return closeErr
 }
 
-func (s Store) ReplaceOutboxLocked(id string, entries []Message) error {
-	dir, err := s.jobDir(id)
-	if err != nil {
-		return err
-	}
-	var data []byte
-	for _, entry := range entries {
-		line, err := json.Marshal(entry)
-		if err != nil {
-			return err
-		}
-		data = append(data, line...)
-		data = append(data, '\n')
-	}
-	return AtomicWriteFile(filepath.Join(dir, "outbox.jsonl"), data, 0o600)
-}
-
 func (s Store) MarkInboxReadLocked(id string, count int) error {
 	dir, err := s.jobDir(id)
 	if err != nil {
@@ -172,11 +179,15 @@ func (s Store) MarkInboxReadLocked(id string, count int) error {
 // A failed output leaves the cursor unchanged; a concurrent append is either
 // delivered in this batch or stays unread for the next call.
 func (s Store) ReadInbox(id string, deliver func([]Message) error) error {
+	return s.ReadInboxContext(context.Background(), id, deliver)
+}
+
+func (s Store) ReadInboxContext(ctx context.Context, id string, deliver func([]Message) error) error {
 	return s.WithJobLock(id, func() error {
 		if _, err := s.Load(id); err != nil {
 			return err
 		}
-		m, err := s.ReadMailboxLocked(id)
+		m, err := MailboxSnapshotLocked(ctx, s, id)
 		if err != nil {
 			return err
 		}

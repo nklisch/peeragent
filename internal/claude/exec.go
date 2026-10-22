@@ -76,6 +76,7 @@ func normalizeJSONResult(result *Result) {
 	if err := json.Unmarshal([]byte(trimmed), &parsed); err != nil {
 		return
 	}
+	result.TurnStarted = parsed.SessionID != "" || parsed.Result != ""
 	if parsed.SessionID != "" {
 		result.AgentSession = parsed.SessionID
 	}

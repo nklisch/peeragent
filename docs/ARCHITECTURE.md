@@ -134,7 +134,10 @@ rigid schema on the delegated task request.
 Job mailboxes use the lifecycle lock for appends, snapshots and read cursors.
 Inbox delivery holds the lock through stdout writes and acknowledgement, so a
 failed write leaves replies unread. Outbound delivery reserves a pending outbox
-entry under the lock, invokes Herdr outside it, then records sent/refused status.
+entry under the lock, invokes Herdr outside it, then appends sent/refused status
+with the same message ID. Readers fold that journal into one entry per message;
+completion never rescans mailbox history. Command-scoped snapshots share each
+job's single history read with its unread notice, status and result output.
 This enforces the per-job rate limit across concurrent senders without holding
 the lifecycle lock during a subprocess call. A crashed sender's pending entry
 reserves its slot until the five-minute window expires.
@@ -149,8 +152,11 @@ The transport is bounded by a ten-second subprocess timeout. Windows uses the
 same messaging service and records an explicit unsupported-channel refusal.
 
 Session discovery is shared by the concurrent-resume check and unread-inbox
-carryover, avoiding two worktree scans. A successful resumed launch acknowledges
-only entries included in its persisted prompt; failed startup consumes nothing.
+carryover, avoiding two worktree scans. Jobs are deduplicated by recorded job
+ID across directory aliases. The job persists mailbox references, and the worker
+snapshots unread replies for each attempt. Only a target that emitted output
+and did not refuse for capacity acknowledges its included snapshot. Startup
+failure and cancellation preserve replies; cursors advance only once.
 [Messaging](MESSAGING.md) defines the user-visible commands and limits.
 
 ## Permission Model
