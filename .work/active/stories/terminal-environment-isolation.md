@@ -1,7 +1,7 @@
 ---
 id: terminal-environment-isolation
 kind: story
-stage: implementing
+stage: review
 tags: [security, infra, tests, docs]
 parent: null
 depends_on: []
@@ -51,3 +51,50 @@ The existing `gate-security-environment-inheritance` backlog item retains the
 broader configuration/secrets question. This patch deliberately preserves
 unrelated settings, and records the terminal-control portion there without
 closing that broader item. No other in-scope work is deferred.
+
+
+## Verification and handback
+
+Frozen source tested: `98e9a537d718b65bf9991e2e82b4437e648a1655`, using
+`go version go1.26.4 linux/amd64`. The final handback commit changes this record
+only. All commands passed:
+
+- Focused `go test -json ./internal/executil ./internal/app ./cmd/peeragent -run
+  'TestTargetEnvironment|TestOSRunnerTerminalEnvironment|TestEveryTargetFilters|TestTerminalEnvironmentLaunch'
+  -count=1`: **4 top-level / 34 total passes**, 3 packages. Covers all four
+  targets, fresh/resumed adapter calls, observed/ordinary runners, default/keep,
+  blocking/async/resumed CLI calls and both capacity-retry attempts, plus saved
+  job spec, launch/result/status JSON and text metadata. Unit checks preserve
+  representative authentication variables and Windows private-drive entries.
+- `go build ./...` and `go vet ./...`: passed once before the source commit;
+  source is unchanged from those checks. No redundant native build/vet replay.
+- `go test -json ./...`: **246 top-level / 402 total passes**, 12 tested
+  packages, zero failures/skips. The two testsupport packages have no tests.
+- `./scripts/validate.sh`: passed once offline in a disposable checkout of the
+  same SHA. Includes its required test/build replay, package/shim checks,
+  version/docs checks and Linux/macOS amd64/arm64 archives. Existing missing-icon
+  warning is nonblocking. The script's local smoke uses only checked-out code;
+  no installed plugin or real target agent was invoked.
+- `GOOS=<os> GOARCH=<arch> CGO_ENABLED=0 go test -c -o
+  <scratch>/<os>-<arch>-tests/ ./...`: passed for Windows amd64 and macOS
+  amd64/arm64. Cross-vet passed for Windows amd64 and macOS arm64. Native
+  Windows/macOS runtime behavior, including the new Windows batch environment
+  regression, remains unverified here.
+- `git diff --check` and curated manifest/skill comparisons passed. All six
+  versioned manifests and README install examples name v0.10.1. No tag/push,
+  installed-plugin modification, committed binary refresh, benchmark or real
+  model call.
+
+The combined command/result record is
+`/storage/scratch/peeragent/terminal-env/verification.log`; raw focused events
+are `focused.jsonl`, full-suite events `full-test.jsonl`, validator detail
+`validate.log`, and final exit `verify.exit` (0), all in the same directory.
+Checks used `GOCACHE=/storage/build/peeragent/job-controls-3-go-cache` (reusing
+this implementer's warm cache) and `GOFLAGS=-p=6`. Keep these logs/cache for
+review and any correction round; remove them after the patch lands or is
+abandoned. The disposable validation checkout, generated artifacts, cross-test
+binaries and one-off edit/verification scripts were removed before handback.
+
+The unrelated configuration/secrets policy remains in the existing backlog
+item. The requested terminal-control protection and local v0.10.1 preparation
+are complete; godot-41 owns review, tagging and publication.
