@@ -45,7 +45,8 @@ const usageText = `peeragent — delegate a task pass to another local coding as
 Usage:
   peeragent [flags] <task text>
   peeragent --prompt-file <path> [flags]
-  peeragent --status|--result|--wait|--cancel <job-id> [flags]
+  peeragent --result|--wait|--cancel <job-id> [flags]
+  peeragent --status|--wait-any <job-id>... [flags]
 
 Flags:
   --agent <codex|claude|gemini|zai>
@@ -69,11 +70,13 @@ Flags:
   --cwd <path>                    Override the target or indexed job/session directory.
   --prompt-file <path>            Read task text from a file.
   --async                         Start a background job and return its id.
+                                  Add --retry-capacity N for opt-in Codex recovery.
   --retry-capacity <N>            Retry Codex capacity stops up to N times (async only).
   --capacity-backoff <duration>   Delay between capacity retries (default 10m).
-  --status <job-id>               Show status of a background job.
+  --status <job-id>...            One job: existing result; several: JSONL or --text table.
   --result <job-id>               Print a background job's current/final result.
   --wait <job-id>                 Wait for and print a job's terminal result.
+  --wait-any <job-id>...          Print the first terminal job; validate all ids first.
   --cancel <job-id>               Best-effort cancel a background job.
   --json | --text                 Output format (default --json).
   -h, --help                      Show this help.
@@ -82,6 +85,9 @@ Flags:
 Job ids work from any directory through the per-user index. Unknown options and
 empty/missing option values are usage errors (exit 2). Capacity stops report
 capacity_exhausted with agent_session; retries resume that session under one job id.
+Multi-job controls accept job-id@directory for unindexed jobs (quote paths with spaces).
+A per-job directory wins over --cwd; otherwise --cwd overrides the index.
+Wait-any ties use argument order and keep --wait exits (terminal outcomes exit 0).
 PEERAGENT_STATE_DIR overrides the user cache directory used for the lookup index.
 `
 
@@ -215,7 +221,7 @@ func waitForAnyJobResult(req input.Request) error {
 	defer ticker.Stop()
 	for {
 		for _, request := range requests {
-			res, err := applicationService.JobResult(context.Background(), request)
+			res, err := applicationService.PollJobResult(context.Background(), request)
 			if err != nil {
 				return err
 			}
@@ -254,7 +260,7 @@ func waitForJobResult(req input.Request) error {
 	defer ticker.Stop()
 
 	for {
-		res, err := applicationService.JobResult(context.Background(), app.JobRequest{
+		res, err := applicationService.PollJobResult(context.Background(), app.JobRequest{
 			CWD:   req.CWD,
 			JobID: req.WaitJobID,
 		})
@@ -458,7 +464,11 @@ func writeResult(req input.Request, res result.Result) error {
 		_, err = fmt.Fprintln(os.Stdout, string(encoded))
 		return err
 	}
-	_, err := fmt.Fprintln(os.Stdout, result.FormatText(res))
+	text := result.FormatText(res)
+	if len(req.WaitAnyJobs) > 0 && res.Metadata.JobID != "" {
+		text += fmt.Sprintf("\n- job_id: %s", res.Metadata.JobID)
+	}
+	_, err := fmt.Fprintln(os.Stdout, text)
 	return err
 }
 

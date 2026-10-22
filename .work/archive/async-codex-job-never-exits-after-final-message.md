@@ -1,11 +1,12 @@
 ---
 id: async-codex-job-never-exits-after-final-message
 kind: story
+stage: done
 tags: [reliability]
 parent: null
 depends_on: []
 created: 2026-09-26
-updated: 2026-09-27
+updated: 2026-10-21
 ---
 
 # An async Codex job can stay "running" for hours after the agent finished
@@ -25,3 +26,22 @@ Observed 2026-09-26 while Orogen's client-refinement run used peeragent 0.7.0 wi
 - surface "final message received, process still alive" in `--status`, so the host can collect the result.
 
 **Impact:** a host orchestrating several parallel peers can wait indefinitely on a finished unit. Other async Codex jobs in the same run exited normally, so this is intermittent.
+
+## Resolution
+
+Implemented on branch `job-controls-2` for godot-41's review. The Codex adapter
+now observes session ids, completed messages and explicit terminal events while
+stdout arrives. A terminal event starts a five-second grace period, exposes
+“final message received, process still alive” in status, and then stops only
+the target's owned process group/Windows Job Object if needed. The final event
+supplies the outcome when cleanup had to stop a live target. Natural process
+exit codes retain their existing semantics. Cancellation still owns its earlier
+terminal decision.
+
+Fake-agent regressions cover `task_complete` followed by sleep, final-phase
+messages, untruncated long messages, and inherited output pipes after the direct
+child exits. The implementation also records live sessions and messages for
+running, failed and cancelled result retrieval. No actual Codex incident was
+replayed; the old report proves session-log completion, not which events were
+present on stdout. Completion visible only in private session logs is outside
+this stdout-stream fix.

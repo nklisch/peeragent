@@ -125,12 +125,35 @@ separate passes.
 ## Async Lifecycle
 
 Prefer `--async` for normal implementation, research, and review passes so a
-long-running peer does not consume or exceed the launch tool call. After the
+long-running peer does not consume or exceed the launch tool call. For async
+Codex work, add `--retry-capacity N` to opt into recovery from capacity stops;
+it is disabled by default, resumes the same session, and waits `10m` between
+attempts unless `--capacity-backoff` overrides it. For example:
+
+```bash
+<resolved-peeragent-bin> --async --agent codex --retry-capacity 12 --prompt-file <brief>
+```
+
+After the
 launch returns a job id, start peeragent's attached waiter:
 
 ```bash
 <resolved-peeragent-bin> --wait <job-id> [--cwd <same-cwd>]
 ```
+
+For several outstanding jobs, attach one monitor to
+`--wait-any <job-id> <other-job-id>`. It validates every id before waiting and
+prints the first terminal result with its job id. An unknown id is usage exit
+`2`; already terminal jobs return immediately, with ties in argument order.
+Terminal outcomes retain `--wait`'s exit `0`; read the result status to learn
+whether the target succeeded. Rearm with the remaining ids after completion.
+
+`--status <job-id> <other-job-id>` prints one compact JSON record per job;
+`--text` prints a table including model, effort, session, start time, capacity
+backoff and worktree HEAD when available. A single id keeps the usual result.
+For either multi-job control, use `job-id@directory` for an unindexed job;
+quote the whole reference for paths with spaces. Per-job directories win over
+`--cwd`, which otherwise overrides indexed lookup.
 
 When the host harness provides native background jobs, monitors, or completion
 wake-ups, run that `--wait` command through the native facility and rely on its
@@ -153,6 +176,13 @@ The default `details` payload is compact. For Codex targets, peeragent surfaces
 the final completed agent message instead of the full stream of interim assistant
 messages. If a deeper look is needed, inspect `metadata.log_path` for raw target
 stdout/stderr, or use `metadata.agent_session` with `--resume` for continuity.
+Codex records session ids as they arrive, including while running and after
+cancellation. `--result` preserves completed messages without truncation, or
+provides `metadata.message_path` for a message from an earlier attempt. A
+terminal event or explicitly final message starts a five-second grace period;
+status reports “final message received, process still alive” until exit. After
+the grace period peeragent ends only its own target process tree and uses the
+terminal event's outcome. Unphased progress messages do not end a job.
 
 Claude Fable and Opus runs, especially with `--effort xhigh`, may take 10
 minutes or longer to finish. A slow or quiet flagship reply is not by itself
@@ -227,13 +257,17 @@ Use advanced modes only when the request calls for them:
 - `--cwd <path>` — override the indexed job/session or default task directory.
 - `--prompt-file <path>` — read large prompts from a file.
 - `--async` — preferred for substantive work; starts a background job and
-  returns a `job_id` immediately with `status: running`.
+  returns a `job_id` immediately with `status: running`; add opt-in
+  `--retry-capacity N` for Codex capacity recovery.
 - `--retry-capacity <N>` — opt into at most N capacity retries (async Codex only).
 - `--capacity-backoff <duration>` — positive retry delay (default `10m`).
-- `--status <job-id>` — check an async job.
+- `--status <job-id>...` — check one job or get compact JSONL / a text table
+  for several.
 - `--result <job-id>` — fetch an async job's current or final result.
 - `--wait <job-id>` — stay attached until an async job has a terminal result;
   run this through native harness monitors when available.
+- `--wait-any <job-id>...` — wait for the first terminal job, validating all ids
+  first. Accepts `job-id@directory` references, as does multi-job status.
 - `--cancel <job-id>` — best-effort cancel.
 - `--text` / `--json` — output format; JSON is default.
 

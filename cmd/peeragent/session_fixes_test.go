@@ -37,14 +37,18 @@ func fakeCodexMain() {
 		fmt.Println(`{"type":"thread.started","thread_id":"fake-session"}`)
 	}
 	mode := os.Getenv("PEERAGENT_FAKE_MODE")
-	if mode == "live" || mode == "final-hang" || mode == "failed-message" || mode == "capacity-message" {
+	if mode == "live" || mode == "final-hang" || mode == "failed-message" || mode == "capacity-message" || mode == "capacity-prior-message" {
+		if mode == "capacity-prior-message" && len(calls) > 1 {
+			fmt.Println(`{"type":"turn.failed","error":{"message":"ordinary target failure"}}`)
+			os.Exit(1)
+		}
 		message := strings.Repeat("complete report — ", 12000)
 		event, _ := json.Marshal(map[string]any{"type": "item.completed", "item": map[string]string{"type": "agent_message", "text": message}})
 		fmt.Println(string(event))
 		if mode == "failed-message" {
 			os.Exit(1)
 		}
-		if mode == "capacity-message" && len(calls) == 1 {
+		if (mode == "capacity-message" || mode == "capacity-prior-message") && len(calls) == 1 {
 			fmt.Println(`{"type":"turn.failed","error":{"message":"Selected model is at capacity"}}`)
 			os.Exit(1)
 		}

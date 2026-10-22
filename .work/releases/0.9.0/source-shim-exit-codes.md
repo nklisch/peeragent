@@ -1,12 +1,13 @@
 ---
 id: source-shim-exit-codes
 kind: story
-stage: review
+stage: done
 tags: [infra, tests]
 parent: session-control-reliability
 depends_on: []
+release_binding: 0.9.0
 created: 2026-10-19
-updated: 2026-10-19
+updated: 2026-10-21
 ---
 
 # Preserve wrapper exit codes in the source-checkout shim
@@ -41,3 +42,10 @@ binary and developer-build precedence stay intact. The packaged shim matches.
   metadata/documentation checks passed on `0198014`. Native macOS/Windows
   behavior and cross-builds were not checked. The optional cold cross-build
   queue entry was stopped before execution; no verification process remains.
+
+## Shipped closure
+
+Closed after checking Git history: `1f40116` (terminal capacity outcomes) and
+`0198014` (source-shim exits), with the parent implementation `0b88729`, are
+ancestors of the `v0.9.0` tag. The item was left in review after shipping. No
+release operation was performed during this bookkeeping correction.

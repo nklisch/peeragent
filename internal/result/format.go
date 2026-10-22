@@ -63,6 +63,12 @@ func FormatText(res Result) string {
 	if res.Metadata.AgentSession != "" {
 		fmt.Fprintf(&b, "- agent_session: %s\n", res.Metadata.AgentSession)
 	}
+	if res.Metadata.MessagePath != "" {
+		fmt.Fprintf(&b, "- message_path: %s\n", res.Metadata.MessagePath)
+	}
+	if res.Metadata.FinalReceived {
+		fmt.Fprintln(&b, "- final_received: true")
+	}
 	if res.Metadata.LogPath != "" {
 		fmt.Fprintf(&b, "- log_path: %s\n", res.Metadata.LogPath)
 	}

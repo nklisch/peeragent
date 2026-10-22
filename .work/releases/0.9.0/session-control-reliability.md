@@ -1,13 +1,13 @@
 ---
 id: session-control-reliability
 kind: feature
-stage: review
+stage: done
 tags: [infra, tests, docs]
 parent: null
 depends_on: []
-release_binding: null
+release_binding: 0.9.0
 created: 2026-10-19
-updated: 2026-10-19
+updated: 2026-10-21
 ---
 
 # Reliable peer job controls and capacity recovery
@@ -111,3 +111,10 @@ status/result disagreement after relocation. Added review evidence to existing
 `gate-security-atomic-write-symlink` and `gate-security-job-file-permissions`
 items, rather than duplicating or fixing them. No merge, push, tag, release or
 binary refresh. The requested report carries commands and results for this round.
+
+## Shipped closure
+
+Closed after checking Git history: `1f40116` (terminal capacity outcomes) and
+`0198014` (source-shim exits), with the parent implementation `0b88729`, are
+ancestors of the `v0.9.0` tag. The item was left in review after shipping. No
+release operation was performed during this bookkeeping correction.

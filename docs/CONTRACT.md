@@ -238,6 +238,27 @@ diagnostic prefix “Orphan custom tool call:” are filtered from the visible s
 summary, while raw logs retain them. Other diagnostics mentioning that phrase
 remain visible.
 
+## Multiple Jobs
+
+`--wait-any <job-id>...` validates every reference before waiting. Unknown ids
+are usage exit `2`; storage/decoding errors remain infrastructure failures.
+Already terminal jobs return immediately, with ties in argument order. The
+selected job's ordinary result includes `metadata.job_id` and retains `--wait`
+exit behavior: terminal target outcomes exit `0`, with the target's outcome in
+`status` and `metadata.exit_code`.
+
+`--status <job-id>...` with multiple ids emits one compact JSON object per line,
+with `job_id`, `status`, `model`, `effort`, `agent_session`, `started_at` (launch
+time), `capacity_backoff`, `final_received`, `cwd`, and optional `head_commit`.
+`--text` renders a table. HEAD is read once per worktree, without walking changed
+files; missing git/HEAD omits the commit. Single-id output remains a Result.
+Missing or unreadable batch-status jobs produce an error before printing rows.
+
+Both controls accept `job-id@directory` references. A per-job directory wins
+over `--cwd`; without one, explicit `--cwd` wins over indexed lookup. An
+unindexed id falls back to the current directory. Quote references containing
+spaces. Relative directories resolve against the caller's directory.
+
 ## Exit Codes
 
 - `0`: Completed successfully. For async launch, this means the job started.
@@ -252,11 +273,12 @@ Async state is stored under:
 
 ```text
 .peeragent/jobs/<job-id>/
-  job.json       lifecycle + ExecSpec; written on child finish or by --cancel
+  job.json       lifecycle + ExecSpec + live session/completion/backoff observations
   prompt.txt     resolved task text, parent-written, child-read
   pid            child PID/PGID for cancel, present while running
   agent.log      background wrapper stdout+stderr
   target.log     raw target stdout+stderr when available
+  message.txt    latest completed agent message, written as received (untruncated)
   result.json    final result, written by child OR by --cancel
 ```
 
@@ -302,3 +324,26 @@ The wrapper:
 
 The wrapper does not guarantee that target-agent output is complete,
 well-structured, or free of partial edits before failure.
+
+## Live Codex Completion
+
+Codex JSONL is observed as it arrives, without a line-size cap. Session ids are
+persisted in `spec.resume` immediately and remain visible to status/result after
+failure or cancellation. Completed agent messages are saved without truncation
+in `message.txt`; results include them or provide `metadata.message_path`, even
+when a subsequent capacity attempt has no message. This file holds the latest
+completed message, which may be a progress update if interrupted before a final
+reply. Raw per-attempt logs remain separate.
+
+Terminal `turn.completed`, `turn.failed`, `task_complete` (including `event_msg`
+envelopes), and messages marked `final`/`final_answer` start a five-second grace
+period. Unphased `item.completed` agent messages may be progress and do not
+start shutdown. During the grace period status says “final message received,
+process still alive” and sets `metadata.final_received`. If the child remains
+alive, peeragent stops only its owned process group (Job Object on Windows),
+reaps the child and derives its outcome from the last terminal event. Explicit
+cancellation still wins through the existing terminal lock. A JSONL line without
+a trailing newline is observed when the process exits.
+
+`job.json` also records `capacity_backoff_until` and the count of retries started.
+The job remains `running` during backoff; compact multi-job status exposes it.

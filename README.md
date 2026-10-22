@@ -337,7 +337,9 @@ bin/peeragent -- --review-this-task
 
 ## Async Jobs
 
-For longer work, start a background job:
+For longer work, start a background job. For Codex, add opt-in
+`--retry-capacity N` beside `--async` to resume after capacity stops (default
+backoff `10m`; retries are disabled unless requested):
 
 ```sh
 bin/peeragent --agent gemini --async "Refactor the result formatter and run tests."
@@ -350,10 +352,36 @@ background monitor:
 bin/peeragent --wait <job-id>
 ```
 
+Wait for whichever of several jobs finishes first, using the same native monitor:
+
+```sh
+bin/peeragent --wait-any <job-id> <other-job-id>
+```
+
+All ids are checked before waiting; an unknown id exits `2`. Already finished
+jobs return immediately. If several are terminal when checked, argument order
+breaks the tie. Like `--wait`, terminal results exit `0` even for failed or
+cancelled targets; inspect `status` and `metadata.exit_code` for their outcomes.
+
 Check status without waiting:
 
 ```sh
 bin/peeragent --status <job-id>
+```
+
+For several jobs, `--status <job-id> <other-job-id>` prints one compact JSON
+record per line. Add `--text` for a table of status, model, effort, session,
+start time, capacity backoff, and current worktree HEAD when git is available.
+Single-id status keeps its existing result format. `started_at` is the job's
+launch time. HEAD is read once per worktree without inspecting changed files.
+
+Both multi-job controls accept `<job-id>@<directory>` for unindexed jobs,
+including paths with spaces when quoted. Each per-job directory wins over
+`--cwd`; other ids use explicit `--cwd`, then the index, then the current
+directory. For example:
+
+```sh
+bin/peeragent --wait-any <indexed-job-id> '<old-job-id>@/path with spaces/repo'
 ```
 
 Fetch the current or final result:
@@ -361,6 +389,21 @@ Fetch the current or final result:
 ```sh
 bin/peeragent --result <job-id>
 ```
+
+Codex session ids and the latest completed agent message are saved while the
+job runs, so `--status` exposes `metadata.agent_session` before cancellation.
+`--result` includes the message without truncation or points to
+`metadata.message_path` (`message.txt`), including after failure or cancellation
+and across capacity retries. Raw attempt logs remain available through
+`metadata.log_path` when written.
+
+A Codex terminal event (`turn.completed`, `turn.failed`, `task_complete`, or a
+message marked with a final phase) starts a five-second completion grace period.
+During that period, status says “final message received, process still alive”.
+If Codex stays alive, peeragent ends its own child and owned process group
+(Windows Job Object on Windows), preserving the terminal event's outcome.
+Ordinary completed messages without a final phase can be progress updates and
+do not start this timer. An unterminated JSONL line is processed on process exit.
 
 Cancel the job:
 

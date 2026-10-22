@@ -46,6 +46,16 @@ func (s *Service) JobStatus(ctx context.Context, raw JobRequest) (result.Result,
 // interpretation remains centralized and corrupt storage stays distinguishable
 // from an ordinary in-flight job.
 func (s *Service) JobResult(ctx context.Context, raw JobRequest) (result.Result, error) {
+	return s.jobResult(ctx, raw, true)
+}
+
+// PollJobResult is the waiter's result read. In-flight messages can be large;
+// waiters need only lifecycle metadata until a terminal result is available.
+func (s *Service) PollJobResult(ctx context.Context, raw JobRequest) (result.Result, error) {
+	return s.jobResult(ctx, raw, false)
+}
+
+func (s *Service) jobResult(ctx context.Context, raw JobRequest, includeRunningMessage bool) (result.Result, error) {
 	req, err := s.normalizeJobRequest(ctx, raw)
 	if err != nil {
 		return result.Result{}, err
@@ -64,6 +74,11 @@ func (s *Service) JobResult(ctx context.Context, raw JobRequest) (result.Result,
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			res := runningJobResultForRequest(req, job)
+			res.Metadata.MessagePath = job.MessagePath
+			res.Metadata.FinalReceived = job.FinalReceived
+			if !includeRunningMessage {
+				return res, nil
+			}
 			err := enrichJobResult(&res, job)
 			return res, err
 		}

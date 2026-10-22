@@ -74,7 +74,9 @@ substantive work. The wrapper starts a tracked local job, records logs and
 status, and returns a job id. The host should run `--wait <job-id>` through
 native monitor or completion facilities when available; the attached waiter
 prints the terminal result. `--status`, `--result`, and `--cancel` remain
-explicit controls.
+explicit controls. `--wait-any <job-id>...` waits for the first terminal result
+among a validated set; multi-id `--status` provides compact JSONL or a text
+table. Each reference may include `@directory` for an unindexed job.
 
 Unknown options and empty or missing values fail as usage errors before work
 starts. A `--` separator permits literal task text starting with a dash.
@@ -192,7 +194,12 @@ The wrapper returns a concise result to the host. The result includes:
 For Codex JSONL output, the default visible detail is the latest completed
 `agent_message`, not the full stream of intermediate assistant messages. Hosts
 can use `metadata.agent_session` for continuity and `metadata.log_path` for raw
-target stdout/stderr inspection when output exists.
+target stdout/stderr inspection when output exists. Codex session ids and completed
+messages are persisted while running; result includes untruncated output or a
+`metadata.message_path` pointer after failures, cancellations and capacity retries.
+Explicit terminal stream events start a five-second grace period before the
+owned target tree is stopped if it has not exited. Progress messages alone do
+not start shutdown.
 
 The wrapper avoids dumping long raw logs into host context unless the task
 failed and the logs are needed to continue.

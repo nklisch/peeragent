@@ -3,6 +3,7 @@ package executil
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os/exec"
 	"time"
@@ -82,9 +83,24 @@ func (r OSRunner) runObserved(ctx context.Context, cmd *exec.Cmd, stdout *bytes.
 	for {
 		select {
 		case err := <-done:
+			select {
+			case observeErr := <-failure:
+				return false, observeErr
+			default:
+			}
 			if len(writer.pending) > 0 {
 				if observeErr := writer.emit(writer.pending); err == nil {
 					err = observeErr
+				}
+			}
+			if err != nil && (writer.signalled || errors.Is(err, exec.ErrWaitDelay)) {
+				// The direct child exited, but a descendant retained its pipes.
+				// WaitDelay and the completion timer can expire together.
+				if stopErr := stop(); stopErr != nil {
+					return false, fmt.Errorf("stop target retaining output: %w", stopErr)
+				}
+				if writer.signalled && errors.Is(err, exec.ErrWaitDelay) {
+					return true, nil
 				}
 			}
 			return false, err
@@ -113,9 +129,18 @@ func (r OSRunner) runObserved(ctx context.Context, cmd *exec.Cmd, stdout *bytes.
 			if stopErr != nil {
 				_ = cmd.Process.Kill()
 			}
-			_ = <-done
+			waitErr := <-done
+			select {
+			case observeErr := <-failure:
+				return false, observeErr
+			default:
+			}
 			if stopErr != nil {
 				return false, fmt.Errorf("stop completed target: %w", stopErr)
+			}
+			var exitErr *exec.ExitError
+			if waitErr != nil && !errors.As(waitErr, &exitErr) && !errors.Is(waitErr, exec.ErrWaitDelay) {
+				return false, waitErr
 			}
 			return true, nil
 		}

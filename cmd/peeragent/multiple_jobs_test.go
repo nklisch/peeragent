@@ -52,6 +52,11 @@ func TestWaitAnyReturnsFirstTerminalAcrossDirectories(t *testing.T) {
 		t.Fatalf("wrong terminal job: %#v", res)
 	}
 	// Failed results, like --wait, retain the historical wrapper exit 0.
+	cmd = exec.CommandContext(ctx, os.Args[0], "--wait-any", first.ID, second.ID, "--text")
+	out, err = cmd.CombinedOutput()
+	if err != nil || !strings.Contains(string(out), "job_id: "+second.ID) {
+		t.Fatalf("text winner id: %v %s", err, out)
+	}
 }
 
 func TestWaitAnyWaitsForLaterCompletion(t *testing.T) {

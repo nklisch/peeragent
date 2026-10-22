@@ -43,3 +43,12 @@ func TestFormatText(t *testing.T) {
 		}
 	}
 }
+
+func TestTextResultIncludesMessagePointer(t *testing.T) {
+	text := FormatText(Result{Status: StatusFailed, Metadata: Metadata{JobID: "job-id", MessagePath: "/job/message.txt", FinalReceived: true}})
+	for _, want := range []string{"message_path: /job/message.txt", "final_received: true"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("missing %q: %s", want, text)
+		}
+	}
+}

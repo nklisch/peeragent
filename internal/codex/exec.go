@@ -26,7 +26,7 @@ var lookPath = exec.LookPath
 
 func Exec(ctx context.Context, opts Options) (Result, error) {
 	state := streamState{}
-	return ExecWithRunner(ctx, executil.OSRunner{ObserveStdout: func(line string) (bool, error) {
+	return execWithRunner(ctx, executil.OSRunner{ObserveStdout: func(line string) (bool, error) {
 		progress, changed := state.consume(line)
 		if changed {
 			if err := executil.ReportProgress(ctx, progress); err != nil {
@@ -34,10 +34,14 @@ func Exec(ctx context.Context, opts Options) (Result, error) {
 			}
 		}
 		return state.terminal, nil
-	}}, opts)
+	}}, opts, &state)
 }
 
 func ExecWithRunner(ctx context.Context, run executil.Runner, opts Options) (Result, error) {
+	return execWithRunner(ctx, run, opts, nil)
+}
+
+func execWithRunner(ctx context.Context, run executil.Runner, opts Options, state *streamState) (Result, error) {
 	path, err := lookPath("codex")
 	if err != nil {
 		return Result{ExitCode: 127}, errors.New("codex CLI not found in PATH")
@@ -45,7 +49,11 @@ func ExecWithRunner(ctx context.Context, run executil.Runner, opts Options) (Res
 	// Codex reads the '-' prompt from stdin, avoiding command-line size limits
 	// and shell quoting even when PATH resolves to a Windows npm shim.
 	result, err := run.Run(ctx, path, buildArgs(opts), opts.CWD, opts.Prompt)
-	normalizeJSONResult(&result)
+	if state == nil {
+		normalizeJSONResult(&result)
+	} else {
+		normalizeStreamResult(&result, *state)
+	}
 	return result, err
 }
 
@@ -227,6 +235,10 @@ func normalizeJSONResult(result *Result) {
 	for _, line := range strings.Split(result.Stdout, "\n") {
 		state.consume(line)
 	}
+	normalizeStreamResult(result, state)
+}
+
+func normalizeStreamResult(result *Result, state streamState) {
 	session, text, capacity, terminal := state.session, state.message, state.capacity, state.terminal
 	if result.CompletionStopped && terminal {
 		result.ExitCode = 1

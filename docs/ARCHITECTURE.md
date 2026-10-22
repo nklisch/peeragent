@@ -168,7 +168,7 @@ Worktree execution is recognized but not implemented yet.
    the target CLI, writes `result.json`, updates `job.json`, and removes `pid`.
 5. The wrapper returns a job id and log location.
 6. The host starts `peeragent --wait <id>` through native monitor/completion
-   facilities when available. The attached waiter prints the terminal result;
+   facilities when available, or `--wait-any <id>...` for several jobs. The attached waiter prints the terminal result;
    `--status` and `--result` remain fallbacks.
 ```
 
@@ -184,14 +184,28 @@ while preserving the session id. The async child optionally retries that result
 with the same session and execution settings, a continuation prompt, and a
 bounded retry count and configurable backoff. Each attempt retains its raw log.
 The job stays running until the final attempt, and terminal cancellation wins
-against later completion. This still relies on the target process exiting;
-receiving a final message alone does not end a live target process.
+against later completion. The Codex adapter observes stdout as it arrives, persisting the session id and
+latest completed message under the same lock as cancellation. Explicit terminal
+events and messages marked with a final phase start a five-second grace period.
+Status exposes that a final message arrived while the child is still alive.
+After the grace period the shared runner ends the owned target process group
+(Windows Job Object on Windows) and uses the terminal event's outcome. Ordinary
+unphased progress messages never start shutdown. Async Unix workers forward
+cancellation through their context to the separately owned Codex process group.
 
 Cancellation writes cancelled `job.json` and `result.json` state before
 signalling. On unix, it sends SIGTERM to the recorded process group, waits up
 to 5 seconds, then sends SIGKILL if the group is still present. Child finish
 reloads current state before writing and leaves cancelled terminal state
 untouched.
+
+Multi-job wait validates and resolves all references before waiting, then polls
+resolved locations without rereading the index. Multi-job status reads each job
+once and HEAD once per distinct directory; single-job output retains its result
+contract. Explicit `job-id@directory` references override a shared `--cwd`.
+Completed messages live in `message.txt`, keeping status reads small even when
+an agent returns a long report. Results either include the message or expose its
+path, including when a later capacity attempt fails without another message.
 
 ## Extension Points
 
