@@ -151,7 +151,7 @@ Worktree execution is recognized but not implemented yet.
 1. Host invokes the `peer` skill with task text.
 2. The skill calls `peeragent --agent <target>`.
 3. The wrapper starts a tracked worker, as in async mode, and waits for it.
-   Blocking text output prints the job id before waiting.
+   Blocking text output prints the job id to stderr before waiting.
 4. The target edits, runs commands, and returns a final message.
 5. The wrapper formats the terminal result, including metadata.job_id.
 6. The host reads the result and continues the session.

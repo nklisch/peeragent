@@ -173,7 +173,7 @@ func run(args []string) error {
 		return err
 	}
 	if !req.JSON {
-		fmt.Printf("Job: %s\n", res.Metadata.JobID)
+		fmt.Fprintf(os.Stderr, "Job: %s\n", res.Metadata.JobID)
 	}
 	for {
 		terminal, err := applicationService.PollJobResult(context.Background(), app.JobRequest{CWD: req.CWD, JobID: res.Metadata.JobID})

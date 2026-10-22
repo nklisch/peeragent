@@ -334,7 +334,8 @@ ready for owner review, with opt-in retry defaults unchanged.
   retries. No full-log/report read per status or wait poll.
 - Every CLI launch now uses the tracked worker. Blocking calls wait for its
   result with their existing success/failure exits; async calls return immediately.
-  JSON and text carry the job id. Blocking text also prints it before waiting.
+  JSON and text carry the job id. Blocking text also prints it to stderr before
+  waiting, preserving the existing stdout result prefix.
 - A short per-agent/session launch lock serializes the check/start window.
   The check scans the requested worktree and worktrees known to the index,
   ignoring terminal jobs and recorded processes that have exited. A conflict

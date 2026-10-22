@@ -116,7 +116,16 @@ func TestEveryLaunchPrintsJobID(t *testing.T) {
 					args = append(args, "--async")
 				}
 				args = append(args, "work")
-				text := runCLIOutput(t, cwd, args...)
+				cmd := exec.Command(os.Args[0], args...)
+				cmd.Dir = cwd
+				output, err := cmd.Output()
+				if err != nil {
+					t.Fatalf("launch: %v %s", err, output)
+				}
+				text := string(output)
+				if !strings.HasPrefix(text, "Alt Subagent: ") {
+					t.Fatalf("text result prefix changed: %s", text)
+				}
 				var id string
 				for _, line := range strings.Split(text, "\n") {
 					if strings.HasPrefix(line, "- job_id: ") {

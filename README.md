@@ -228,7 +228,7 @@ bin/peeragent --agent claude --resume <agent-session> "Check whether the revisio
 ```
 
 Every launch has a `metadata.job_id`, including blocking and resumed calls.
-Text output prints the job id; blocking text calls also print it before waiting.
+Text output prints the job id; blocking text calls also print it to stderr before waiting.
 When available, JSON output includes `metadata.agent_session`. Use that value
 for continuity inside one review loop. Start a fresh call without `--resume`
 when you want an independent second opinion.

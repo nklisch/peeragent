@@ -133,7 +133,7 @@ The default result is JSON:
 When available, `metadata.agent_session` contains the target-agent session id
 that can be passed back with `--resume`. Every CLI launch, including blocking
 and resumed calls, carries `metadata.job_id` and persists tracked job state.
-Text results include `job_id`; blocking text calls print it before waiting.
+Text results include `job_id`; blocking text calls print it to stderr before waiting.
 
 `status` values:
 
