@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/nklisch/peeragent/internal/jobs"
 	"github.com/nklisch/peeragent/internal/result"
@@ -34,6 +35,33 @@ func fakeCodexMain() {
 	}
 	if os.Getenv("PEERAGENT_FAKE_MODE") != "no-session" {
 		fmt.Println(`{"type":"thread.started","thread_id":"fake-session"}`)
+	}
+	mode := os.Getenv("PEERAGENT_FAKE_MODE")
+	if mode == "live" || mode == "final-hang" || mode == "failed-message" || mode == "capacity-message" {
+		message := strings.Repeat("complete report — ", 12000)
+		event, _ := json.Marshal(map[string]any{"type": "item.completed", "item": map[string]string{"type": "agent_message", "text": message}})
+		fmt.Println(string(event))
+		if mode == "failed-message" {
+			os.Exit(1)
+		}
+		if mode == "capacity-message" && len(calls) == 1 {
+			fmt.Println(`{"type":"turn.failed","error":{"message":"Selected model is at capacity"}}`)
+			os.Exit(1)
+		}
+		if mode == "final-hang" {
+			fmt.Println(`{"type":"event_msg","payload":{"type":"task_complete"}}`)
+			for {
+				time.Sleep(time.Hour)
+			}
+		}
+		for {
+			if _, err := os.Stat(os.Getenv("PEERAGENT_FAKE_GATE")); err == nil {
+				break
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+		fmt.Println(`{"type":"turn.completed"}`)
+		return
 	}
 	if os.Getenv("PEERAGENT_FAKE_MODE") == "ordinary" {
 		fmt.Println(`{"type":"error","message":"ordinary target failure"}`)

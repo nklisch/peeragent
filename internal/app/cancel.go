@@ -93,6 +93,9 @@ func (s *Service) CancelJob(ctx context.Context, raw JobRequest) (result.Result,
 			cancelResult = prior
 		} else {
 			cancelResult = cancelledJobResult(req, current)
+			if err := enrichJobResult(&cancelResult, current); err != nil {
+				return err
+			}
 			if err := WriteJobResult(current.ResultPath, cancelResult); err != nil {
 				return err
 			}

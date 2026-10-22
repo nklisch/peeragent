@@ -63,7 +63,9 @@ func (s *Service) JobResult(ctx context.Context, raw JobRequest) (result.Result,
 	content, err := os.ReadFile(job.ResultPath)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
-			return runningJobResultForRequest(req, job), nil
+			res := runningJobResultForRequest(req, job)
+			err := enrichJobResult(&res, job)
+			return res, err
 		}
 		return result.Result{}, fmt.Errorf("read async job %q result: %w", req.JobID, err)
 	}
@@ -71,6 +73,9 @@ func (s *Service) JobResult(ctx context.Context, raw JobRequest) (result.Result,
 	var stored result.Result
 	if err := json.Unmarshal(content, &stored); err != nil {
 		return result.Result{}, fmt.Errorf("decode async job %q result: %w", req.JobID, err)
+	}
+	if err := enrichJobResult(&stored, job); err != nil {
+		return result.Result{}, err
 	}
 	return stored, nil
 }
@@ -119,7 +124,7 @@ func (s *Service) normalizeJobRequest(ctx context.Context, raw JobRequest) (JobR
 }
 
 func jobStatusResult(req JobRequest, job jobs.Job) result.Result {
-	return result.Result{
+	res := result.Result{
 		Status:       ResultStatusFromJob(string(job.Status)),
 		Summary:      fmt.Sprintf("Async job %s is %s", job.ID, job.Status),
 		ChangedFiles: []string{},
@@ -131,6 +136,11 @@ func jobStatusResult(req JobRequest, job jobs.Job) result.Result {
 			JobID:        job.ID,
 		},
 	}
+	if job.FinalReceived && !jobs.IsTerminalStatus(job.Status) {
+		res.Summary = "final message received, process still alive"
+	}
+	res.Metadata.FinalReceived = job.FinalReceived
+	return res
 }
 
 func runningJobResultForRequest(req JobRequest, job jobs.Job) result.Result {
@@ -227,7 +237,10 @@ func FinishJob(store jobs.Store, job jobs.Job, res result.Result) error {
 		if err := WriteJobResult(current.ResultPath, res); err != nil {
 			return err
 		}
-		current.Spec.Resume = res.Metadata.AgentSession
+		if res.Metadata.AgentSession != "" {
+			current.Spec.Resume = res.Metadata.AgentSession
+		}
+		current.CapacityBackoffUntil = nil
 		current.Status = targetStatus
 		_, err = store.SaveGuarded(current)
 		return err

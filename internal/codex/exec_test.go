@@ -365,3 +365,37 @@ func TestResumeKeepsProfileOnParentCommand(t *testing.T) {
 		t.Fatalf("resume profile: %q", args)
 	}
 }
+
+func TestTerminalStreamEnvelopes(t *testing.T) {
+	for _, stream := range []string{
+		`{"type":"task_complete","last_agent_message":"final from terminal"}`,
+		`{"type":"event_msg","payload":{"type":"task_complete","last_agent_message":"final from terminal"}}`,
+		`{"type":"response_item","payload":{"type":"message","role":"assistant","phase":"final_answer","content":[{"type":"output_text","text":"final from terminal"}]}}`,
+		`{"type":"item.completed","item":{"type":"agent_message","phase":"final_answer","text":"final from terminal"}}`,
+	} {
+		state := streamState{}
+		progress, changed := state.consume(stream)
+		if !changed || !progress.FinalReceived || progress.Message != "final from terminal" || !state.success {
+			t.Fatalf("terminal stream %s: %#v", stream, state)
+		}
+		res := Result{Stdout: stream, ExitCode: -1, CompletionStopped: true}
+		normalizeJSONResult(&res)
+		if res.ExitCode != 0 || res.Stdout != "final from terminal" {
+			t.Fatalf("completion outcome: %#v", res)
+		}
+	}
+}
+
+func TestProgressMessageDoesNotEndTurn(t *testing.T) {
+	state := streamState{}
+	progress, _ := state.consume(`{"type":"item.completed","item":{"type":"agent_message","text":"Still working"}}`)
+	if progress.FinalReceived || state.terminal {
+		t.Fatal("progress started shutdown")
+	}
+	state.consume(`{"type":"turn.failed","error":{"message":"Selected model is at capacity"}}`)
+	res := Result{Stdout: `{"type":"turn.failed","error":{"message":"Selected model is at capacity"}}`, CompletionStopped: true}
+	normalizeJSONResult(&res)
+	if !res.CapacityExhausted || res.ExitCode != 1 {
+		t.Fatalf("capacity shutdown outcome: %#v", res)
+	}
+}

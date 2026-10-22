@@ -26,15 +26,19 @@ const (
 )
 
 type Job struct {
-	ID         string    `json:"id"`
-	Status     Status    `json:"status"`
-	CWD        string    `json:"cwd"`
-	Spec       ExecSpec  `json:"spec"`
-	CreatedAt  time.Time `json:"created_at"`
-	UpdatedAt  time.Time `json:"updated_at"`
-	LogPath    string    `json:"log_path"`
-	ResultPath string    `json:"result_path"`
-	PromptPath string    `json:"prompt_path"`
+	MessagePath          string     `json:"message_path,omitempty"`
+	FinalReceived        bool       `json:"final_received,omitempty"`
+	CapacityBackoffUntil *time.Time `json:"capacity_backoff_until,omitempty"`
+	CapacityRetries      int        `json:"capacity_retries,omitempty"`
+	ID                   string     `json:"id"`
+	Status               Status     `json:"status"`
+	CWD                  string     `json:"cwd"`
+	Spec                 ExecSpec   `json:"spec"`
+	CreatedAt            time.Time  `json:"created_at"`
+	UpdatedAt            time.Time  `json:"updated_at"`
+	LogPath              string     `json:"log_path"`
+	ResultPath           string     `json:"result_path"`
+	PromptPath           string     `json:"prompt_path"`
 }
 
 type ExecSpec struct {

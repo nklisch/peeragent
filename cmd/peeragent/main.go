@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"time"
@@ -106,6 +108,12 @@ func run(args []string) error {
 	if req.JobRunID != "" {
 		return runAsyncJob(req)
 	}
+	if len(req.WaitAnyJobs) > 0 {
+		return waitForAnyJobResult(req)
+	}
+	if len(req.StatusJobs) > 1 {
+		return showMultipleJobStatuses(req)
+	}
 	if req.StatusJobID != "" {
 		return showJobStatus(req)
 	}
@@ -164,6 +172,59 @@ func launchAsync(req input.Request) error {
 		os.Exit(1)
 	}
 	return nil
+}
+
+func jobRequests(refs []input.JobReference) []app.JobRequest {
+	requests := make([]app.JobRequest, 0, len(refs))
+	for _, ref := range refs {
+		requests = append(requests, app.JobRequest{CWD: ref.CWD, JobID: ref.JobID})
+	}
+	return requests
+}
+
+func showMultipleJobStatuses(req input.Request) error {
+	records, err := applicationService.JobStatuses(context.Background(), jobRequests(req.StatusJobs))
+	if err != nil {
+		return err
+	}
+	if req.JSON {
+		encoder := json.NewEncoder(os.Stdout)
+		for _, record := range records {
+			if err := encoder.Encode(record); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	_, err = fmt.Fprint(os.Stdout, result.FormatJobStatuses(records))
+	return err
+}
+
+func waitForAnyJobResult(req input.Request) error {
+	requests, err := applicationService.ResolveJobs(context.Background(), jobRequests(req.WaitAnyJobs))
+	if err != nil {
+		if !errors.Is(err, fs.ErrNotExist) {
+			return err
+		}
+		if writeErr := writeResult(req, result.Result{Status: result.StatusFailed, Summary: err.Error(), ChangedFiles: []string{}, Verification: []result.Verification{}, Metadata: result.Metadata{ExitCode: 2}}); writeErr != nil {
+			return writeErr
+		}
+		return &usageError{}
+	}
+	ticker := time.NewTicker(jobWaitInterval)
+	defer ticker.Stop()
+	for {
+		for _, request := range requests {
+			res, err := applicationService.JobResult(context.Background(), request)
+			if err != nil {
+				return err
+			}
+			if res.Status != result.StatusRunning {
+				return writeJobControlResult(req, res)
+			}
+		}
+		<-ticker.C
+	}
 }
 
 func showJobStatus(req input.Request) error {
@@ -260,6 +321,12 @@ func runAsyncJob(req input.Request) error {
 		return finishAsyncJob(store, job, res)
 	}
 
+	ctx, stop := asyncJobContext()
+	defer stop()
+	ctx = executil.WithProgress(ctx, func(progress executil.Progress) error {
+		return app.RecordJobProgress(store, job.ID, progress)
+	})
+
 	for attempt := 0; ; attempt++ {
 		current, err := store.Load(job.ID)
 		if err != nil {
@@ -268,7 +335,7 @@ func runAsyncJob(req input.Request) error {
 		if jobs.IsTerminalStatus(current.Status) {
 			return nil
 		}
-		res, execResult, _ := applicationService.DelegateWithExecution(context.Background(), delegationFromRequest(jobReq))
+		res, execResult, _ := applicationService.DelegateWithExecution(ctx, delegationFromRequest(jobReq))
 		res.Metadata.JobID = job.ID
 		res.Metadata.CapacityRetries = attempt
 		logPath := jobTargetLogPath(job)
@@ -293,6 +360,14 @@ func runAsyncJob(req input.Request) error {
 				return nil
 			}
 			current.Spec.Resume = jobReq.Resume
+			backoff := job.Spec.CapacityBackoff
+			if backoff <= 0 {
+				backoff = 10 * time.Minute
+			}
+			until := time.Now().UTC().Add(backoff)
+			current.CapacityBackoffUntil = &until
+			current.CapacityRetries = attempt
+			current.FinalReceived = false
 			if err := store.Save(current); err != nil {
 				return err
 			}
@@ -309,7 +384,25 @@ func runAsyncJob(req input.Request) error {
 		if backoff <= 0 {
 			backoff = 10 * time.Minute
 		}
-		time.Sleep(backoff)
+		select {
+		case <-time.After(backoff):
+		case <-ctx.Done():
+			return nil
+		}
+		if err := store.WithJobLock(job.ID, func() error {
+			current, err := store.Load(job.ID)
+			if err != nil {
+				return err
+			}
+			if jobs.IsTerminalStatus(current.Status) {
+				return nil
+			}
+			current.CapacityBackoffUntil = nil
+			current.CapacityRetries = attempt + 1
+			return store.Save(current)
+		}); err != nil {
+			return err
+		}
 	}
 }
 

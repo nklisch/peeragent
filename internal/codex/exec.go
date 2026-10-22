@@ -25,7 +25,16 @@ type Options struct {
 var lookPath = exec.LookPath
 
 func Exec(ctx context.Context, opts Options) (Result, error) {
-	return ExecWithRunner(ctx, executil.OSRunner{}, opts)
+	state := streamState{}
+	return ExecWithRunner(ctx, executil.OSRunner{ObserveStdout: func(line string) (bool, error) {
+		progress, changed := state.consume(line)
+		if changed {
+			if err := executil.ReportProgress(ctx, progress); err != nil {
+				return false, err
+			}
+		}
+		return state.terminal, nil
+	}}, opts)
 }
 
 func ExecWithRunner(ctx context.Context, run executil.Runner, opts Options) (Result, error) {
@@ -112,22 +121,119 @@ func approvalArgs() []string {
 	}
 }
 
+type codexItem struct {
+	Type    string `json:"type"`
+	Text    string `json:"text"`
+	Role    string `json:"role"`
+	Phase   string `json:"phase"`
+	Content []struct {
+		Text string `json:"text"`
+	} `json:"content"`
+}
+
 type codexEvent struct {
-	Type     string `json:"type"`
-	ThreadID string `json:"thread_id"`
-	Message  string `json:"message"`
-	Error    struct {
+	Type             string `json:"type"`
+	ThreadID         string `json:"thread_id"`
+	SessionID        string `json:"session_id"`
+	Message          string `json:"message"`
+	LastAgentMessage string `json:"last_agent_message"`
+	Error            struct {
 		Message string `json:"message"`
 	} `json:"error"`
-	Item struct {
-		Type string `json:"type"`
-		Text string `json:"text"`
-	} `json:"item"`
+	Item    codexItem       `json:"item"`
+	Payload json.RawMessage `json:"payload"`
+}
+
+// streamState accepts both exec JSONL and the terminal/session event envelopes.
+// A completed agent_message without a final phase is also used for progress by
+// Codex, so it must not start a shutdown timer on its own.
+type streamState struct {
+	session, message            string
+	capacity, terminal, success bool
+}
+
+func (s *streamState) consume(line string) (executil.Progress, bool) {
+	var event codexEvent
+	if err := json.Unmarshal([]byte(line), &event); err != nil {
+		if !s.terminal && isCapacityDiagnostic(line) {
+			s.capacity = true
+		}
+		return executil.Progress{}, false
+	}
+	if event.Type == "event_msg" {
+		if err := json.Unmarshal(event.Payload, &event); err != nil {
+			return executil.Progress{}, false
+		}
+	}
+	oldSession, oldMessage, oldTerminal := s.session, s.message, s.terminal
+	switch event.Type {
+	case "thread.started":
+		if event.ThreadID != "" {
+			s.session = event.ThreadID
+		}
+	case "session.started":
+		if event.SessionID != "" {
+			s.session = event.SessionID
+		}
+	case "item.completed", "response_item":
+		item := event.Item
+		if event.Type == "response_item" {
+			if err := json.Unmarshal(event.Payload, &item); err != nil {
+				break
+			}
+		}
+		if item.Type == "agent_message" || (item.Type == "message" && item.Role == "assistant") {
+			text := item.Text
+			if text == "" {
+				for _, part := range item.Content {
+					text += part.Text
+				}
+			}
+			if text != "" {
+				s.message = text
+			}
+			if item.Phase == "final" || item.Phase == "final_answer" {
+				s.terminal, s.success, s.capacity = true, true, false
+			}
+		}
+	case "agent_message":
+		if event.Message != "" {
+			s.message = event.Message
+		}
+	case "error":
+		if !s.terminal && (isCapacityDiagnostic(event.Message) || isCapacityDiagnostic(event.Error.Message)) {
+			s.capacity = true
+		}
+	case "turn.failed":
+		s.capacity = isCapacityDiagnostic(event.Message) || isCapacityDiagnostic(event.Error.Message)
+		s.terminal, s.success = true, false
+	case "turn.completed", "task_complete":
+		if event.LastAgentMessage != "" {
+			s.message = event.LastAgentMessage
+		}
+		s.capacity, s.terminal, s.success = false, true, true
+	}
+	changed := oldSession != s.session || oldMessage != s.message || oldTerminal != s.terminal
+	progress := executil.Progress{AgentSession: s.session, FinalReceived: s.terminal}
+	if oldMessage != s.message {
+		progress.Message = s.message
+	}
+	return progress, changed
 }
 
 func normalizeJSONResult(result *Result) {
 	// Classify the explicit Codex diagnostic before compacting JSONL to the final message.
-	session, text, capacity, terminal := parseJSONL(result.Stdout)
+	state := streamState{}
+	for _, line := range strings.Split(result.Stdout, "\n") {
+		state.consume(line)
+	}
+	session, text, capacity, terminal := state.session, state.message, state.capacity, state.terminal
+	if result.CompletionStopped && terminal {
+		result.ExitCode = 1
+		if state.success {
+			result.ExitCode = 0
+		}
+	}
 	result.CapacityExhausted = capacity
 	if result.RawStderr == "" {
 		result.RawStderr = result.Stderr
@@ -162,42 +268,4 @@ func isCapacityDiagnostic(text string) bool {
 	// Require the diagnostic's own prefix, not a quoted or historical mention.
 	suffix := strings.TrimPrefix(text, diagnostic)
 	return suffix == "" || strings.ContainsRune(" \t.,:;!?", rune(suffix[0]))
-}
-
-func parseJSONL(output string) (session, message string, capacity, terminal bool) {
-	for _, raw := range strings.Split(output, "\n") {
-		line := strings.TrimSpace(raw)
-		if line == "" {
-			continue
-		}
-		var event codexEvent
-		if err := json.Unmarshal([]byte(line), &event); err != nil {
-			if !terminal && isCapacityDiagnostic(line) {
-				capacity = true
-			}
-			continue
-		}
-		switch event.Type {
-		case "thread.started":
-			if event.ThreadID != "" {
-				session = event.ThreadID
-			}
-		case "item.completed":
-			if event.Item.Type == "agent_message" && event.Item.Text != "" {
-				message = event.Item.Text
-			}
-		case "error":
-			if !terminal && (isCapacityDiagnostic(event.Message) || isCapacityDiagnostic(event.Error.Message)) {
-				capacity = true
-			}
-		case "turn.failed":
-			capacity = isCapacityDiagnostic(event.Message) || isCapacityDiagnostic(event.Error.Message)
-			terminal = true
-		case "turn.completed":
-			// A transient capacity diagnostic followed by completion is not a stop.
-			capacity = false
-			terminal = true
-		}
-	}
-	return
 }
