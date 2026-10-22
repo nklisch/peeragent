@@ -16,7 +16,6 @@ func TestLiveSessionAndUntruncatedMessageSurviveCancellation(t *testing.T) {
 	t.Setenv("PEERAGENT_FAKE_GATE", filepath.Join(cwd, "gate"))
 	launched := cliResult(t, cwd, "--async", "work")
 	id := launched.Metadata.JobID
-	t.Cleanup(func() { cliResult(t, cwd, "--cancel", id) })
 	waitForObservation(t, cwd, id, "--status", func(res result.Result) bool { return res.Metadata.AgentSession == "fake-session" })
 	// The session can arrive before the following message is persisted.
 	deadline := time.Now().Add(20 * time.Second)

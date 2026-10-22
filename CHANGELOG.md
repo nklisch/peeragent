@@ -9,6 +9,10 @@
 - Add the deliberate `--keep-terminal-env` override and record it in job/result metadata. Authentication and ordinary
   shell settings remain available. The complete variable list is in [the terminal environment policy](docs/TERMINAL_ENV.md).
 
+### Fixes
+- Async CLI tests cancel and wait for their own workers to exit before removing temporary job files, preventing
+  Windows cleanup failures caused by workers still holding `agent.log` open.
+
 ## v0.10.0
 
 ### Features

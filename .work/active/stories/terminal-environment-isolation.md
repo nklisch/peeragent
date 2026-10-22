@@ -98,3 +98,31 @@ binaries and one-off edit/verification scripts were removed before handback.
 The unrelated configuration/secrets policy remains in the existing backlog
 item. The requested terminal-control protection and local v0.10.1 preparation
 are complete; godot-41 owns review, tagging and publication.
+
+
+## v0.10.1 follow-up: wait for async test workers before directory cleanup
+
+Godot-41 added the public Windows CI failures in
+`TestStatusShowsLiveProgressInSingleAndMultipleOutput` and
+`TestResumeGuardCLIExitAndOverride`: TempDir removal raced workers still holding
+`agent.log`. Existing cleanup only requested cancellation. Production Windows
+cancel records terminal state without signalling the worker, so terminal state
+alone did not establish that files were released.
+
+- A shared test-only cleanup helper now cancels by job id, releases only the
+  fake agent's captured test gate, and waits (bounded) for both terminal state
+  and the recorded worker to be gone. The fake worker preserves its PID in a
+  separate test sidecar because production cancellation removes `pid` before
+  exit is guaranteed. The helper never signals a guessed process.
+- Every async launch through cliResult registers this cleanup immediately;
+  the text-launch test and the custom Unix launch register it explicitly.
+  Old cancel-only callbacks are removed. Capturing job location/gate at
+  registration preserves environment and TempDir cleanup ordering.
+- Fake live/final-hang targets have a cooperative cleanup gate, allowing
+  Windows teardown without changing production cancellation or the watchdog
+  scenarios before cleanup. Normal completion/cancellation assertions are
+  unchanged. `TestAsyncCleanupWaitsForWorkerBeforeTempDirRemoval` checks cleanup
+  order, terminal state, worker exit and deletion of agent.log while the test
+  directory still exists.
+- CHANGELOG v0.10.1 records the Windows test cleanup fix. No production source
+  or terminal environment policy changed in this follow-up.

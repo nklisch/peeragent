@@ -53,6 +53,7 @@ wait "$child"
 		t.Fatalf("missing job id in %#v", launchResult.Metadata)
 	}
 
+	cleanupAsyncJob(t, cwd, jobID)
 	store := jobs.NewStore(cwd)
 	wrapperPID, err := store.ReadPID(jobID)
 	if err != nil {
@@ -140,8 +141,6 @@ func TestAsyncCancelDuringCapacityBackoff(t *testing.T) {
 	t.Setenv("PEERAGENT_FAKE_MODE", "always")
 	launched := cliResult(t, cwd, "--async", "--retry-capacity", "1", "--capacity-backoff", "1h", "do work")
 	jobID := launched.Metadata.JobID
-	// Always clean up the job we launched, including when readiness fails.
-	t.Cleanup(func() { cliResult(t, cwd, "--cancel", jobID) })
 	store := jobs.NewStore(cwd)
 	deadline := time.Now().Add(10 * time.Second)
 	for {

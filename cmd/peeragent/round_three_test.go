@@ -57,7 +57,6 @@ func TestStatusShowsLiveProgressInSingleAndMultipleOutput(t *testing.T) {
 	t.Setenv("PEERAGENT_FAKE_MODE", "live")
 	launched := cliResult(t, cwd, "--async", "work")
 	id := launched.Metadata.JobID
-	t.Cleanup(func() { cliResult(t, cwd, "--cancel", id) })
 	live := waitForObservation(t, cwd, id, "--status", func(res result.Result) bool { return res.Metadata.LastMessage != "" })
 	if live.Status != result.StatusRunning || live.Metadata.LastEventAt == nil || !strings.HasPrefix(live.Metadata.LastMessage, "complete report") || len([]rune(live.Metadata.LastMessage)) > 200 || strings.Contains(live.Metadata.LastMessage, "\n") {
 		t.Fatalf("live progress: %#v", live)
@@ -135,6 +134,9 @@ func TestEveryLaunchPrintsJobID(t *testing.T) {
 				if jobs.ValidateID(id) != nil {
 					t.Fatalf("launch omitted job id: %s", text)
 				}
+				if async {
+					cleanupAsyncJob(t, cwd, id)
+				}
 				terminal := cliResult(t, cwd, "--wait", id)
 				if terminal.Metadata.JobID != id || terminal.Status != result.StatusSuccess {
 					t.Fatalf("job identity: %#v", terminal)
@@ -149,7 +151,6 @@ func TestResumeGuardCLIExitAndOverride(t *testing.T) {
 	t.Setenv("PEERAGENT_FAKE_MODE", "live")
 	launched := cliResult(t, cwd, "--async", "work")
 	id := launched.Metadata.JobID
-	t.Cleanup(func() { cliResult(t, cwd, "--cancel", id) })
 	waitForObservation(t, cwd, id, "--status", func(res result.Result) bool { return res.Metadata.AgentSession == "fake-session" })
 	other := t.TempDir()
 	for _, async := range []bool{false, true} {
@@ -172,7 +173,6 @@ func TestResumeGuardCLIExitAndOverride(t *testing.T) {
 	// Override intentionally permits the second job without touching the first.
 	t.Setenv("PEERAGENT_FAKE_RECORD", filepath.Join(other, "calls.json"))
 	second := cliResult(t, other, "--resume", "fake-session", "--cwd", other, "--async", "--allow-concurrent-session", "work")
-	t.Cleanup(func() { cliResult(t, other, "--cancel", second.Metadata.JobID) })
 	if second.Status != result.StatusRunning || second.Metadata.JobID == id {
 		t.Fatalf("override: %#v", second)
 	}

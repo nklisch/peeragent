@@ -78,9 +78,8 @@ func fakeCodexMain() {
 		// completion and remain alive to exercise the fresh watchdog deadline.
 		time.Sleep(6 * time.Second)
 		fmt.Println(`{"type":"task_complete","last_agent_message":"finished continuing"}`)
-		for {
-			time.Sleep(time.Hour)
-		}
+		waitForFakeTargetStop()
+		return
 	}
 	if mode == "live" || mode == "final-hang" || mode == "failed-message" || mode == "capacity-message" || mode == "capacity-prior-message" {
 		if mode == "capacity-prior-message" && len(calls) > 1 {
@@ -99,16 +98,8 @@ func fakeCodexMain() {
 		}
 		if mode == "final-hang" {
 			fmt.Println(`{"type":"event_msg","payload":{"type":"task_complete"}}`)
-			for {
-				time.Sleep(time.Hour)
-			}
 		}
-		for {
-			if _, err := os.Stat(os.Getenv("PEERAGENT_FAKE_GATE")); err == nil {
-				break
-			}
-			time.Sleep(10 * time.Millisecond)
-		}
+		waitForFakeTargetStop()
 		fmt.Println(`{"type":"turn.completed"}`)
 		return
 	}
@@ -133,6 +124,7 @@ func fakeCodexEnvironment(t *testing.T) (string, string) {
 	t.Helper()
 	root := t.TempDir()
 	t.Setenv("PEERAGENT_STATE_DIR", filepath.Join(root, "index"))
+	t.Setenv("PEERAGENT_FAKE_GATE", filepath.Join(root, "fake-target-stop"))
 	record := filepath.Join(root, "calls.json")
 	t.Setenv("PEERAGENT_FAKE_RECORD", record)
 	bin := filepath.Join(root, "bin")
@@ -163,7 +155,14 @@ func cliResult(t *testing.T, dir string, args ...string) result.Result {
 	if err != nil {
 		t.Fatalf("%q: %v\n%s", args, err, out)
 	}
-	return decodeResult(t, out)
+	res := decodeResult(t, out)
+	for _, arg := range args {
+		if arg == "--async" && res.Metadata.JobID != "" {
+			cleanupAsyncJob(t, res.Metadata.CWD, res.Metadata.JobID)
+			break
+		}
+	}
+	return res
 }
 
 func TestUnknownOptionsNeverStartAJob(t *testing.T) {
@@ -261,5 +260,14 @@ func TestAsyncCapacityRetryAndCrossDirectoryControls(t *testing.T) {
 				t.Fatalf("nonterminal state: %#v", job)
 			}
 		})
+	}
+}
+
+func waitForFakeTargetStop() {
+	for {
+		if _, err := os.Stat(os.Getenv("PEERAGENT_FAKE_GATE")); err == nil {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
 }

@@ -28,7 +28,6 @@ func TestTaskCompleteStopsOwnedHangingCodex(t *testing.T) {
 	t.Setenv("PEERAGENT_FAKE_MODE", "final-hang")
 	launched := cliResult(t, cwd, "--async", "work")
 	id := launched.Metadata.JobID
-	t.Cleanup(func() { cliResult(t, cwd, "--cancel", id) })
 	observed := waitForObservation(t, cwd, id, "--status", func(res result.Result) bool { return res.Metadata.FinalReceived })
 	if observed.Status != result.StatusRunning || observed.Summary != "final message received, process still alive" {
 		t.Fatalf("grace status: %#v", observed)
@@ -77,7 +76,6 @@ func TestContinuedCodexTurnGetsFreshCompletionGrace(t *testing.T) {
 	t.Setenv("PEERAGENT_FAKE_MODE", "continuing-turn")
 	launched := cliResult(t, cwd, "--async", "work")
 	id := launched.Metadata.JobID
-	t.Cleanup(func() { cliResult(t, cwd, "--cancel", id) })
 	waitForObservation(t, cwd, id, "--result", func(res result.Result) bool {
 		return strings.Contains(res.Details, "continuation is running") && !res.Metadata.FinalReceived
 	})
