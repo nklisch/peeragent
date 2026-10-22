@@ -352,3 +352,57 @@ ready for owner review, with opt-in retry defaults unchanged.
 No installed plugin, committed binary, release/tag, main checkout or other
 session's job folder was modified. Native Windows/macOS execution and real
 model calls remain outside this Linux unit; final qualification follows below.
+
+
+### Round 3 verification and handback
+
+Frozen code tested: `41b973438a161beb700d93b8246bdbf7da69ba19`, with
+`go version go1.26.4 linux/amd64`. The final evidence commit changes this
+record only; the tested source remains unchanged. All commands passed:
+
+- `go test -json ./...`: **235 top-level test passes / 355 including subtests**,
+  12 tested packages, zero failures/skips; testsupport has no tests.
+- `./scripts/validate.sh`: passed offline in a disposable Git worktree at the
+  same SHA. Includes its own required full-suite step, source build, curated
+  package validation, committed-binary/shim smoke, metadata/docs checks and
+  Linux/macOS amd64/arm64 archives. Existing missing-icon warning is nonblocking.
+  No publish flag, installed-plugin write or committed binary refresh.
+- `GOOS=<os> GOARCH=<arch> CGO_ENABLED=0 go vet ./...` and
+  `go test -c -o <scratch>/<os>-<arch>-tests/ ./...`: passed for Windows amd64
+  and macOS amd64/arm64. These compile tests without native execution.
+- `go build ./...`, `go vet ./...`, `git diff --check`: passed before handback,
+  as build/vet did before each implementation commit.
+
+Commands used `GOCACHE=/storage/build/peeragent/job-controls-3-go-cache` and
+`GOFLAGS=-p=6`. The final run followed a compatibility correction: blocking
+text's early job-id notice goes to stderr, keeping stdout's established
+`Alt Subagent:` prefix. The new launch test asserts that prefix for new,
+resumed, blocking and async calls. The full suite/validator were repeated
+because that source changed; earlier successful runs were not treated as
+qualification of the corrected tree.
+
+| Requested outcome | Cause and regression coverage |
+| --- | --- |
+| Capacity stops and retries | Direct incident already classified at base; compaction prefix did not match. `TestReportedCapacityStopStreams` pins both real terminal shapes and later terminal precedence; `TestIncidentCapacityStopsReportAndRetry` proves stop/result/status and opt-in retry for each. |
+| Live progress | Worker stdout stayed empty and raw logs were written after exit. `TestStatusShowsLiveProgressInSingleAndMultipleOutput`, `TestReadProgressUsesBoundedTail` and `TestProgressPreviewSurvivesToolActivityAndRetry` cover live log filling, bounded reads, partial writes, tool/retry continuity and status without a readable full report. |
+| Job ids in text and JSON | The common text formatter omitted job ids; blocking calls had no tracked job. `TestEveryLaunchPrintsJobID` covers all four new/resumed and blocking/async combinations, preserved stdout prefix and JSON terminal identity. |
+| One writer per session | There was no live-session launch check. `TestResumeGuardRunningTerminalGoneAndOverride`, `TestResumeGuardSerializesConcurrentLaunches`, `TestResumeGuardCLIExitAndOverride` and `TestResumeGuardStorageFailureStaysInfrastructureError` cover conflicts, atomic launch, exited/terminal jobs, override, namespaces, cross-worktree discovery, usage exit 2 and distinct infrastructure errors. |
+| Retry prerequisites | The catch-all message did not explain how to fix a blocking resume. `TestCapacityRetryHelpAndResumeUsage` pins help and the instruction to add `--async`, including with `--resume`. |
+
+Result log: `/storage/scratch/peeragent/job-controls-3/verification.log`.
+Raw full-suite events: `full-test.jsonl`; validator detail: `validate.log`;
+aggregate completion: `verify.exit` (0), all in that same scratch directory.
+Logs and the warm Go cache remain for owner review/correction rounds; the owner
+removes them after this unit lands or is abandoned. Disposable validation
+worktree, generated package/archive outputs, platform test binaries and
+one-off editing/verification scripts were removed before handback.
+
+Native macOS/Windows runtime behavior and real model calls were not checked.
+Existing Windows cancellation limitations remain. The guard checks numeric PID
+liveness; a stale PID reused by another process can falsely refuse a resume
+until the explicit override is used. No rate was measured, and the check never
+signals that PID. Resume checks scan indexed worktrees once per launch; status
+reads only 8 KiB per job. Blocking calls now pay for a worker process and tracked
+state, making one shared lifecycle/protection path possible. No performance or
+runtime timing measurements were made. No additional in-scope work is deferred;
+owner review, merge and release remain with godot-41.
