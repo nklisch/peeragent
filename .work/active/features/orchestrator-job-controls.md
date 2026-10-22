@@ -81,7 +81,7 @@ session with the next instruction.
   single-job missing-id exit 4 remains unchanged. No tracker reorganization beyond
   convention-required closure moves for the fixed/shipped items.
 
-## Verification log
+## Initial implementation verification log
 
 Focused fake-agent checks passed during development for multi-job lookup,
 selection and prevalidation; early sessions; cancellation/failure; long messages;
@@ -175,5 +175,57 @@ defines process exit notification separately from reap. [Go's exit-wait implemen
 uses Linux `WNOWAIT` and records the stopped-process problem with Darwin
 `waitid`, which is why this implementation uses kqueue there.
 
-Correction-round frozen-tree verification is pending. The earlier verification
-above remains evidence for the previous code SHA, not for these corrections.
+### Correction-round verification
+
+Tested code SHA: `12524e570bb7c72567f6a294fe61897656965f1a`.
+Toolchain: `go version go1.26.4 linux/amd64`. The final evidence commit changes
+only this record; no Go source changed after the frozen run.
+
+- Focused `go test -json ./internal/executil ./internal/codex -run
+  'TestOwnedGroup|TestLauncherExit|TestOSRunner|TestLineObserver|TestTurnCompletion|TestTerminalStream|TestProgressMessage'
+  -count=1`: passed, measured 11 top-level / 17 total test passes.
+- After adding the real unreaped-exit check and explicit-completion precedence,
+  focused `-run 'TestExitObservation|TestTurnCompletion|TestExplicitSession'`
+  passed: measured 3 top-level / 9 total test passes. The activity parser's
+  added event prefixes and observer-failure preservation were then included in
+  the frozen full suite.
+- Focused CLI checks for existing live output, task completion, failures and
+  capacity retries passed. The first new continuation test mistakenly requested
+  message text from `--status`; changed that observation to `--result`, without
+  changing its expected continuation or final-message assertions. The focused
+  `go test -json ./cmd/peeragent -run TestContinuedCodexTurn -count=1` then
+  passed. The corrected test is also in the frozen full-suite count.
+- `GOFLAGS='-v -p=6' ./scripts/validate.sh`: exit 0, offline, in a proper
+  detached disposable worktree at the tested SHA. Its initial `go test ./...`
+  was the single full-suite execution on the frozen code. Measured from verbose
+  pass records: **217 top-level tests, 319 including subtests, 12 tested
+  packages, zero failed or skipped tests**; testsupport has no tests.
+  `review-frozen-full-test.log` extracts that suite's output from the validator
+  log; it is not a repeated run. Packaging, strict plugin validation, Linux and
+  macOS amd64/arm64 archive builds, metadata/docs and shim checks all passed.
+  The existing missing-plugin-icon warning remains nonblocking.
+- For `windows/amd64`, `darwin/amd64` and `darwin/arm64`,
+  `GOOS=<os> GOARCH=<arch> CGO_ENABLED=0 go vet ./...` and
+  `go test -c -o <scratch>/review-<os>-<arch>-tests/ ./...` passed (exit 0
+  each). These are static/compile checks, not native execution. Native macOS
+  exit notifications and Windows Job Object behavior remain unverified here;
+  the existing Windows assignment race remains the documented limit above.
+- Direct `go build ./...`, `go vet ./...` and `git diff --check` passed
+  before each correction-round commit. All Go work was light work, without
+  `heavy` or a PATH wrapper. No performance measurements were made.
+
+Logs retained for owner review under
+`/storage/scratch/peeragent/job-controls-2/`: `review-frozen-environment.log`,
+`review-frozen-full-test.log`, `review-frozen-validate.log`, the corresponding
+`.exit` files (all frozen-run exits 0), `review-focused-*.jsonl`, and platform
+`review-<os>-<arch>-{vet,compile}.{log,exit}` files. The initial `review-focused.exit` is 1 for the test observation mistake
+described above; corrected `review-focused-round2.exit` is 0. These supersede the earlier
+code-SHA qualification for this correction round. The temporary worktree,
+platform test binaries, scripts, process-id markers and probe state were removed.
+The unit's existing cache and review logs remain owned by this unit and are to
+be removed on acceptance/landing or abandonment, as recorded above.
+
+No release, tag, push, committed binary refresh, installed-plugin change or
+other session's job-folder access. No new CLI flag or exit-code changes in this
+round. Follow-ups remain native platform execution, the existing Windows
+startup assignment race, and completion visible only in private session logs.
