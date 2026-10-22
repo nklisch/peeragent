@@ -46,9 +46,10 @@ origin header. Quotes and shell syntax remain literal text. Use `--` before
 message text beginning with a dash.
 
 A message may contain at most 2,000 Unicode characters before sanitization. A
-job can send at most three messages in a rolling five-minute window. Concurrent
-senders reserve their slots before delivery; a sender interrupted during delivery
-leaves a `pending` entry that counts until that window expires. Herdr execution
+job can attempt delivery at most three times in a rolling five-minute window.
+A Herdr failure still uses a slot because delivery may have occurred before the
+error. Concurrent senders reserve their slots before delivery; a sender
+interrupted during delivery leaves a `pending` entry that counts until that window expires. Herdr execution
 has a ten-second timeout. No recorded pane/binary or a Herdr delivery failure
 produces a one-line nonzero refusal naming the handback alternative. Sent and
 refused attempts are timestamped in `outbox.jsonl`; refusals include a reason.

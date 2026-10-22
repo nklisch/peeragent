@@ -150,7 +150,7 @@ func (s *Service) Say(ctx context.Context, raw JobRequest, text string) error {
 		default:
 			recent := 0
 			for _, prior := range mailbox.Outbox {
-				if (prior.Status == "sent" || prior.Status == "pending") && prior.Time.After(entry.Time.Add(-5*time.Minute)) {
+				if prior.DeliveryAttempted && prior.Time.After(entry.Time.Add(-5*time.Minute)) {
 					recent++
 				}
 			}
@@ -178,6 +178,8 @@ func (s *Service) Say(ctx context.Context, raw JobRequest, text string) error {
 		if refusal != "" {
 			entry.Status = "refused"
 			entry.Reason = refusal
+		} else {
+			entry.DeliveryAttempted = true
 		}
 		return store.AppendMessageLocked(job.ID, "outbox", entry)
 	})

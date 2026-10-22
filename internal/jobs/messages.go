@@ -14,12 +14,13 @@ import (
 // Message is a mailbox entry. Outbound entries also record delivery/refusal;
 // pending reserves a rate-limit slot while delivery runs outside the job lock.
 type Message struct {
-	Time      time.Time `json:"time"`
-	From      string    `json:"from"`
-	Text      string    `json:"text"`
-	Direction string    `json:"direction,omitempty"`
-	Status    string    `json:"status,omitempty"`
-	Reason    string    `json:"reason,omitempty"`
+	Time              time.Time `json:"time"`
+	From              string    `json:"from"`
+	Text              string    `json:"text"`
+	Direction         string    `json:"direction,omitempty"`
+	Status            string    `json:"status,omitempty"`
+	DeliveryAttempted bool      `json:"delivery_attempted,omitempty"`
+	Reason            string    `json:"reason,omitempty"`
 }
 
 type MessageStats struct {

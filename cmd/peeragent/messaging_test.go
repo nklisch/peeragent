@@ -221,6 +221,18 @@ func TestSayNoChannelAndHerdrRefusal(t *testing.T) {
 			if err != nil || len(m.Outbox) != 1 || m.Outbox[0].Status != "refused" || m.Outbox[0].Reason == "" {
 				t.Fatalf("outbox %#v %v", m, err)
 			}
+			if mode == "gone-pane" && runtime.GOOS != "windows" {
+				for range 2 {
+					_, stderr, err := messageCLI(t, job, "say", "retry question")
+					if err == nil || !strings.Contains(stderr, "Herdr refused") {
+						t.Fatalf("delivery refusal %v %s", err, stderr)
+					}
+				}
+				_, stderr, err := messageCLI(t, job, "say", "one too many attempts")
+				if err == nil || !strings.Contains(stderr, "rate limit") {
+					t.Fatalf("failed deliveries bypass rate limit: %v %s", err, stderr)
+				}
+			}
 			if mode == "no-pane" {
 				if _, err := os.Stat(filepath.Join(filepath.Dir(job.LogPath), "launcher.json")); !os.IsNotExist(err) {
 					t.Fatalf("unexpected channel %v", err)
