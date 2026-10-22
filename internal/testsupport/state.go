@@ -10,6 +10,14 @@ import (
 // directory so they share their parent's job controls without creating orphans
 // when a process-lifecycle test intentionally terminates a helper.
 func RunWithPrivateState(run func() int) int {
+	// Tests launched by a real job must not inspect or announce that job's inbox.
+	// Intentional fake CLI/target subprocesses enter their helpers before here.
+	for _, key := range []string{"PEERAGENT_JOB_ID", "PEERAGENT_JOB_DIR"} {
+		if err := os.Unsetenv(key); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+	}
 	if os.Getenv("PEERAGENT_TEST_PRIVATE_STATE") == "1" {
 		return run()
 	}

@@ -58,7 +58,12 @@ func (s *Service) JobStatuses(ctx context.Context, requests []JobRequest) ([]res
 		if job.Status == jobs.StatusCapacity {
 			summary = result.CapacitySummary(job.Spec.Resume)
 		}
+		mailbox, err := jobs.NewStore(req.CWD).Mailbox(job.ID)
+		if err != nil {
+			return nil, fmt.Errorf("read job %s mailbox: %w", job.ID, err)
+		}
 		records = append(records, result.JobStatus{
+			MessageStats:    mailbox.Stats(),
 			KeepTerminalEnv: job.Spec.KeepTerminalEnv,
 			LastEventAt:     progress.At, LastMessage: progress.LastMessage, Summary: summary,
 			JobID: job.ID, CWD: req.CWD, Status: ResultStatusFromJob(string(job.Status)),

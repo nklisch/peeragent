@@ -26,7 +26,7 @@ func (targetExecutor) Execute(ctx context.Context, delegation input.Delegation) 
 	if !ok {
 		return executil.Result{ExitCode: 2}, fmt.Errorf("unsupported delegation agent %q", delegation.Agent)
 	}
-	agentPrompt := prompt.BuildForAgent(definition.PromptIdentity, delegation.TaskText)
+	agentPrompt := prompt.BuildWithOptions(definition.PromptIdentity, delegation.TaskText, delegation.NoPreamble)
 	switch definition.ID {
 	case agent.GeminiID:
 		return gemini.Exec(ctx, gemini.Options{

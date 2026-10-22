@@ -128,6 +128,23 @@ launching terminal's control environment; job metadata records the override.
 Ordinary settings and authentication remain available. The repository's
 `docs/TERMINAL_ENV.md` is the canonical variable list and scope.
 
+## Job Messages
+
+For a running job, send a reply with `<resolved-peeragent-bin> tell <job-id>
+[--cwd DIR] "<text>"`. Finished jobs require `--resume`. Replies are a mailbox:
+the job reads them with `peeragent inbox` after long steps and before handback.
+Every command inside a job announces unread replies on stderr.
+
+A job can use `peeragent say "<text>"` to reach its recorded launching Herdr
+pane with a mandatory origin and reply header. Use it for unsettled questions
+or short status the launcher requested. Never use raw terminal, desktop or
+keyboard input to contact the launcher. Outbound messages have a 2,000-character
+limit and a three-per-five-minutes job limit; refusal directs the job to its
+handback. Windows has no outbound launcher channel. `--status` shows mailbox
+counts/time; `--result` includes the ordered conversation after the agent message.
+Resumes carry unread replies into their prompt. `--no-preamble` suppresses the
+standard execution/messaging instructions and sends task text only.
+
 ## Async Lifecycle
 
 Prefer `--async` for normal implementation, research, and review passes so a

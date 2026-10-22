@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.11.0
+
+### Features
+- Add `peeragent say "<text>"` for labelled messages to the recorded launching Herdr pane. The fixed origin/reply
+  header cannot be omitted through this command; body header brackets are neutralized. Messages are limited to
+  2,000 characters and three per five minutes per job, with timestamped sent/refused outbox entries.
+- Add `peeragent tell <job-id> [--cwd DIR] "<text>"` and `peeragent inbox` for replies to running jobs. Commands
+  inside jobs announce unread messages on stderr; inbox delivery and acknowledgement share a lock with writers.
+- Give every target its job identity without terminal-control variables. All target prompts explain messaging;
+  `--no-preamble` sends just the task. Resumes and capacity continuations carry unread replies into their prompts.
+- Single/multiple status show unread/sent counts and last message time. Results include the ordered conversation
+  after the agent message. Launcher addresses live in a separate user-readable-only file.
+- Windows supports inbox/tell and reports `no launcher channel on this platform` for say.
+
 ## v0.10.1
 
 ### Security

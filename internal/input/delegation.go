@@ -12,6 +12,7 @@ import (
 // adapter. CLI job-control fields intentionally live on Request instead: they
 // describe how to inspect a job, not work to send to a target agent.
 type Delegation struct {
+	NoPreamble             bool
 	KeepTerminalEnv        bool
 	AllowConcurrentSession bool
 	RetryCapacity          int

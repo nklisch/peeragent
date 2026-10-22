@@ -23,6 +23,10 @@ const jobWaitInterval = 500 * time.Millisecond
 
 func main() {
 	if len(os.Args) > 1 && os.Args[1] == "mcp" {
+		if err := printUnreadNotice(); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 		fmt.Fprintln(os.Stderr, "peeragent MCP mode is not supported; invoke the bundled peer skill instead")
 		os.Exit(2)
 	}
@@ -45,6 +49,9 @@ const usageText = `peeragent — delegate a task pass to another local coding as
 Usage:
   peeragent [flags] <task text>
   peeragent --prompt-file <path> [flags]
+  peeragent say "<text>"
+  peeragent tell <job-id> [--cwd DIR] "<text>"
+  peeragent inbox
   peeragent --result|--wait|--cancel <job-id> [flags]
   peeragent --status|--wait-any <job-id>... [flags]
 
@@ -63,6 +70,7 @@ Flags:
                                   claude default xhigh, accepts high|xhigh).
   --profile <name>                Codex profile override.
   --resume <agent-session>        Resume in its recorded directory unless --cwd is set.
+  --no-preamble                   Send task text without the standard execution/messaging preamble.
   --keep-terminal-env             Retain inherited terminal-control variables (default strips them).
   --allow-concurrent-session       Allow another job to write the same agent session.
   --sandbox                       Use the default target mode (Gemini still
@@ -96,6 +104,9 @@ PEERAGENT_STATE_DIR overrides the user cache directory used for the lookup index
 `
 
 func run(args []string) error {
+	if err := printUnreadNotice(); err != nil {
+		return err
+	}
 	req, err := input.Parse(args, os.Stdin, os.Getwd)
 	if err != nil {
 		if writeErr := writeResult(input.Request{JSON: true}, result.Result{
@@ -110,6 +121,9 @@ func run(args []string) error {
 			return writeErr
 		}
 		return &usageError{}
+	}
+	if req.MessageCommand != "" {
+		return runMessageCommand(req)
 	}
 	if req.Help {
 		fmt.Print(usageText)
@@ -384,6 +398,7 @@ func runAsyncJob(req input.Request) error {
 
 	ctx, stop := asyncJobContext()
 	defer stop()
+	ctx = executil.WithJobContext(ctx, job.ID, filepath.Dir(job.LogPath))
 	ctx = executil.WithProgress(ctx, func(progress executil.Progress) error {
 		return app.RecordJobProgress(store, job.ID, progress)
 	})
@@ -395,6 +410,13 @@ func runAsyncJob(req input.Request) error {
 		}
 		if jobs.IsTerminalStatus(current.Status) {
 			return nil
+		}
+		if jobReq.Resume != "" && attempt > 0 {
+			carried, err := app.CarryRetryInbox(job)
+			if err != nil {
+				return err
+			}
+			jobReq.TaskText += carried
 		}
 		res, execResult, _ := applicationService.DelegateWithExecution(ctx, delegationFromRequest(jobReq))
 		res.Metadata.JobID = job.ID
@@ -470,6 +492,7 @@ func runAsyncJob(req input.Request) error {
 func requestFromJob(job jobs.Job, prompt string) input.Request {
 	fullAccess, worktree := accessFlagsFromSpec(job.Spec)
 	req := input.Request{
+		NoPreamble:      job.Spec.NoPreamble,
 		KeepTerminalEnv: job.Spec.KeepTerminalEnv,
 		TaskText:        prompt,
 		CWD:             job.CWD,
@@ -590,6 +613,7 @@ func resultFromExecution(req input.Request, execResult executil.Result, execErr 
 
 func delegationFromRequest(req input.Request) input.Delegation {
 	return input.Delegation{
+		NoPreamble:             req.NoPreamble,
 		KeepTerminalEnv:        req.KeepTerminalEnv,
 		AllowConcurrentSession: req.AllowConcurrentSession,
 		RetryCapacity:          req.RetryCapacity,

@@ -36,7 +36,28 @@ func FormatText(res Result) string {
 		fmt.Fprintf(&b, "Details:\n%s\n\n", res.Details)
 	}
 
+	if len(res.Conversation) > 0 {
+		b.WriteString("Conversation:\n")
+		for _, entry := range res.Conversation {
+			fmt.Fprintf(&b, "- %s %s from %s", entry.Time.UTC().Format(time.RFC3339Nano), entry.Direction, entry.From)
+			if entry.Status != "" {
+				fmt.Fprintf(&b, " (%s)", entry.Status)
+			}
+			fmt.Fprintf(&b, ": %s", entry.Text)
+			if entry.Reason != "" {
+				fmt.Fprintf(&b, " [%s]", entry.Reason)
+			}
+			b.WriteString("\n")
+		}
+		b.WriteString("\n")
+	}
 	b.WriteString("Metadata:\n")
+	if stats := res.Metadata.MessageStats; stats != nil {
+		fmt.Fprintf(&b, "- inbox_unread: %d\n- outbox_sent: %d\n", stats.InboxUnread, stats.OutboxSent)
+		if stats.LastMessageAt != nil {
+			fmt.Fprintf(&b, "- last_message_at: %s\n", stats.LastMessageAt.UTC().Format(time.RFC3339Nano))
+		}
+	}
 	if res.Metadata.KeepTerminalEnv {
 		fmt.Fprintln(&b, "- keep_terminal_env: true")
 	}

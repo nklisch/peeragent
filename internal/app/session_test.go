@@ -48,7 +48,7 @@ func TestResumeGuardRunningTerminalGoneAndOverride(t *testing.T) {
 			if mode == "different-agent" {
 				delegation.Agent = "claude"
 			}
-			res, err := protectSession(delegation, func() (result.Result, error) {
+			res, err := protectSession(delegation, func(_ []jobs.Job) (result.Result, error) {
 				launched = true
 				return result.Result{Status: result.StatusRunning}, nil
 			})
@@ -124,7 +124,10 @@ func TestResumeGuardStorageFailureStaysInfrastructureError(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(store.Root, job.ID, "job.json"), []byte("invalid json"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	res, err := protectSession(input.Delegation{CWD: cwd, Agent: "codex", Resume: "same"}, func() (result.Result, error) { t.Fatal("launched with unreadable state"); return result.Result{}, nil })
+	res, err := protectSession(input.Delegation{CWD: cwd, Agent: "codex", Resume: "same"}, func(_ []jobs.Job) (result.Result, error) {
+		t.Fatal("launched with unreadable state")
+		return result.Result{}, nil
+	})
 	if err == nil || res.Metadata.ExitCode != 1 || !strings.Contains(err.Error(), "load job "+job.ID) {
 		t.Fatalf("storage error became usage/conflict: %#v %v", res, err)
 	}

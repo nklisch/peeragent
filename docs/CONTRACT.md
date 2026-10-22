@@ -108,6 +108,37 @@ Options:
   it sends SIGTERM to the async process group, then sends SIGKILL after a
   5-second grace period when the group is still running.
 
+## Job Messages
+
+```text
+peeragent say "<text>"
+peeragent tell <job-id> [--cwd DIR] "<text>"
+peeragent inbox
+```
+
+`PEERAGENT_JOB_ID` and `PEERAGENT_JOB_DIR` identify the current job. Every target
+receives them; inherited terminal addresses remain stripped by default. `say`
+and `inbox` use that identity. `tell` uses the normal job index/explicit `--cwd`.
+Messages use literal argv, never shell evaluation. Use `--` before literal text
+beginning with a dash. Commands inside a job first announce unread entries on
+stderr, preserving machine-readable stdout. `inbox` emits unread `{time, from,
+text}` entries as JSONL and marks them read under the same lock as `tell`.
+Finished jobs reject `tell` and suggest `--resume`.
+
+The standard prompt includes instructions for checking and sending messages.
+`--no-preamble` persists in the execution spec and suppresses the whole standard
+execution/messaging preamble. Resumed prompts include unread entries from prior
+jobs for that agent/session; capacity continuations include their own unread
+inbox. New arrivals beyond the included snapshot remain unread.
+
+Single-job status adds `metadata.inbox_unread`, `metadata.outbox_sent`, and
+optional `metadata.last_message_at`; multi-job records carry the same fields
+at the top level. Times are UTC RFC3339 with fractional seconds. Results add
+`conversation` after `details`: entries ordered by `time`, with `direction`
+(`inbox`/`outbox`), `from`, `text`, and outbound `status`/optional `reason`.
+Text results put the conversation after the agent message. See
+[Messaging](MESSAGING.md) for the fixed header, limits and platform behavior.
+
 ## Result JSON
 
 The default result is JSON:
@@ -304,6 +335,10 @@ Windows retains the worker's native handle until its wait completes.
 .peeragent/jobs/<job-id>/
   job.json       lifecycle + ExecSpec + live session/completion/backoff observations
   prompt.txt     resolved task text, parent-written, child-read
+  launcher.json  optional private Herdr address/binary, mode 0600
+  inbox.jsonl    launcher replies {time, from, text}, mode 0600
+  inbox-read     acknowledged entry count, mode 0600
+  outbox.jsonl   timestamped outbound messages/outcomes, mode 0600
   pid            child PID/PGID for cancel, present while running
   agent.log      live compact Codex progress JSONL + background wrapper diagnostics
   target.log     raw target stdout+stderr written after the attempt exits

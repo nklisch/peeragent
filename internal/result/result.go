@@ -1,6 +1,10 @@
 package result
 
-import "time"
+import (
+	"time"
+
+	"github.com/nklisch/peeragent/internal/jobs"
+)
 
 type Status string
 
@@ -19,6 +23,7 @@ type Result struct {
 	ChangedFiles []string       `json:"changed_files"`
 	Verification []Verification `json:"verification"`
 	Details      string         `json:"details,omitempty"`
+	Conversation []jobs.Message `json:"conversation,omitempty"`
 	Metadata     Metadata       `json:"metadata"`
 }
 
@@ -29,6 +34,7 @@ type Verification struct {
 }
 
 type Metadata struct {
+	*jobs.MessageStats
 	KeepTerminalEnv bool       `json:"keep_terminal_env,omitempty"`
 	LastEventAt     *time.Time `json:"last_event_at,omitempty"`
 	LastMessage     string     `json:"last_message,omitempty"`

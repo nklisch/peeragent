@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/nklisch/peeragent/internal/executil"
 	"github.com/nklisch/peeragent/internal/input"
 	"github.com/nklisch/peeragent/internal/testsupport/terminalenv"
 )
@@ -44,13 +45,16 @@ func TestEveryTargetFiltersTerminalEnvironment(t *testing.T) {
 				}
 				t.Run(name, func(t *testing.T) {
 					delegation := input.Delegation{CWD: root, Agent: agent, TaskText: "dump fixture environment", Resume: resume, KeepTerminalEnv: keep}
-					res, err := (targetExecutor{}).Execute(context.Background(), delegation)
+					res, err := (targetExecutor{}).Execute(executil.WithJobContext(context.Background(), "fixture-job", root), delegation)
 					if err != nil || res.ExitCode != 0 {
 						t.Fatalf("target execution: %#v %v", res, err)
 					}
 					var env map[string]string
 					if err := json.Unmarshal([]byte(res.Stdout), &env); err != nil {
 						t.Fatalf("fake target stdout: %q %v", res.Stdout, err)
+					}
+					if env["PEERAGENT_JOB_ID"] != "fixture-job" || env["PEERAGENT_JOB_DIR"] != root {
+						t.Fatalf("job identity missing: %#v", env)
 					}
 					if env["PEERAGENT_ENV_SENTINEL"] != "ordinary=value" {
 						t.Fatal("ordinary environment lost")

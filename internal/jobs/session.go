@@ -24,21 +24,49 @@ func WithSessionLaunchLock(agent, session string, fn func() error) error {
 // live session indexing. Index entries contain directories only; each directory
 // is scanned once per resume, never as part of status polling.
 func RunningSessionJob(agent, session, cwd string) (Job, bool, error) {
+	matches, err := SessionJobs(agent, session, cwd)
+	if err != nil {
+		return Job{}, false, err
+	}
+	return LiveSessionJob(matches)
+}
+
+func LiveSessionJob(matches []Job) (Job, bool, error) {
+	for _, job := range matches {
+		if IsTerminalStatus(job.Status) {
+			continue
+		}
+		pid, err := NewStore(job.CWD).ReadPID(job.ID)
+		if os.IsNotExist(err) {
+			continue
+		}
+		if err != nil {
+			return Job{}, false, fmt.Errorf("read job %s pid: %w", job.ID, err)
+		}
+		if ProcessExists(pid) {
+			return job, true, nil
+		}
+	}
+	return Job{}, false, nil
+}
+
+// SessionJobs locates previous jobs for both resume protection and inbox carryover.
+func SessionJobs(agent, session, cwd string) ([]Job, error) {
 	dirs := map[string]bool{cwd: true}
 	indexed, err := LookupSession(agent, session)
 	if err != nil {
-		return Job{}, false, fmt.Errorf("lookup session directory: %w", err)
+		return nil, fmt.Errorf("lookup session directory: %w", err)
 	}
 	if indexed != "" {
 		dirs[indexed] = true
 	}
 	path, err := indexPath("jobs", "")
 	if err != nil {
-		return Job{}, false, err
+		return nil, err
 	}
 	entries, err := os.ReadDir(filepath.Dir(path))
 	if err != nil && !os.IsNotExist(err) {
-		return Job{}, false, fmt.Errorf("read job index: %w", err)
+		return nil, fmt.Errorf("read job index: %w", err)
 	}
 	for _, entry := range entries {
 		if entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
@@ -49,12 +77,13 @@ func RunningSessionJob(agent, session, cwd string) (Job, bool, error) {
 			continue
 		}
 		if err != nil {
-			return Job{}, false, fmt.Errorf("read job index entry: %w", err)
+			return nil, fmt.Errorf("read job index entry: %w", err)
 		}
 		if len(data) > 0 {
 			dirs[string(data)] = true
 		}
 	}
+	var matches []Job
 	for dir := range dirs {
 		store := NewStore(dir)
 		entries, err := os.ReadDir(store.Root)
@@ -62,7 +91,7 @@ func RunningSessionJob(agent, session, cwd string) (Job, bool, error) {
 			continue
 		}
 		if err != nil {
-			return Job{}, false, fmt.Errorf("read jobs in %s: %w", dir, err)
+			return nil, fmt.Errorf("read jobs in %s: %w", dir, err)
 		}
 		for _, entry := range entries {
 			if !entry.IsDir() || ValidateID(entry.Name()) != nil {
@@ -73,22 +102,12 @@ func RunningSessionJob(agent, session, cwd string) (Job, bool, error) {
 				continue
 			}
 			if err != nil {
-				return Job{}, false, fmt.Errorf("load job %s: %w", entry.Name(), err)
+				return nil, fmt.Errorf("load job %s: %w", entry.Name(), err)
 			}
-			if job.Spec.Agent != agent || job.Spec.Resume != session || IsTerminalStatus(job.Status) {
-				continue
-			}
-			pid, err := store.ReadPID(job.ID)
-			if os.IsNotExist(err) {
-				continue
-			}
-			if err != nil {
-				return Job{}, false, fmt.Errorf("read job %s pid: %w", job.ID, err)
-			}
-			if ProcessExists(pid) {
-				return job, true, nil
+			if job.Spec.Agent == agent && job.Spec.Resume == session {
+				matches = append(matches, job)
 			}
 		}
 	}
-	return Job{}, false, nil
+	return matches, nil
 }

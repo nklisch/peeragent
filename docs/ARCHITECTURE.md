@@ -129,6 +129,30 @@ task text and adds stable execution instructions:
 The host's task text remains the primary input. The wrapper does not impose a
 rigid schema on the delegated task request.
 
+## Job Messaging
+
+Job mailboxes use the lifecycle lock for appends, snapshots and read cursors.
+Inbox delivery holds the lock through stdout writes and acknowledgement, so a
+failed write leaves replies unread. Outbound delivery reserves a pending outbox
+entry under the lock, invokes Herdr outside it, then records sent/refused status.
+This enforces the per-job rate limit across concurrent senders without holding
+the lifecycle lock during a subprocess call. A crashed sender's pending entry
+reserves its slot until the five-minute window expires.
+
+The launcher captures its Herdr address and binary path in a separate mode-0600
+file before starting the tracked worker. Public results never include these
+addresses. A shared execution context supplies the job id/directory at the target
+process boundary, alongside terminal environment filtering; adapters do not own
+mailbox state. Herdr receives a mandatory generated origin/reply header through
+its documented `agent prompt <pane> <text>` command, with sanitized body brackets.
+The transport is bounded by a ten-second subprocess timeout. Windows uses the
+same messaging service and records an explicit unsupported-channel refusal.
+
+Session discovery is shared by the concurrent-resume check and unread-inbox
+carryover, avoiding two worktree scans. A successful resumed launch acknowledges
+only entries included in its persisted prompt; failed startup consumes nothing.
+[Messaging](MESSAGING.md) defines the user-visible commands and limits.
+
 ## Permission Model
 
 Default execution starts in the current checkout with the strongest autonomous

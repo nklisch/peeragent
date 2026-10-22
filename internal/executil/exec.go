@@ -41,7 +41,7 @@ func (r OSRunner) Run(ctx context.Context, name string, args []string, cwd strin
 		return Result{ExitCode: 1}, fmt.Errorf("run %s: %w", name, err)
 	}
 	cmd.Dir = cwd
-	cmd.Env = targetEnvironment(cmd.Environ(), r.KeepTerminalEnv)
+	cmd.Env = jobEnvironment(ctx, targetEnvironment(cmd.Environ(), r.KeepTerminalEnv))
 	if stdin != "" {
 		cmd.Stdin = strings.NewReader(stdin)
 	}

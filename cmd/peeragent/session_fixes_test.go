@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -38,6 +39,26 @@ func fakeCodexMain() {
 		fmt.Println(`{"type":"thread.started","thread_id":"fake-session"}`)
 	}
 	mode := os.Getenv("PEERAGENT_FAKE_MODE")
+	if mode == "messaging" || mode == "messaging-retry" {
+		input, _ := io.ReadAll(os.Stdin)
+		data, _ := json.Marshal(map[string]any{"prompt": string(input), "env": terminalenv.TerminalEnvSnapshot()})
+		if mode == "messaging-retry" && len(calls) == 1 {
+			for {
+				if _, err := os.Stat(filepath.Join(os.Getenv("PEERAGENT_JOB_DIR"), "inbox.jsonl")); err == nil {
+					break
+				}
+				if _, err := os.Stat(os.Getenv("PEERAGENT_FAKE_GATE")); err == nil {
+					return
+				}
+				time.Sleep(10 * time.Millisecond)
+			}
+			fmt.Println(`{"type":"turn.failed","error":{"message":"Selected model is at capacity"}}`)
+			os.Exit(1)
+		}
+		fmt.Printf("{\"type\":\"item.completed\",\"item\":{\"type\":\"agent_message\",\"text\":%q}}\n", string(data))
+		fmt.Println(`{"type":"turn.completed"}`)
+		return
+	}
 	if mode == "terminal-env-retry" {
 		snapshot := terminalenv.TerminalEnvSnapshot()
 		data, _ := json.Marshal(snapshot)

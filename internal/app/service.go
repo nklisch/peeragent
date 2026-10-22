@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/nklisch/peeragent/internal/executil"
 	"github.com/nklisch/peeragent/internal/input"
@@ -153,10 +154,15 @@ func (s *Service) launchJob(ctx context.Context, delegation input.Delegation, st
 	if err := ctx.Err(); err != nil {
 		return failedDelegationResult(delegation, err), err
 	}
-	return protectSession(delegation, func() (result.Result, error) { return s.launch(delegation, start) })
+	return protectSession(delegation, func(previous []jobs.Job) (result.Result, error) { return s.launch(delegation, start, previous) })
 }
 
-func (s *Service) launch(delegation input.Delegation, start func(string, jobs.Job) error) (result.Result, error) {
+func (s *Service) launch(delegation input.Delegation, start func(string, jobs.Job) error, previous []jobs.Job) (result.Result, error) {
+	carry, err := prepareResumeInbox(previous)
+	if err != nil {
+		return failedDelegationResult(delegation, err), err
+	}
+	delegation.TaskText += carry.text
 	store := jobs.NewStore(delegation.CWD)
 	job, err := store.Create(delegation.CWD, execSpecFromDelegation(delegation), delegation.TaskText)
 	if err != nil {
@@ -164,6 +170,15 @@ func (s *Service) launch(delegation input.Delegation, start func(string, jobs.Jo
 		return failedDelegationResult(delegation, wrapped), wrapped
 	}
 
+	if branch, err := exec.Command("git", "-C", job.CWD, "rev-parse", "--abbrev-ref", "HEAD").Output(); err == nil {
+		job.Branch = strings.TrimSpace(string(branch))
+	}
+	if err := store.Save(job); err != nil {
+		return failedJobResult(delegation, job, err), err
+	}
+	if err := recordLauncher(job); err != nil {
+		return failedJobResult(delegation, job, err), err
+	}
 	indexErr := jobs.IndexJob(job.ID, job.CWD)
 	executable, err := s.executable()
 	if err != nil {
@@ -176,6 +191,9 @@ func (s *Service) launch(delegation input.Delegation, start func(string, jobs.Jo
 	}
 
 	res := runningJobResult(delegation, job)
+	if err := carry.acknowledge(); err != nil {
+		return res, fmt.Errorf("job started but resume inbox acknowledgement failed: %w", err)
+	}
 	if indexErr != nil {
 		res.Metadata.IndexWarning = indexErr.Error()
 	}
@@ -184,6 +202,7 @@ func (s *Service) launch(delegation input.Delegation, start func(string, jobs.Jo
 
 func execSpecFromDelegation(delegation input.Delegation) jobs.ExecSpec {
 	return jobs.ExecSpec{
+		NoPreamble:      delegation.NoPreamble,
 		KeepTerminalEnv: delegation.KeepTerminalEnv,
 		RetryCapacity:   delegation.RetryCapacity,
 		CapacityBackoff: delegation.CapacityBackoff,

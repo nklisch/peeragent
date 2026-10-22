@@ -87,6 +87,21 @@ Async callers may opt into `--retry-capacity N` additional attempts with
 `--capacity-backoff <duration>` (default ten minutes). Retries resume that
 session under the original job id and never retry other failures.
 
+### Job messaging
+
+Jobs receive `PEERAGENT_JOB_ID` and `PEERAGENT_JOB_DIR` and a standard messaging
+preamble, unless `--no-preamble` requests task text only. `peeragent tell <job-id>
+[--cwd DIR] "<text>"` appends launcher replies to running jobs. `peeragent inbox`
+prints and acknowledges unread replies; commands inside a job announce unread
+counts on stderr. Resumes carry unread replies into the resumed prompt.
+
+`peeragent say "<text>"` sends a mandatory labelled message through the recorded
+launcher's Herdr pane. It strips header brackets from the body, bounds text to
+2,000 characters and three messages per five minutes per job, and logs sent or
+refused attempts. Refusals name the handback alternative. Windows reports no
+launcher channel. Status exposes mailbox counts/time, and results include the
+ordered conversation after the final message. See [Messaging](MESSAGING.md).
+
 ### Sandbox
 
 Sandbox execution is the default target CLI mode. The caller may pass

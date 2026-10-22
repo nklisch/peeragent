@@ -19,6 +19,10 @@ import (
 )
 
 func TestMain(m *testing.M) {
+	if strings.TrimSuffix(filepath.Base(os.Args[0]), ".exe") == "herdr" {
+		fakeHerdrMain()
+		return
+	}
 	if os.Getenv("PEERAGENT_FAKE_MODE") != "terminal-env-retry" && terminalenv.WriteTerminalEnvAgentSnapshot() {
 		return
 	}

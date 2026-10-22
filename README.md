@@ -43,7 +43,7 @@ codex plugin add peeragent@peeragent
 Pi:
 
 ```sh
-pi install git:github.com/nklisch/peeragent@v0.10.1
+pi install git:github.com/nklisch/peeragent@v0.11.0
 ```
 
 The Pi package loads the `peer` skill from `plugin/skills`, so its wrapper
@@ -347,6 +347,35 @@ Use `--` to pass task text that starts with a dash:
 bin/peeragent -- --review-this-task
 ```
 
+## Job messages
+
+The launcher can reply to a running job, and the job can ask its launcher a
+question without receiving terminal-control addresses:
+
+```sh
+peeragent tell <job-id> [--cwd DIR] "<text>"  # launcher → job mailbox
+peeragent inbox                            # job → print unread replies and mark read
+peeragent say "<text>"                      # job → labelled message to launching Herdr pane
+```
+
+Outbound messages always begin with:
+
+```text
+⟦peer · <agent> job <job-id> · <worktree basename>@<branch> · reply: peeragent tell <job-id> "…"⟧ <text>
+```
+
+Body header brackets are replaced. Limits are 2,000 characters and three messages
+per five minutes per job. Without a recorded launcher pane, or if Herdr refuses,
+`say` exits nonzero and directs the job to its handback. Windows reports
+`no launcher channel on this platform`; its inbox/tell path works normally.
+
+Prompts instruct every target to check `peeragent inbox` after long steps and
+before handback. `--no-preamble` sends task text only. Each command inside a job
+announces unread replies on stderr. Resumes include unread messages in the new
+prompt and acknowledge the included entries. Status shows `inbox_unread`,
+`outbox_sent`, and `last_message_at`; results include the ordered `conversation`
+after the agent message. See [messaging details](docs/MESSAGING.md).
+
 ## Async Jobs
 
 For longer work, start a background job. For Codex, add opt-in
@@ -509,23 +538,23 @@ published as downloadable archives for manual install.
 Build release archives locally:
 
 ```sh
-make release VERSION=0.10.1
+make release VERSION=0.11.0
 ```
 
 That writes:
 
 ```text
-dist/release/peeragent_0.10.1_linux_amd64.tar.gz
-dist/release/peeragent_0.10.1_linux_arm64.tar.gz
-dist/release/peeragent_0.10.1_darwin_amd64.tar.gz
-dist/release/peeragent_0.10.1_darwin_arm64.tar.gz
+dist/release/peeragent_0.11.0_linux_amd64.tar.gz
+dist/release/peeragent_0.11.0_linux_arm64.tar.gz
+dist/release/peeragent_0.11.0_darwin_amd64.tar.gz
+dist/release/peeragent_0.11.0_darwin_arm64.tar.gz
 dist/release/checksums.txt
 ```
 
 Publish a GitHub release from a machine with `gh` authenticated:
 
 ```sh
-make publish-release VERSION=0.10.1
+make publish-release VERSION=0.11.0
 ```
 
 The GitHub Actions workflow in `.github/workflows/release.yml` also publishes

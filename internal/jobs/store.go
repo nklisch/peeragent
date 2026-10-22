@@ -26,6 +26,7 @@ const (
 )
 
 type Job struct {
+	Branch               string     `json:"branch,omitempty"`
 	MessagePath          string     `json:"message_path,omitempty"`
 	FinalReceived        bool       `json:"final_received,omitempty"`
 	CapacityBackoffUntil *time.Time `json:"capacity_backoff_until,omitempty"`
@@ -42,6 +43,7 @@ type Job struct {
 }
 
 type ExecSpec struct {
+	NoPreamble      bool          `json:"no_preamble,omitempty"`
 	KeepTerminalEnv bool          `json:"keep_terminal_env,omitempty"`
 	RetryCapacity   int           `json:"retry_capacity,omitempty"`
 	CapacityBackoff time.Duration `json:"capacity_backoff,omitempty"`
