@@ -53,7 +53,7 @@ func (s *Service) JobStatuses(ctx context.Context, requests []JobRequest) ([]res
 		records = append(records, result.JobStatus{
 			JobID: job.ID, CWD: req.CWD, Status: ResultStatusFromJob(string(job.Status)),
 			Model: job.Spec.Model, Effort: job.Spec.Effort, AgentSession: job.Spec.Resume,
-			StartedAt: job.CreatedAt, CapacityBackoff: job.CapacityBackoffUntil != nil && time.Now().Before(*job.CapacityBackoffUntil),
+			StartedAt: job.CreatedAt, CapacityBackoff: !jobs.IsTerminalStatus(job.Status) && job.CapacityBackoffUntil != nil && time.Now().Before(*job.CapacityBackoffUntil),
 			HeadCommit: head, FinalReceived: job.FinalReceived && !jobs.IsTerminalStatus(job.Status),
 		})
 	}

@@ -122,6 +122,11 @@ func TestMultipleStatusJSONAndText(t *testing.T) {
 	if err := jobs.NewStore(cwd).Save(first); err != nil {
 		t.Fatal(err)
 	}
+	second.Status = jobs.StatusCancelled
+	second.CapacityBackoffUntil = &until
+	if err := jobs.NewStore(second.CWD).Save(second); err != nil {
+		t.Fatal(err)
+	}
 	cmd := exec.Command(os.Args[0], "--status", first.ID, second.ID)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -137,6 +142,12 @@ func TestMultipleStatusJSONAndText(t *testing.T) {
 	}
 	if r.JobID != first.ID || r.AgentSession != "live-session" || !r.CapacityBackoff || r.Model != "gpt-6.1-sol" || r.Effort != "high" || !r.StartedAt.Equal(first.CreatedAt) || len(r.HeadCommit) != 40 {
 		t.Fatalf("compact record: %#v", r)
+	}
+	if err := json.Unmarshal([]byte(lines[1]), &r); err != nil {
+		t.Fatal(err)
+	}
+	if r.Status != result.StatusCancelled || r.CapacityBackoff {
+		t.Fatalf("cancelled job still reports backoff: %#v", r)
 	}
 	cmd = exec.Command(os.Args[0], "--text", "--status", first.ID, second.ID+"@"+second.CWD)
 	out, err = cmd.CombinedOutput()
