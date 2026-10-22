@@ -7,7 +7,7 @@ parent: null
 depends_on: []
 release_binding: null
 created: 2026-10-21
-updated: 2026-10-21
+updated: 2026-10-22
 ---
 
 # Job controls for orchestrators running many peers
@@ -88,7 +88,54 @@ capacity retry; explicit completion with a sleeping target; inherited pipes;
 observer failure; and ownership isolation from an unrelated process. Build and
 vet passed before the first implementation commit `ce6b3a5`.
 
-Final frozen-tree verification is pending. Test counts below will be measured,
-not estimated. The validation script will run in a task-owned checkout copy so
-its packaging/deletion and release-archive checks touch only disposable files,
-while no installed or committed binaries are refreshed.
+Frozen code tested: `ac7e5f826f807aedddca64db5a7e6f12bae2b93a`, using
+`go version go1.26.4 linux/amd64`. All commands below passed offline. Counts
+are measured from the JSON test events, not estimates:
+
+- `go test -json ./...`: exit 0; 209 top-level test passes, 305 including
+  subtests, 12 tested packages, zero failed or skipped tests. The testsupport
+  package has no tests. Reused this earlier full-suite pass after the interrupted
+  verification because the code SHA was unchanged, as godot-41 directed.
+- `./scripts/validate.sh`: exit 0 in a proper detached disposable Git worktree
+  at the same SHA. Its required suite replay, build, plugin package, strict
+  Claude plugin validation, committed-binary/shim smoke, metadata/docs checks
+  and archive builds all passed. Archive targets: Linux amd64/arm64 and macOS
+  amd64/arm64. No publish flag, tag, push, installed-plugin write or committed
+  binary refresh. Existing missing-plugin-icon warning is nonblocking.
+- `GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go vet ./...` and
+  `GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go vet ./...`: exit 0 each.
+- `GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go test -c -o <scratch>/windows-tests/ ./...`
+  and the equivalent Darwin command: exit 0 each. These compile tests without
+  executing them; no native Windows or macOS runtime coverage is claimed.
+- `go build ./...`, `go vet ./...`, and `git diff --check`: passed before the
+  final evidence-only commit, as before each implementation commit.
+
+Feature-to-regression mapping (all included in the full-suite pass):
+
+| Requested outcome | Regression evidence |
+| --- | --- |
+| Wait for any job, resolve across worktrees, reject unknown ids first | `TestWaitAnyReturnsFirstTerminalAcrossDirectories`, `TestWaitAnyWaitsForLaterCompletion`, `TestWaitAnyValidatesAllIDsBeforeReturningTerminal`, `TestMultipleJobReferences` |
+| Compact multi-status and compatible single-status | `TestMultipleStatusJSONAndText`, existing `TestParseStatus`, cancelled-backoff regression in `session_fixes_test.go` |
+| Live session ids survive cancellation | `TestLiveSessionAndUntruncatedMessageSurviveCancellation`, `TestProgressPreservesTerminalWinner` |
+| Preserve full reports on running, cancelled, failed and retried jobs | The live-session test, `TestFailedCodexRetainsFinalMessage`, `TestCapacityRetryPreservesMessagePointer`, `TestLineObserverPreservesLargeFragmentedLines`; fake report is 240000 bytes (measured UTF-8 length) |
+| Complete a target that prints its terminal event then sleeps | `TestTaskCompleteStopsOwnedHangingCodex`, `TestTerminalStreamEnvelopes`, `TestProgressMessageDoesNotEndTurn` |
+| End only owned processes, including inherited output pipes | `TestOSRunnerCompletesWithInheritedOutputPipes`, `TestCompletionDoesNotStopUnrelatedProcess`, `TestOSRunnerStopsOwnedProcessOnObserverFailure` |
+| Avoid repeated large-message reads while waiting | `TestWaitPollDoesNotReadRunningMessage` |
+| Help/README/both skill copies expose opt-in capacity recovery | Validation documentation and skill checks; existing async capacity/default-no-retry regression tests |
+
+Verification logs retained while this feature awaits godot-41's review:
+`/storage/scratch/peeragent/job-controls-2/full-test.jsonl`,
+`full-test.exit`, `environment.log`, `direct-environment.log`,
+`validate-direct.log`, `validate-direct.exit`, and the Windows/Darwin
+`*-vet.log`, `*-compile.log` and matching exit files. The final aggregate
+`verify-direct.exit` is 0. The owner can remove these on acceptance; the tracked
+record above is the permanent verification log. The unit's Go cache remains at
+`/storage/build/peeragent/job-controls-2-go-cache` for any correction round and
+must be removed when the unit lands or is abandoned.
+
+The previous queued validation was stopped by godot-41; that interruption was
+not a product failure. Removed the task-local Go queue wrapper and reran the
+validator directly, with no `heavy` and no PATH override. The earlier archive
+copy lacked Git metadata; it was deleted and replaced by the disposable Git
+worktree. Disposable checkout, test binaries and probes were removed after
+verification. No performance or runtime timing measurements were made.
