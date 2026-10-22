@@ -24,7 +24,7 @@ func RecordJobProgress(store jobs.Store, id string, progress executil.Progress) 
 		}
 		if progress.Event != "" || progress.Message != "" {
 			preview := progress.LastMessage
-			if preview == "" && progress.Message == "" {
+			if preview == "" && progress.Message == "" && job.MessagePath != "" {
 				previous, err := jobs.ReadProgress(job.LogPath)
 				if err != nil {
 					return fmt.Errorf("read previous job progress: %w", err)
@@ -34,7 +34,8 @@ func RecordJobProgress(store jobs.Store, id string, progress executil.Progress) 
 			if preview == "" && progress.Message != "" {
 				preview = executil.MessagePreview(progress.Message)
 			}
-			if err := jobs.AppendProgress(job.LogPath, jobs.Progress{At: timePointer(), Event: progress.Event, LastMessage: preview}); err != nil {
+			now := time.Now().UTC()
+			if err := jobs.AppendProgress(job.LogPath, jobs.Progress{At: &now, Event: progress.Event, LastMessage: preview}); err != nil {
 				return fmt.Errorf("append job %s progress: %w", id, err)
 			}
 		}
@@ -74,8 +75,6 @@ func enrichJobResult(res *result.Result, job jobs.Job) error {
 	}
 	return nil
 }
-
-func timePointer() *time.Time { now := time.Now().UTC(); return &now }
 
 func addProgress(res *result.Result, job jobs.Job) error {
 	progress, err := jobs.ReadProgress(job.LogPath)

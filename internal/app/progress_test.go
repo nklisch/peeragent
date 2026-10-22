@@ -70,3 +70,43 @@ func TestWaitPollDoesNotReadRunningMessage(t *testing.T) {
 		t.Fatal("explicit result did not report missing message file")
 	}
 }
+
+func TestProgressPreviewSurvivesToolActivityAndRetry(t *testing.T) {
+	cwd := t.TempDir()
+	store := jobs.NewStore(cwd)
+	job, err := store.Create(cwd, testJobSpec(), "work")
+	if err != nil {
+		t.Fatal(err)
+	}
+	reports := []executil.Progress{
+		{Event: "item.completed", AgentSession: "same", Message: "Building\n  the library."},
+		{Event: "item.started", AgentSession: "same"},
+		{Event: "thread.started", AgentSession: "same"}, // fresh retry parser has no message yet
+	}
+	for _, report := range reports {
+		if err := RecordJobProgress(store, job.ID, report); err != nil {
+			t.Fatal(err)
+		}
+	}
+	progress, err := jobs.ReadProgress(job.LogPath)
+	if err != nil || progress.At == nil || progress.Event != "thread.started" || progress.LastMessage != "Building the library." {
+		t.Fatalf("retry preview: %#v %v", progress, err)
+	}
+	// Status never opens the full report, even when the report disappears.
+	job, err = store.Load(job.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(job.MessagePath); err != nil {
+		t.Fatal(err)
+	}
+	service := NewService(Options{})
+	single, err := service.JobStatus(context.Background(), JobRequest{CWD: cwd, JobID: job.ID})
+	if err != nil || single.Metadata.LastMessage != progress.LastMessage || single.Metadata.LastEventAt == nil {
+		t.Fatalf("single status: %#v %v", single, err)
+	}
+	multi, err := service.JobStatuses(context.Background(), []JobRequest{{CWD: cwd, JobID: job.ID}, {CWD: cwd, JobID: job.ID}})
+	if err != nil || len(multi) != 2 || multi[0].LastMessage != progress.LastMessage {
+		t.Fatalf("multi status: %#v %v", multi, err)
+	}
+}

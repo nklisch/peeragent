@@ -227,6 +227,8 @@ Continue a prior target-agent session:
 bin/peeragent --agent claude --resume <agent-session> "Check whether the revision addressed your prior concerns."
 ```
 
+Every launch has a `metadata.job_id`, including blocking and resumed calls.
+Text output prints the job id; blocking text calls also print it before waiting.
 When available, JSON output includes `metadata.agent_session`. Use that value
 for continuity inside one review loop. Start a fresh call without `--resume`
 when you want an independent second opinion.
@@ -371,8 +373,10 @@ bin/peeragent --status <job-id>
 
 For several jobs, `--status <job-id> <other-job-id>` prints one compact JSON
 record per line. Add `--text` for a table of status, model, effort, session,
-start time, capacity backoff, and current worktree HEAD when git is available.
-Single-id status keeps its existing result format. `started_at` is the job's
+start time, capacity backoff, current worktree HEAD when git is available,
+and the last agent event time and a short single-line message preview.
+Single-id status keeps its result format and adds `metadata.last_event_at`
+and `metadata.last_message` when progress is available. `started_at` is the job's
 launch time. HEAD is read once per worktree without inspecting changed files.
 
 Both multi-job controls accept `<job-id>@<directory>` for unindexed jobs,
@@ -394,7 +398,9 @@ Codex session ids and the latest completed agent message are saved while the
 job runs, so `--status` exposes `metadata.agent_session` before cancellation.
 `--result` includes the message without truncation or points to
 `metadata.message_path` (`message.txt`), including after failure or cancellation
-and across capacity retries. Raw attempt logs remain available through
+and across capacity retries. `agent.log` fills live with timestamped Codex event
+names and message previews; status reads only its last 8 KiB. Full reports stay
+in `message.txt`, and raw attempt logs remain available through
 `metadata.log_path` when written.
 
 A Codex terminal event (`turn.completed`, `turn.failed`, `task_complete`, or a
@@ -414,7 +420,8 @@ Cancel the job:
 bin/peeragent --cancel <job-id>
 ```
 
-Async state lives under `.peeragent/jobs/` in the target repository. It is
+Job state for both blocking and async launches lives under `.peeragent/jobs/`
+in the target repository. It is
 local runtime state and ignored by git. Job controls find newly launched jobs by
 id from any directory. `--resume <agent-session>` uses the directory recorded
 when that session last returned a result. An explicit `--cwd <path>` always
@@ -424,14 +431,25 @@ directory or `--cwd`.
 The lookup index lives at `<user-cache>/peeragent/index/` (Go's `os.UserCacheDir`:
 `$XDG_CACHE_HOME` or `~/.cache` on Linux, `~/Library/Caches` on macOS, and
 `%LocalAppData%` on Windows). `PEERAGENT_STATE_DIR` overrides the `peeragent`
-state root. It contains only working directories, keyed by job id or by agent
-and session id; directories use mode `0700` and files `0600` on Unix. Clearing
+state root. Its lookup entries contain only working directories, keyed by job
+id or by agent
+and session id; short launch-lock files contain their holder PID. Directories use mode `0700` and files `0600` on Unix. Clearing
 it does not remove jobs, but requires `--cwd` for lookup again. An index write
 failure is reported in `metadata.index_warning`; the job still runs and can be
 controlled with `--cwd`.
 
-Codex's explicit “Selected model is at capacity” stop returns the terminal
-status `capacity_exhausted`, with `metadata.agent_session` when available.
+Resuming a session with a live running job exits `2` before launch, naming that
+job and its `--wait` and `--cancel` commands. This prevents two agents from
+interleaving edits and session history. Terminal jobs and jobs whose recorded
+process is gone do not block resumption. Use `--allow-concurrent-session` to
+permit intentional overlap or bypass a stale launch lock. The check covers the
+current directory and worktrees known to the per-user index; after clearing the
+index, keep `--cwd` pointed at the worktree holding the running job.
+
+Codex's explicit “Selected model is at capacity” stop, including during remote
+context compaction, returns the terminal status `capacity_exhausted`, with `metadata.agent_session` when available.
+Results and status say “stopped: model at capacity; resumable with --resume
+<session>” before the last agent message.
 Blocking calls exit `1`. By default no retry occurs. To opt into up to twelve
 additional attempts with a ten-minute delay:
 
@@ -440,7 +458,9 @@ bin/peeragent --async --retry-capacity 12 "Implement the requested change."
 ```
 
 `--capacity-backoff <duration>` changes the delay, for example `--capacity-backoff
-5m`. Retry options require async Codex delegation. Each retry resumes the same
+5m`. Retry options require `--async --agent codex`, including when using
+`--resume`; add `--async` to a resumed call to enable them. Each retry resumes
+the same
 session with a continuation prompt and preserves execution settings and the
 job id; it never starts a replacement conversation. Without a session id, or
 after the retry budget is spent, the capacity result is terminal. Jobs remain

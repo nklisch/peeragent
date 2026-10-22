@@ -312,3 +312,42 @@ cleanup on acceptance/landing or abandonment as recorded above.
 No new flags, output-shape or exit-code changes. No remaining blocker is known.
 Native macOS/Windows runtime qualification, the existing Windows assignment
 race and private-session-log-only completion remain the earlier follow-ups.
+
+
+## Round 3: capacity diagnostics, live progress and safe resumes
+
+Implementation requested by godot-41 from the October 22 friction sweep;
+ready for owner review, with opt-in retry defaults unchanged.
+
+- The direct-capacity incident's `error` followed by `turn.failed` is already
+  classified by base `ae0c15a`; its job now records `capacity_exhausted`.
+  Added real-shape parser and fake-CLI regression coverage rather than claiming
+  a new parser fix for a failure this checkout cannot reproduce. The second
+  incident's remote-compaction prefix prevented the diagnostic-prefix match;
+  unwrap that known prefix before classifying, preserving terminal precedence.
+  Both shapes now have stop/result/status and opt-in retry coverage. Summaries
+  say the model is at capacity and include the resume command ahead of the
+  prior agent message.
+- Chose live compact JSONL in `agent.log`, preserving full messages separately
+  and raw per-attempt logs after exit. Status reads only its last 8 KiB, including
+  a timestamp and single-line message preview retained across tool events and
+  retries. No full-log/report read per status or wait poll.
+- Every CLI launch now uses the tracked worker. Blocking calls wait for its
+  result with their existing success/failure exits; async calls return immediately.
+  JSON and text carry the job id. Blocking text also prints it before waiting.
+- A short per-agent/session launch lock serializes the check/start window.
+  The check scans the requested worktree and worktrees known to the index,
+  ignoring terminal jobs and recorded processes that have exited. A conflict
+  exits 2 before launch and names the job, wait/cancel commands and
+  `--allow-concurrent-session` override. The threat is interleaved/lost work in
+  one session; the refusal prevents the second writer. Clearing the index loses
+  knowledge of other worktrees; use the original worktree with `--cwd` then.
+  The override also bypasses a stale launch lock. No process is signalled by
+  the check. Tests cover concurrent launches, agent namespaces, cross-worktree
+  conflicts, terminal/gone/missing PIDs, override and CLI exit 2.
+- Retry errors and help now explicitly say to add `--async`, including with
+  `--resume`, and require Codex. Defaults, budgets and backoff remain unchanged.
+
+No installed plugin, committed binary, release/tag, main checkout or other
+session's job folder was modified. Native Windows/macOS execution and real
+model calls remain outside this Linux unit; final qualification follows below.

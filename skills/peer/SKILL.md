@@ -128,11 +128,19 @@ Prefer `--async` for normal implementation, research, and review passes so a
 long-running peer does not consume or exceed the launch tool call. For async
 Codex work, add `--retry-capacity N` to opt into recovery from capacity stops;
 it is disabled by default, resumes the same session, and waits `10m` between
-attempts unless `--capacity-backoff` overrides it. For example:
+attempts unless `--capacity-backoff` overrides it. Retry options require
+`--async --agent codex` even with `--resume`; add `--async` to a resumed call.
+For example:
 
 ```bash
 <resolved-peeragent-bin> --async --agent codex --retry-capacity 12 --prompt-file <brief>
 ```
+
+Every launch carries a job id in JSON and text, including resumed calls. A
+resume refuses with exit `2` while another job for that agent/session has a
+live recorded process; follow its wait/cancel instructions. Use
+`--allow-concurrent-session` only for intentional overlap. Capacity results
+and status explain the stop and how to resume before the last agent message.
 
 After the
 launch returns a job id, start peeragent's attached waiter:
@@ -150,7 +158,9 @@ whether the target succeeded. Rearm with the remaining ids after completion.
 
 `--status <job-id> <other-job-id>` prints one compact JSON record per job;
 `--text` prints a table including model, effort, session, start time, capacity
-backoff and worktree HEAD when available. A single id keeps the usual result.
+backoff, worktree HEAD, last agent event time and a short message preview.
+`agent.log` fills live with compact Codex events; status reads a bounded tail.
+A single id keeps the usual result with live fields in metadata.
 For either multi-job control, use `job-id@directory` for an unindexed job;
 quote the whole reference for paths with spaces. Per-job directories win over
 `--cwd`, which otherwise overrides indexed lookup.

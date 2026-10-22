@@ -65,7 +65,8 @@ The project contains:
 ### Blocking
 
 Blocking invocation is the default. The host calls the wrapper and waits until
-the target agent completes.
+the target agent completes. It uses a tracked worker like async mode; every
+launch has a job id in JSON and text, including resumed calls.
 
 ### Async
 
@@ -167,8 +168,10 @@ last recorded directory for that agent/session pair. Explicit `--cwd` overrides
 either lookup; older unindexed jobs remain accessible with `--cwd`.
 
 Session resume is intended for continuity inside a single multi-pass workflow
-such as peer review. It should not be used when the user wants an independent
-second opinion, because resumed sessions carry forward the prior critique and
+such as peer review. A resume refuses with exit `2` if a running job for the
+same agent/session has a live recorded process; the error names the job and
+wait/cancel commands. `--allow-concurrent-session` permits intentional overlap. Resume should not
+be used when the user wants an independent second opinion, because resumed sessions carry forward the prior critique and
 can anchor later passes.
 
 Codex exposes session ids through JSONL output and resumes with
@@ -197,6 +200,10 @@ can use `metadata.agent_session` for continuity and `metadata.log_path` for raw
 target stdout/stderr inspection when output exists. Codex session ids and completed
 messages are persisted while running; result includes untruncated output or a
 `metadata.message_path` pointer after failures, cancellations and capacity retries.
+Both status forms include the latest event time and a short one-line message
+preview from a bounded tail of the live `agent.log`. Capacity results/status
+explain the stop and how to resume before displaying the last agent message.
+The known remote-compaction diagnostic prefix also qualifies for capacity.
 Explicit terminal stream events start a five-second grace period before the
 owned target tree is stopped if it has not exited. Progress messages alone do
 not start shutdown.

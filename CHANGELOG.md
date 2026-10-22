@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+### Features
+- Single and multi-job status show the last Codex event time and a short agent-message preview from a bounded log tail.
+  `agent.log` fills while the job runs; full reports remain in `message.txt`.
+- Every CLI launch, including blocking and resumed calls, carries its job id in JSON and text.
+- Resumes refuse with exit 2 when the same agent session has a live running job, naming the job and wait/cancel commands.
+  `--allow-concurrent-session` permits intentional overlap; terminal jobs and exited processes do not block.
+
+### Fixes
+- Recognize model-capacity failures during remote context compaction, retaining terminal-event precedence and opt-in retries.
+- Capacity results and status explain the stop and show the resume command before the last agent message.
+- Retry-option errors and help explicitly require `--async --agent codex`, including with `--resume`.
+
 ## v0.10.0
 
 ### Features

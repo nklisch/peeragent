@@ -176,7 +176,7 @@ func (s *streamState) consume(line string) (executil.Progress, bool) {
 			return executil.Progress{}, false
 		}
 	}
-	oldSession, oldMessage, oldTerminal := s.session, s.message, s.terminal
+	oldMessage := s.message
 	if s.turnComplete && isActivityEvent(event.Type) {
 		s.turnComplete, s.terminal = false, false
 		s.observation = executil.CompletionActive
@@ -238,7 +238,6 @@ func (s *streamState) consume(line string) (executil.Progress, bool) {
 		}
 		s.capacity, s.terminal, s.success = false, true, true
 	}
-	changed := oldSession != s.session || oldMessage != s.message || oldTerminal != s.terminal
 	if oldMessage != s.message {
 		s.preview = executil.MessagePreview(s.message)
 	}
@@ -246,7 +245,7 @@ func (s *streamState) consume(line string) (executil.Progress, bool) {
 	if oldMessage != s.message {
 		progress.Message = s.message
 	}
-	return progress, changed || event.Type != ""
+	return progress, event.Type != ""
 }
 
 // Turn completion is provisional: stop hooks and goals can continue the same

@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -109,5 +110,22 @@ func exitedProcess(t *testing.T) int {
 func TestExitedProcessHelper(t *testing.T) {
 	if os.Getenv("PEERAGENT_EXIT_HELPER") == "1" {
 		os.Exit(0)
+	}
+}
+
+func TestResumeGuardStorageFailureStaysInfrastructureError(t *testing.T) {
+	t.Setenv("PEERAGENT_STATE_DIR", t.TempDir())
+	cwd := t.TempDir()
+	store := jobs.NewStore(cwd)
+	job, err := store.Create(cwd, jobs.ExecSpec{Agent: "codex", Resume: "same"}, "work")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(store.Root, job.ID, "job.json"), []byte("invalid json"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	res, err := protectSession(input.Delegation{CWD: cwd, Agent: "codex", Resume: "same"}, func() (result.Result, error) { t.Fatal("launched with unreadable state"); return result.Result{}, nil })
+	if err == nil || res.Metadata.ExitCode != 1 || !strings.Contains(err.Error(), "load job "+job.ID) {
+		t.Fatalf("storage error became usage/conflict: %#v %v", res, err)
 	}
 }

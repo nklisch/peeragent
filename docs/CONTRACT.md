@@ -60,8 +60,9 @@ Options:
 - `--retry-capacity <N>`: For async Codex delegation, resume capacity stops up
   to N additional times (non-negative integer; default zero). A captured or
   supplied session id is required; otherwise the capacity result is terminal.
+  Requires `--async --agent codex`, including with `--resume`.
 - `--capacity-backoff <duration>`: Positive delay between capacity retries,
-  default `10m`. Requires async Codex delegation.
+  default `10m`. Requires `--async --agent codex`, including with `--resume`.
 - `--sandbox`: Use the default target mode. For Gemini this enables terminal
   containment while tool permissions remain auto-approved for headless autonomy.
 - `--full-access`: Remove target sandboxing. Gemini still auto-approves tools in
@@ -82,6 +83,11 @@ Options:
   `low|medium|high`, while Pro accepts `low|high`. Z.AI accepts only
   `glm-5.2`; no other Z.AI models are surfaced.
 - `--profile <name>`: Pass a Codex configuration profile.
+- `--allow-concurrent-session`: Permit concurrent jobs in one agent session.
+  Without it, a resume with a live running job is usage exit `2`, with the job
+  id, wait/cancel commands and override in the error. Terminal jobs and exited
+  recorded processes do not block. The short check/start lock covers concurrent
+  resumed launches; the override also bypasses an interrupted launcher's lock.
 - `--resume <agent-session>`: Resume a prior target-agent session when the
   target supports it. Use this for continuity inside one review loop; omit it
   for an independent second opinion.
@@ -125,7 +131,9 @@ The default result is JSON:
 ```
 
 When available, `metadata.agent_session` contains the target-agent session id
-that can be passed back with `--resume`.
+that can be passed back with `--resume`. Every CLI launch, including blocking
+and resumed calls, carries `metadata.job_id` and persists tracked job state.
+Text results include `job_id`; blocking text calls print it before waiting.
 
 `status` values:
 
@@ -249,7 +257,12 @@ exit behavior: terminal target outcomes exit `0`, with the target's outcome in
 
 `--status <job-id>...` with multiple ids emits one compact JSON object per line,
 with `job_id`, `status`, `model`, `effort`, `agent_session`, `started_at` (launch
-time), `capacity_backoff`, `final_received`, `cwd`, and optional `head_commit`.
+time), `capacity_backoff`, `final_received`, `cwd`, and optional `head_commit`,
+`last_event_at`, `last_message` and `summary`. Live timestamps use UTC RFC3339
+with fractional seconds; message previews are one short line. Single-id status
+adds `metadata.last_event_at` and `metadata.last_message`. Capacity status/results
+put “stopped: model at capacity; resumable with --resume <session>” in the summary,
+ahead of the last agent message (omitting the resume hint if no session is known).
 `--text` renders a table. HEAD is read once per worktree, without walking changed
 files; missing git/HEAD omits the commit. Single-id output remains a Result.
 Missing or unreadable batch-status jobs produce an error before printing rows.
@@ -267,17 +280,18 @@ spaces. Relative directories resolve against the caller's directory.
 - `3`: Wrapper binary unavailable for this platform.
 - `4`: Async job lookup failed.
 
-## Async State
+## Job State
 
-Async state is stored under:
+Blocking and async CLI launches use the same tracked worker. Their state is
+stored under:
 
 ```text
 .peeragent/jobs/<job-id>/
   job.json       lifecycle + ExecSpec + live session/completion/backoff observations
   prompt.txt     resolved task text, parent-written, child-read
   pid            child PID/PGID for cancel, present while running
-  agent.log      background wrapper stdout+stderr
-  target.log     raw target stdout+stderr when available
+  agent.log      live compact Codex progress JSONL + background wrapper diagnostics
+  target.log     raw target stdout+stderr written after the attempt exits
   message.txt    latest completed agent message, written as received (untruncated)
   result.json    final result, written by child OR by --cancel
 ```
@@ -289,7 +303,9 @@ values are absolute working directories. Index directories use `0700` and
 files `0600` on Unix. Independent atomic entries support concurrent launches
 without one shared read/modify/write file. The index can be deleted; explicit
 `--cwd` remains usable. Job entries are written before launch and session
-entries when the target returns a session. It is a locator, not job truth.
+entries when the target returns a session. Short per-session launch locks live
+in `index/session-launch-locks/` and hold a launcher PID for diagnostics. The
+lookup index is a locator, not job truth.
 On Windows, transient sharing or access-denied errors during index replacement
 are retried up to ten attempts with at most 450ms of delay. Other errors return
 immediately; persistent write failures still warn without blocking delegation.
@@ -302,7 +318,9 @@ attempt's log. Only explicit Codex capacity diagnostics trigger retries, never
 ordinary failures or a final agent message discussing capacity. The last structured
 `turn.failed` or `turn.completed` event determines the outcome, overriding earlier
 capacity history. Stderr capacity diagnostics are considered only when no structured
-terminal event exists; historical or quoted mentions do not qualify. The existing
+terminal event exists; historical or quoted mentions do not qualify. The known
+“Error running remote compact task:” diagnostic prefix is unwrapped before
+checking for capacity, including on `turn.failed`. The existing
 cancel/finish lock protects terminal state from later retry completion.
 
 `--cancel` writes `job.json` and `result.json` as cancelled before signalling.
@@ -334,6 +352,22 @@ in `message.txt`; results include them or provide `metadata.message_path`, even
 when a subsequent capacity attempt has no message. This file holds the latest
 completed message, which may be a progress update if interrupted before a final
 reply. Raw per-attempt logs remain separate.
+
+`agent.log` appends a compact JSON record for each structured Codex event as it
+arrives: `at` (UTC timestamp), `event`, and `last_message` (the latest short
+preview). Tool activity retains the previous message preview. Status reads a
+bounded 8 KiB tail, skipping partial writes, instead of loading entire logs or
+reports. This keeps live progress visible without duplicating full reports.
+Retries retain the preceding attempt's last message until a new message arrives.
+
+Before a resume starts, peeragent scans jobs in the requested worktree and
+worktrees located by the job/session index, checking nonterminal jobs for the
+same agent/session and a live recorded PID. A per-session launch lock makes the
+check and worker launch atomic relative to other resumed launches. This prevents
+lost or interleaved work in one session. It is not an authority over unknown
+worktrees: after clearing the index, use the original worktree with `--cwd`.
+It never signals processes during the check. Native liveness checks are separate
+on Unix and Windows; the intentional override is `--allow-concurrent-session`.
 
 Terminal `turn.failed`, `task_complete` (including `event_msg` envelopes),
 and messages marked `final`/`final_answer` start a five-second grace period.

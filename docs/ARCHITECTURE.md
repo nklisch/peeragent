@@ -150,9 +150,10 @@ Worktree execution is recognized but not implemented yet.
 ```text
 1. Host invokes the `peer` skill with task text.
 2. The skill calls `peeragent --agent <target>`.
-3. The wrapper runs the target CLI in the current working directory.
+3. The wrapper starts a tracked worker, as in async mode, and waits for it.
+   Blocking text output prints the job id before waiting.
 4. The target edits, runs commands, and returns a final message.
-5. The wrapper formats the result.
+5. The wrapper formats the terminal result, including metadata.job_id.
 6. The host reads the result and continues the session.
 ```
 
@@ -180,7 +181,9 @@ controls use the same lookup when no directory is supplied. Explicit `--cwd`
 bypasses lookup. Index write failures warn without preventing delegation.
 
 Codex normalizes explicit capacity error events into a distinct terminal result
-while preserving the session id. The async child optionally retries that result
+while preserving the session id. The known remote-compaction error prefix is
+unwrapped before matching the diagnostic; structured terminal outcomes remain
+authoritative over diagnostic history. The async child optionally retries that result
 with the same session and execution settings, a continuation prompt, and a
 bounded retry count and configurable backoff. Each attempt retains its raw log.
 The job stays running until the final attempt, and terminal cancellation wins
@@ -217,6 +220,16 @@ contract. Explicit `job-id@directory` references override a shared `--cwd`.
 Completed messages live in `message.txt`, keeping status reads small even when
 an agent returns a long report. Results either include the message or expose its
 path, including when a later capacity attempt fails without another message.
+Live compact progress records append to `agent.log`; status reads its bounded
+8 KiB tail for the latest event timestamp and short message preview. Raw target
+logs are written after each attempt, keeping full output separate.
+
+Resumed launches hold a short per-session filesystem lock across the live-job
+check and worker launch/PID persistence. The check scans the requested worktree
+and directories known to the per-user index, ignoring terminal jobs and exited
+recorded processes. It refuses with usage exit 2 and wait/cancel instructions to
+prevent interleaved session work; `--allow-concurrent-session` bypasses the check
+and lock. Blocking and async CLI calls share this boundary.
 
 ## Extension Points
 
