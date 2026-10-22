@@ -443,3 +443,42 @@ CHANGELOG Unreleased and the lifecycle docs describe the correction. The first
 counterexample output is retained in `fix-1-counterexample.log` in this unit's
 scratch. Native macOS/Windows runtime checks remain unavailable in this Linux
 unit; qualification is recorded below after the frozen run.
+
+
+### Accepted worker-exit correction qualification
+
+Tested frozen source: `148f87d3bd8e7324be3d518d94f5c1d6fdb2b447`, with
+`go version go1.26.4 linux/amd64`. The final evidence commit changes this record
+only. Commands used the same warm
+`GOCACHE=/storage/build/peeragent/job-controls-3-go-cache` and `GOFLAGS=-p=6`.
+
+- Focused fake-agent regressions passed: 14 top-level / 30 including subtests,
+  across app/jobs/CLI, using `go test -json ./internal/app ./internal/jobs
+  ./cmd/peeragent -run 'TestBlockingWorker|TestWorkerExit|TestExitedUnreaped|TestBlockingCLIWorker|TestEveryLaunchPrintsJobID|TestResumeGuard|TestProcessLauncher|TestProcessExists'
+  -count=1`. The additional `go test ./internal/app -run TestWorkerExit -count=1`
+  passed after adding `TestWorkerExitRepairsUnfinishedTerminalWrite`, which
+  preserves result.json and repairs job.json when exit interrupts that update.
+- `go test -json ./...`: **241 top-level / 367 total passes**, 12 tested
+  packages, zero failures/skips. Testsupport has no tests.
+- `./scripts/validate.sh`: passed offline in a disposable checkout of the same
+  SHA, including its required suite replay, package/shim checks and Linux/macOS
+  archive builds. Existing missing-icon warning remains nonblocking.
+- `GOOS=<os> GOARCH=<arch> CGO_ENABLED=0 go vet ./...` and
+  `go test -c -o <scratch>/fix-1-<os>-<arch>-tests/ ./...`: passed for Windows
+  amd64 and macOS amd64/arm64. Native execution remains unverified there.
+- `go build ./...`, `go vet ./...` and `git diff --check`: passed, as build/vet
+  did before each code commit. No timing measurement or real model call.
+
+Result log: `/storage/scratch/peeragent/job-controls-3/fix-1-verification.log`;
+raw suite: `fix-1-full-test.jsonl`; focused batch: `fix-1-focused.jsonl`;
+validator detail: `fix-1-validate.log`; aggregate completion:
+`fix-1-verify.exit` (0), all under that same scratch directory. The original
+failing counterexample is preserved in `fix-1-counterexample.log`. Logs and
+the existing warm cache remain for godot-41's correction review. The temporary
+validation worktree, generated archives/binaries, platform test binaries and
+one-off scripts created for this correction were removed before handback.
+
+The accepted finding is fixed rather than deferred. All launch/wait changes
+stay local to this branch; no installed plugin/binary, release metadata/tag,
+main checkout, other sessions' jobs or review files were modified. Godot-41
+owns review, landing and release.
