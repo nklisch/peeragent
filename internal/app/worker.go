@@ -44,8 +44,21 @@ func (s *Service) WorkerExited(ctx context.Context, raw JobRequest, code int, wa
 		res = result.Result{
 			Status:       result.StatusFailed,
 			Summary:      fmt.Sprintf("job worker exited with status %d before writing a terminal result; inspect %s", code, job.LogPath),
-			ChangedFiles: []string{}, Verification: []result.Verification{},
-			Metadata: result.Metadata{JobID: job.ID, CWD: job.CWD, Agent: job.Spec.Agent, Access: job.Spec.Access, Profile: job.Spec.Profile, Effort: job.Spec.Effort, Model: job.Spec.Model, AgentSession: job.Spec.Resume, CapacityRetries: job.CapacityRetries, ExitCode: code, LogPath: job.LogPath},
+			ChangedFiles: []string{},
+			Verification: []result.Verification{},
+			Metadata: result.Metadata{
+				JobID:           job.ID,
+				CWD:             job.CWD,
+				Agent:           job.Spec.Agent,
+				Access:          job.Spec.Access,
+				Profile:         job.Spec.Profile,
+				Effort:          job.Spec.Effort,
+				Model:           job.Spec.Model,
+				AgentSession:    job.Spec.Resume,
+				CapacityRetries: job.CapacityRetries,
+				ExitCode:        code,
+				LogPath:         job.LogPath,
+			},
 		}
 		if waitErr != nil {
 			res.Details = "wait for job worker: " + waitErr.Error()

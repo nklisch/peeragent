@@ -104,3 +104,25 @@ func TestWorkerExitPreservesTerminalWinner(t *testing.T) {
 		})
 	}
 }
+
+func TestWorkerExitRepairsUnfinishedTerminalWrite(t *testing.T) {
+	cwd := t.TempDir()
+	store := jobs.NewStore(cwd)
+	job, err := store.Create(cwd, jobs.ExecSpec{Agent: "codex", Resume: "same"}, "work")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The worker committed result.json, then exited before updating job.json.
+	prior := result.Result{Status: result.StatusSuccess, Summary: "completed", Metadata: result.Metadata{JobID: job.ID, CWD: cwd, ExitCode: 0}}
+	if err := WriteJobResult(job.ResultPath, prior); err != nil {
+		t.Fatal(err)
+	}
+	got, err := NewService(Options{}).WorkerExited(context.Background(), JobRequest{CWD: cwd, JobID: job.ID}, 23, nil)
+	if err != nil || got.Status != result.StatusSuccess || got.Summary != prior.Summary {
+		t.Fatalf("lost terminal result: %#v %v", got, err)
+	}
+	job, err = store.Load(job.ID)
+	if err != nil || job.Status != jobs.StatusComplete {
+		t.Fatalf("unfinished status not repaired: %#v %v", job, err)
+	}
+}
