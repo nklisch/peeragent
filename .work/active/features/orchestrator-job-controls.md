@@ -268,5 +268,47 @@ ownership, waitable exit, observer failure and inherited output pipes. A focused
 `go test -race` on the three stdin cases also passed: measured 3 top-level / 5
 total test passes. The fake measured an 8388608-byte prompt and 65536-byte pipe
 capacity. These are byte counts, not performance estimates. Native build/vet
-and diff checks passed before the fix commit. Frozen-tree qualification is
-pending below.
+and diff checks passed before the fix commit.
+
+### Blocked-input frozen-tree qualification
+
+Tested code: `9ac7614220d2585c01006cc719f10cb6b44f3111`, using
+`go version go1.26.4 linux/amd64`. The following evidence commit only updates
+this record, with no Go changes after the frozen run.
+
+- `GOFLAGS='-v -p=6' ./scripts/validate.sh`: passed offline in a proper detached
+  disposable worktree. Its initial direct `go test ./...` was the **single full
+  suite run on frozen code**. Measured from verbose test events: **222 top-level
+  passes / 326 including subtests, 12 tested packages, zero failed or skipped
+  tests**. The testsupport package has no tests. The extracted full-suite log
+  is a copy of that validator step, not a second execution.
+- Validator packaging, plugin checks, Linux/macOS amd64/arm64 archive builds,
+  documentation/metadata and shim smoke checks passed. Existing missing-icon
+  warning remains nonblocking. No publish flag or installed-plugin write.
+- `GOOS=<os> GOARCH=<arch> CGO_ENABLED=0 go vet ./...` and
+  `go test -c -o <scratch>/stdin-<os>-<arch>-tests/ ./...` passed for
+  Windows amd64 and macOS amd64/arm64. No native execution is claimed there;
+  the descriptor-state regression ran on Linux. The portable prompt-delivery
+  and early-stdin-close cases compile on those platforms.
+- Focused command:
+  `go test -json ./internal/executil -run 'TestCancelBlockedStdin|TestOSRunnerNativeStdin|TestOSRunnerObservedEarlyStdinClose|TestOwnedGroup|TestExitObservation|TestOSRunnerStops|TestOSRunnerCompletes|TestLauncherExit' -count=1`.
+- Race command:
+  `go test -race -json ./internal/executil -run 'TestCancelBlockedStdin|TestOSRunnerNativeStdin|TestOSRunnerObservedEarlyStdinClose' -count=1`.
+- `go build ./...`, `go vet ./...`, and `git diff --check` passed before
+  each commit. All Go steps were direct light work, without `heavy` or a PATH
+  wrapper. No timing or performance benchmark was run.
+
+Raw evidence retained for owner review under
+`/storage/scratch/peeragent/job-controls-2/`: `stdin-focused.jsonl` / `.exit`
+(0), `stdin-race.jsonl` / `.exit` (0), `stdin-counterfactual.jsonl` / `.exit`
+(1, the expected pre-fix cancellation failure), `stdin-frozen-environment.log`,
+`stdin-frozen-full-test.log`, `stdin-frozen-validate.log` / `.exit` (0),
+`stdin-frozen.exit` (0), and `stdin-<os>-<arch>-{vet,compile}.{log,exit}`
+(all exit 0). The temporary old-code reproduction and validation worktrees,
+compiled platform test binaries, scripts, PID markers and probe state were
+removed. The unit's cache and raw logs remain for this open owner review, with
+cleanup on acceptance/landing or abandonment as recorded above.
+
+No new flags, output-shape or exit-code changes. No remaining blocker is known.
+Native macOS/Windows runtime qualification, the existing Windows assignment
+race and private-session-log-only completion remain the earlier follow-ups.
