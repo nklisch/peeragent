@@ -126,3 +126,30 @@ alone did not establish that files were released.
   directory still exists.
 - CHANGELOG v0.10.1 records the Windows test cleanup fix. No production source
   or terminal environment policy changed in this follow-up.
+
+
+### Async-test cleanup qualification
+
+Frozen test/source SHA: `8b258395888d3de4c3dab0f887721d4e3535a9b5`, with
+`go version go1.26.4 linux/amd64`. The final evidence commit changes this record
+only. Focused cleanup/live-status/resume-guard/watchdog/backoff tests passed;
+the full frozen `go test -json ./...` passed once with **247 top-level / 403
+including subtests**, 12 tested packages, zero failures/skips. Two testsupport
+packages have no tests. `go build ./...`, `go vet ./...` and `git diff --check`
+passed before the implementation commit.
+
+`GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go test -c -o
+<scratch>/cleanup-windows-tests/ ./...` passed. Native Windows execution is not
+available here; the public Windows runner must confirm the runtime cleanup fix.
+No extra validator run was made: this follow-up changes test fixtures/cleanup,
+CHANGELOG and this record, and the requested correction checks are the full
+suite and Windows compile. The preceding production validation remains recorded
+above. No production Go source, manifests, installed plugin, tag or push changed.
+
+Result log: `/storage/scratch/peeragent/terminal-env/cleanup-verification.log`;
+raw suite events: `cleanup-full-test.jsonl`; aggregate exit:
+`cleanup-verify.exit` (0), all in the same scratch directory. The temporary
+Windows test binaries and one-off verification script were removed. Checks
+reused `GOCACHE=/storage/build/peeragent/job-controls-3-go-cache` with
+`GOFLAGS=-p=6`; retain logs/cache for owner review as above. No in-scope fix is
+deferred, and the branch remains ready for godot-41's publication decision.
