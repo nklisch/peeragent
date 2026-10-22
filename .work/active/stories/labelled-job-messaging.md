@@ -1,7 +1,7 @@
 ---
 id: labelled-job-messaging
 kind: story
-stage: implementing
+stage: review
 tags: [infra, tests, docs, security]
 parent: null
 depends_on: []
@@ -41,9 +41,45 @@ binary changes or real session contact. The brief is
 
 ## Verification
 
-Pending frozen-source build, vet, full Go suite, Windows compile and offline
-packaging validation. Focused fake-agent/fake-Herdr tests cover the requested
-contracts. No installed target CLI or real Herdr prompt command is used.
+Frozen source tested: `7cc3c221b6831dc017752b0a76acc178706b20dc`, with
+`go version go1.26.4 linux/amd64`. The final handback commit only updates this
+record. All checks passed:
+
+- `go build ./...`, `go vet ./...`, `git diff --check` before the source commit.
+- `go test -json ./...`: **260 top-level / 418 including subtests**, 12 tested
+  packages, zero failed or skipped tests; two helper packages have no tests.
+- `GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go test -c -o
+  /storage/scratch/peeragent/messaging/windows-tests/ ./...` and Windows
+  `go vet ./...` with the same platform environment.
+- `GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build ./...` and the corresponding
+  `GOARCH=arm64` build.
+- `./scripts/validate.sh` from a disposable worktree at the frozen source:
+  full tests, build, plugin validation/metadata, release archives, documentation
+  and shim smokes all passed. Generated products were stored under `/storage`
+  and removed afterward. All six manifests and curated skill copies match.
+
+Go commands reused `GOCACHE=/storage/build/peeragent/job-controls-3-go-cache`
+and `GOFLAGS=-p=6`; final runs used
+`GOTMPDIR=/storage/scratch/peeragent/messaging/go-tmp`. The validator explicitly
+requested by the brief includes its own full-suite invocation.
+
+The thirteen new top-level tests cover labels and Unicode bounds, header/body
+sanitization, shared rate limits including concurrent senders and uncertain
+Herdr failures, no-channel/transport refusals, tell/inbox and concurrent writers,
+failed stdout delivery, unread notices (including help/errors), raw-task opt-out,
+resume startup/snapshot acknowledgement, capacity retry carryover, private state,
+all-target job identity with terminal isolation, and status/result conversation.
+Herdr was inspected only with help commands; all delivery tests use a fake binary
+and synthetic addresses. No real session was contacted.
+
+Raw evidence for review is retained under
+`/storage/scratch/peeragent/messaging/` (`verification.log`, `full-test.jsonl`,
+`test-counts.json`, platform logs and `validate.log`). Disposable validation
+worktree, release products, cross-test binaries and one-off verification script
+were removed. The existing unit Go cache remains for correction/review reuse;
+the owner removes retained evidence/cache after landing.
+
+No push, tag, installed binary update or installed plugin change was made.
 
 No in-scope work is deferred. Native macOS/Windows runtime qualification is
 unavailable on this Linux workstation; cross-compilation will be recorded.
