@@ -1,21 +1,5 @@
 # Changelog
 
-## Unreleased
-
-### Features
-- Single and multi-job status show the last Codex event time and a short agent-message preview from a bounded log tail.
-  `agent.log` fills while the job runs; full reports remain in `message.txt`.
-- Every CLI launch, including blocking and resumed calls, carries its job id in JSON and text.
-- Resumes refuse with exit 2 when the same agent session has a live running job, naming the job and wait/cancel commands.
-  `--allow-concurrent-session` permits intentional overlap; terminal jobs and exited processes do not block.
-
-### Fixes
-- Blocking launches retain and collect their worker's exit. A worker that exits without a terminal result now fails
-  with its exit status and log path instead of hanging the caller. Exited, uncollected Unix workers no longer block resumes.
-- Recognize model-capacity failures during remote context compaction, retaining terminal-event precedence and opt-in retries.
-- Capacity results and status explain the stop and show the resume command before the last agent message.
-- Retry-option errors and help explicitly require `--async --agent codex`, including with `--resume`.
-
 ## v0.10.0
 
 ### Features
@@ -30,6 +14,11 @@
 - Terminal results always carry the agent's final message untruncated, or a pointer to the file holding it, across
   running, failed, cancelled and capacity-retried jobs.
 - `--retry-capacity` is described beside `--async` in help, the README and the skills.
+- Single and multi-job status show the last Codex event time and a short agent-message preview from a bounded log tail.
+  `agent.log` fills while the job runs; full reports remain in `message.txt`.
+- Every CLI launch, including blocking and resumed calls, carries its job id in JSON and text.
+- Resumes refuse with exit 2 when the same agent session has a live running job, naming the job and wait/cancel commands.
+  `--allow-concurrent-session` permits intentional overlap; terminal jobs and exited processes do not block.
 
 ### Fixes
 - An async Codex job that logged its final message and `task_complete`, but never exited, stays `running` no longer.
@@ -40,6 +29,11 @@
 - Pipe draining has no timeout before completion, so a launcher that starts the agent in the background and exits
   no longer cuts the agent off.
 - Cancellation reaches the whole job even when a large prompt is still being written to a descendant that holds stdin.
+- Blocking launches retain and collect their worker's exit. A worker that exits without a terminal result now fails
+  with its exit status and log path instead of hanging the caller. Exited, uncollected Unix workers no longer block resumes.
+- Recognize model-capacity failures during remote context compaction, retaining terminal-event precedence and opt-in retries.
+- Capacity results and status explain the stop and show the resume command before the last agent message.
+- Retry-option errors and help explicitly require `--async --agent codex`, including with `--resume`.
 
 ## v0.9.1
 
