@@ -63,6 +63,7 @@ Flags:
                                   claude default xhigh, accepts high|xhigh).
   --profile <name>                Codex profile override.
   --resume <agent-session>        Resume in its recorded directory unless --cwd is set.
+  --keep-terminal-env             Retain inherited terminal-control variables (default strips them).
   --allow-concurrent-session       Allow another job to write the same agent session.
   --sandbox                       Use the default target mode (Gemini still
                                   auto-approves tools but sandboxes terminals).
@@ -469,16 +470,17 @@ func runAsyncJob(req input.Request) error {
 func requestFromJob(job jobs.Job, prompt string) input.Request {
 	fullAccess, worktree := accessFlagsFromSpec(job.Spec)
 	req := input.Request{
-		TaskText:   prompt,
-		CWD:        job.CWD,
-		JSON:       job.Spec.JSON,
-		Agent:      job.Spec.Agent,
-		Profile:    job.Spec.Profile,
-		Effort:     job.Spec.Effort,
-		Model:      job.Spec.Model,
-		Resume:     job.Spec.Resume,
-		FullAccess: fullAccess,
-		Worktree:   worktree,
+		KeepTerminalEnv: job.Spec.KeepTerminalEnv,
+		TaskText:        prompt,
+		CWD:             job.CWD,
+		JSON:            job.Spec.JSON,
+		Agent:           job.Spec.Agent,
+		Profile:         job.Spec.Profile,
+		Effort:          job.Spec.Effort,
+		Model:           job.Spec.Model,
+		Resume:          job.Spec.Resume,
+		FullAccess:      fullAccess,
+		Worktree:        worktree,
 	}
 	return req
 }
@@ -588,6 +590,7 @@ func resultFromExecution(req input.Request, execResult executil.Result, execErr 
 
 func delegationFromRequest(req input.Request) input.Delegation {
 	return input.Delegation{
+		KeepTerminalEnv:        req.KeepTerminalEnv,
 		AllowConcurrentSession: req.AllowConcurrentSession,
 		RetryCapacity:          req.RetryCapacity,
 		CapacityBackoff:        req.CapacityBackoff,

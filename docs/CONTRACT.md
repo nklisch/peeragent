@@ -83,6 +83,10 @@ Options:
   `low|medium|high`, while Pro accepts `low|high`. Z.AI accepts only
   `glm-5.2`; no other Z.AI models are surfaced.
 - `--profile <name>`: Pass a Codex configuration profile.
+- `--keep-terminal-env`: Keep inherited terminal-control variables for a deliberate
+  need. The default strips them from every target process, including resumes and
+  capacity retries. The override is recorded in job/result metadata. See
+  [the terminal environment policy](TERMINAL_ENV.md) for the complete variable list.
 - `--allow-concurrent-session`: Permit concurrent jobs in one agent session.
   Without it, a resume with a live running job is usage exit `2`, with the job
   id, wait/cancel commands and override in the error. Terminal jobs and exited

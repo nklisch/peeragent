@@ -15,12 +15,13 @@ type Result = executil.Result
 const agyPrintTimeout = "15m"
 
 type Options struct {
-	CWD        string
-	Prompt     string
-	FullAccess bool
-	Effort     string
-	Model      string
-	Resume     string
+	KeepTerminalEnv bool
+	CWD             string
+	Prompt          string
+	FullAccess      bool
+	Effort          string
+	Model           string
+	Resume          string
 }
 
 type printEnvelope struct {
@@ -32,7 +33,7 @@ type printEnvelope struct {
 var lookPath = exec.LookPath
 
 func Exec(ctx context.Context, opts Options) (Result, error) {
-	return ExecWithRunner(ctx, executil.OSRunner{}, opts)
+	return ExecWithRunner(ctx, executil.OSRunner{KeepTerminalEnv: opts.KeepTerminalEnv}, opts)
 }
 
 func ExecWithRunner(ctx context.Context, run executil.Runner, opts Options) (Result, error) {

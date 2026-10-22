@@ -37,6 +37,9 @@ func FormatText(res Result) string {
 	}
 
 	b.WriteString("Metadata:\n")
+	if res.Metadata.KeepTerminalEnv {
+		fmt.Fprintln(&b, "- keep_terminal_env: true")
+	}
 	if res.Metadata.JobID != "" {
 		fmt.Fprintf(&b, "- job_id: %s\n", res.Metadata.JobID)
 	}

@@ -15,9 +15,13 @@ import (
 	"github.com/nklisch/peeragent/internal/jobs"
 	"github.com/nklisch/peeragent/internal/result"
 	"github.com/nklisch/peeragent/internal/testsupport"
+	"github.com/nklisch/peeragent/internal/testsupport/terminalenv"
 )
 
 func TestMain(m *testing.M) {
+	if os.Getenv("PEERAGENT_FAKE_MODE") != "terminal-env-retry" && terminalenv.WriteTerminalEnvAgentSnapshot() {
+		return
+	}
 	if filepath.Base(os.Args[0]) == "codex" || filepath.Base(os.Args[0]) == "codex.exe" {
 		fakeCodexMain()
 		return

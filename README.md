@@ -43,7 +43,7 @@ codex plugin add peeragent@peeragent
 Pi:
 
 ```sh
-pi install git:github.com/nklisch/peeragent@v0.10.0
+pi install git:github.com/nklisch/peeragent@v0.10.1
 ```
 
 The Pi package loads the `peer` skill from `plugin/skills`, so its wrapper
@@ -240,6 +240,13 @@ The default result is intentionally compact: for Codex JSONL output, peeragent
 surfaces only the final completed agent message in `details`. If you need to
 inspect the raw target stdout/stderr, open `metadata.log_path`; for continuity,
 use `metadata.agent_session` to resume the target session.
+
+Target agents start without the launching terminal's control environment by
+default, preventing use of inherited pane/socket addresses to inject terminal
+input. Use `--keep-terminal-env` for a deliberate need; the job records the
+choice. See [the terminal environment policy](docs/TERMINAL_ENV.md) for the
+complete variable list and scope. Authentication and ordinary shell settings
+remain available.
 
 ## Models, Effort, Profiles, And Access
 
@@ -502,23 +509,23 @@ published as downloadable archives for manual install.
 Build release archives locally:
 
 ```sh
-make release VERSION=0.10.0
+make release VERSION=0.10.1
 ```
 
 That writes:
 
 ```text
-dist/release/peeragent_0.10.0_linux_amd64.tar.gz
-dist/release/peeragent_0.10.0_linux_arm64.tar.gz
-dist/release/peeragent_0.10.0_darwin_amd64.tar.gz
-dist/release/peeragent_0.10.0_darwin_arm64.tar.gz
+dist/release/peeragent_0.10.1_linux_amd64.tar.gz
+dist/release/peeragent_0.10.1_linux_arm64.tar.gz
+dist/release/peeragent_0.10.1_darwin_amd64.tar.gz
+dist/release/peeragent_0.10.1_darwin_arm64.tar.gz
 dist/release/checksums.txt
 ```
 
 Publish a GitHub release from a machine with `gh` authenticated:
 
 ```sh
-make publish-release VERSION=0.10.0
+make publish-release VERSION=0.10.1
 ```
 
 The GitHub Actions workflow in `.github/workflows/release.yml` also publishes

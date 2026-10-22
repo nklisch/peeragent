@@ -211,6 +211,11 @@ not start shutdown.
 The wrapper avoids dumping long raw logs into host context unless the task
 failed and the logs are needed to continue.
 
+Target launches strip inherited terminal-control addresses by default; the
+explicit `--keep-terminal-env` override is recorded in job metadata. See the
+[terminal environment policy](TERMINAL_ENV.md) for its complete variable list
+and scope across targets, launch modes and platforms.
+
 ## Safety Boundaries
 
 The project treats same-checkout execution and no-sandbox execution as different

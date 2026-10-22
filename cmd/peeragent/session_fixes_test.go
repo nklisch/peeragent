@@ -13,6 +13,7 @@ import (
 
 	"github.com/nklisch/peeragent/internal/jobs"
 	"github.com/nklisch/peeragent/internal/result"
+	"github.com/nklisch/peeragent/internal/testsupport/terminalenv"
 )
 
 // A copy of the test executable acts as Codex; no model or live job is used.
@@ -37,6 +38,23 @@ func fakeCodexMain() {
 		fmt.Println(`{"type":"thread.started","thread_id":"fake-session"}`)
 	}
 	mode := os.Getenv("PEERAGENT_FAKE_MODE")
+	if mode == "terminal-env-retry" {
+		snapshot := terminalenv.TerminalEnvSnapshot()
+		data, _ := json.Marshal(snapshot)
+		path := fmt.Sprintf("%s-%d.json", os.Getenv("PEERAGENT_ENV_RECORD"), len(calls))
+		if err := os.WriteFile(path, data, 0o600); err != nil {
+			panic(err)
+		}
+		if len(calls) == 1 {
+			fmt.Println(`{"type":"turn.failed","error":{"message":"Selected model is at capacity"}}`)
+			os.Exit(1)
+		}
+		event, _ := json.Marshal(map[string]any{"type": "item.completed", "item": map[string]string{"type": "agent_message", "text": string(data)}})
+		fmt.Println(string(event))
+		fmt.Println(`{"type":"turn.completed"}`)
+		return
+	}
+
 	if mode == "incident-direct" || mode == "incident-compaction" {
 		if len(calls) == 1 {
 			fmt.Println(`{"type":"item.completed","item":{"type":"agent_message","text":"The baseline link build is still queued."}}`)

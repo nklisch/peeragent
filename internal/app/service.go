@@ -184,6 +184,7 @@ func (s *Service) launch(delegation input.Delegation, start func(string, jobs.Jo
 
 func execSpecFromDelegation(delegation input.Delegation) jobs.ExecSpec {
 	return jobs.ExecSpec{
+		KeepTerminalEnv: delegation.KeepTerminalEnv,
 		RetryCapacity:   delegation.RetryCapacity,
 		CapacityBackoff: delegation.CapacityBackoff,
 		Agent:           delegation.Agent,
@@ -204,14 +205,15 @@ func runningJobResult(delegation input.Delegation, job jobs.Job) result.Result {
 		ChangedFiles: []string{},
 		Verification: []result.Verification{},
 		Metadata: result.Metadata{
-			CWD:      delegation.CWD,
-			Agent:    delegation.Agent,
-			Access:   accessMode(delegation),
-			Profile:  delegation.Profile,
-			Effort:   delegation.Effort,
-			Model:    delegation.Model,
-			ExitCode: 0,
-			JobID:    job.ID,
+			KeepTerminalEnv: delegation.KeepTerminalEnv,
+			CWD:             delegation.CWD,
+			Agent:           delegation.Agent,
+			Access:          accessMode(delegation),
+			Profile:         delegation.Profile,
+			Effort:          delegation.Effort,
+			Model:           delegation.Model,
+			ExitCode:        0,
+			JobID:           job.ID,
 		},
 	}
 }
@@ -223,13 +225,14 @@ func failedDelegationResult(delegation input.Delegation, err error) result.Resul
 		ChangedFiles: []string{},
 		Verification: []result.Verification{},
 		Metadata: result.Metadata{
-			CWD:      delegation.CWD,
-			Agent:    delegation.Agent,
-			Access:   accessMode(delegation),
-			Profile:  delegation.Profile,
-			Effort:   delegation.Effort,
-			Model:    delegation.Model,
-			ExitCode: 1,
+			KeepTerminalEnv: delegation.KeepTerminalEnv,
+			CWD:             delegation.CWD,
+			Agent:           delegation.Agent,
+			Access:          accessMode(delegation),
+			Profile:         delegation.Profile,
+			Effort:          delegation.Effort,
+			Model:           delegation.Model,
+			ExitCode:        1,
 		},
 	}
 }

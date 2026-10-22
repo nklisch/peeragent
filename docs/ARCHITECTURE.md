@@ -145,6 +145,14 @@ environment.
 
 Worktree execution is recognized but not implemented yet.
 
+The shared process runner filters inherited terminal-control addresses at the
+moment each target process starts. Each adapter passes the request's deliberate
+`--keep-terminal-env` override; saved execution specs preserve it through async
+launches and retries. Result metadata records the override. The caller's own
+environment and unrelated target settings are preserved. Windows batch argument
+transport remains intact. [Terminal environment policy](TERMINAL_ENV.md) contains
+the complete variable list and protection scope.
+
 ## Blocking Flow
 
 ```text

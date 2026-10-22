@@ -29,6 +29,7 @@ type Verification struct {
 }
 
 type Metadata struct {
+	KeepTerminalEnv bool       `json:"keep_terminal_env,omitempty"`
 	LastEventAt     *time.Time `json:"last_event_at,omitempty"`
 	LastMessage     string     `json:"last_message,omitempty"`
 	MessagePath     string     `json:"message_path,omitempty"`

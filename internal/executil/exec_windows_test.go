@@ -5,6 +5,7 @@ package executil
 import (
 	"context"
 	"encoding/json"
+	"github.com/nklisch/peeragent/internal/testsupport/terminalenv"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -60,6 +61,47 @@ func TestOSRunnerBatchShim(t *testing.T) {
 					}
 				}
 			})
+		}
+	}
+}
+
+func TestOSRunnerBatchTerminalEnvironment(t *testing.T) {
+	self, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range terminalenv.TerminalEnvNames() {
+		t.Setenv(key, "fixture")
+	}
+	t.Setenv("PEERAGENT_ENV_SENTINEL", "ordinary=value")
+	t.Setenv("PEERAGENT_ENV_DUMP_HELPER", "1")
+	dir := filepath.Join(t.TempDir(), "Program Files (fixture)")
+	if err := os.Mkdir(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	shim := filepath.Join(dir, "agent.cmd")
+	body := "@echo off\r\n\"" + self + "\" -test.run=^TestTerminalEnvironmentHelper$ -- %*\r\n"
+	if err := os.WriteFile(shim, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, keep := range []bool{false, true} {
+		runner := OSRunner{KeepTerminalEnv: keep}
+		res, err := runner.Run(context.Background(), shim, []string{"argument with spaces"}, dir, "")
+		if err != nil || res.ExitCode != 0 {
+			t.Fatalf("batch target: %#v %v", res, err)
+		}
+		var env map[string]string
+		if err := json.Unmarshal([]byte(res.Stdout), &env); err != nil {
+			t.Fatal(err)
+		}
+		if env["PEERAGENT_ENV_SENTINEL"] != "ordinary=value" {
+			t.Fatal("batch environment lost ordinary settings")
+		}
+		for _, key := range terminalenv.TerminalEnvNames() {
+			value, exists := env[key]
+			if exists != keep || keep && value != "fixture" {
+				t.Fatalf("%s exists=%t value=%q keep=%t", key, exists, value, keep)
+			}
 		}
 	}
 }

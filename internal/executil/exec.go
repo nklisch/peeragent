@@ -26,6 +26,7 @@ type Runner interface {
 }
 
 type OSRunner struct {
+	KeepTerminalEnv bool
 	// ObserveStdout receives complete lines, without a scanner size limit.
 	// Pending starts/restarts grace; Active cancels it; Unchanged preserves it.
 	ObserveStdout   func(string) (CompletionObservation, error)
@@ -40,6 +41,7 @@ func (r OSRunner) Run(ctx context.Context, name string, args []string, cwd strin
 		return Result{ExitCode: 1}, fmt.Errorf("run %s: %w", name, err)
 	}
 	cmd.Dir = cwd
+	cmd.Env = targetEnvironment(cmd.Environ(), r.KeepTerminalEnv)
 	if stdin != "" {
 		cmd.Stdin = strings.NewReader(stdin)
 	}

@@ -149,10 +149,11 @@ func jobStatusResult(req JobRequest, job jobs.Job) result.Result {
 		ChangedFiles: []string{},
 		Verification: []result.Verification{},
 		Metadata: result.Metadata{
-			AgentSession: job.Spec.Resume,
-			CWD:          req.CWD,
-			ExitCode:     0,
-			JobID:        job.ID,
+			KeepTerminalEnv: job.Spec.KeepTerminalEnv,
+			AgentSession:    job.Spec.Resume,
+			CWD:             req.CWD,
+			ExitCode:        0,
+			JobID:           job.ID,
 		},
 	}
 	if job.FinalReceived && !jobs.IsTerminalStatus(job.Status) {
@@ -172,10 +173,11 @@ func runningJobResultForRequest(req JobRequest, job jobs.Job) result.Result {
 		ChangedFiles: []string{},
 		Verification: []result.Verification{},
 		Metadata: result.Metadata{
-			AgentSession: job.Spec.Resume,
-			CWD:          req.CWD,
-			ExitCode:     0,
-			JobID:        job.ID,
+			KeepTerminalEnv: job.Spec.KeepTerminalEnv,
+			AgentSession:    job.Spec.Resume,
+			CWD:             req.CWD,
+			ExitCode:        0,
+			JobID:           job.ID,
 		},
 	}
 }

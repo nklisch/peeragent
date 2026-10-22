@@ -10,6 +10,7 @@ import (
 // JobStatus is the compact multi-job status contract; single-job status keeps
 // using Result for compatibility with existing hosts.
 type JobStatus struct {
+	KeepTerminalEnv bool       `json:"keep_terminal_env,omitempty"`
 	LastEventAt     *time.Time `json:"last_event_at,omitempty"`
 	LastMessage     string     `json:"last_message,omitempty"`
 	Summary         string     `json:"summary,omitempty"`
@@ -33,6 +34,12 @@ func FormatJobStatuses(records []JobStatus) string {
 		note := r.Summary
 		if r.FinalReceived {
 			note = "final message received, process still alive"
+		}
+		if r.KeepTerminalEnv {
+			if note != "" {
+				note += "; "
+			}
+			note += "terminal environment retained"
 		}
 		lastEvent := ""
 		if r.LastEventAt != nil {

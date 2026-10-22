@@ -30,40 +30,44 @@ func (targetExecutor) Execute(ctx context.Context, delegation input.Delegation) 
 	switch definition.ID {
 	case agent.GeminiID:
 		return gemini.Exec(ctx, gemini.Options{
-			CWD:        delegation.CWD,
-			Prompt:     agentPrompt,
-			FullAccess: delegation.FullAccess,
-			Effort:     delegation.Effort,
-			Model:      delegation.Model,
-			Resume:     delegation.Resume,
+			CWD:             delegation.CWD,
+			Prompt:          agentPrompt,
+			FullAccess:      delegation.FullAccess,
+			KeepTerminalEnv: delegation.KeepTerminalEnv,
+			Effort:          delegation.Effort,
+			Model:           delegation.Model,
+			Resume:          delegation.Resume,
 		})
 	case agent.ClaudeID:
 		return claude.Exec(ctx, claude.Options{
-			CWD:        delegation.CWD,
-			Prompt:     agentPrompt,
-			FullAccess: delegation.FullAccess,
-			Effort:     delegation.Effort,
-			Model:      delegation.Model,
-			Resume:     delegation.Resume,
+			CWD:             delegation.CWD,
+			Prompt:          agentPrompt,
+			FullAccess:      delegation.FullAccess,
+			KeepTerminalEnv: delegation.KeepTerminalEnv,
+			Effort:          delegation.Effort,
+			Model:           delegation.Model,
+			Resume:          delegation.Resume,
 		})
 	case agent.ZAIID:
 		return zai.Exec(ctx, zai.Options{
-			CWD:        delegation.CWD,
-			Prompt:     agentPrompt,
-			FullAccess: delegation.FullAccess,
-			Effort:     delegation.Effort,
-			Model:      delegation.Model,
-			Resume:     delegation.Resume,
+			CWD:             delegation.CWD,
+			Prompt:          agentPrompt,
+			FullAccess:      delegation.FullAccess,
+			KeepTerminalEnv: delegation.KeepTerminalEnv,
+			Effort:          delegation.Effort,
+			Model:           delegation.Model,
+			Resume:          delegation.Resume,
 		})
 	case agent.CodexID:
 		return codex.Exec(ctx, codex.Options{
-			CWD:        delegation.CWD,
-			Prompt:     agentPrompt,
-			FullAccess: delegation.FullAccess,
-			Profile:    delegation.Profile,
-			Effort:     delegation.Effort,
-			Model:      delegation.Model,
-			Resume:     delegation.Resume,
+			CWD:             delegation.CWD,
+			Prompt:          agentPrompt,
+			FullAccess:      delegation.FullAccess,
+			KeepTerminalEnv: delegation.KeepTerminalEnv,
+			Profile:         delegation.Profile,
+			Effort:          delegation.Effort,
+			Model:           delegation.Model,
+			Resume:          delegation.Resume,
 		})
 	default:
 		return executil.Result{ExitCode: 2}, fmt.Errorf("unsupported delegation agent %q", delegation.Agent)
@@ -97,14 +101,15 @@ func ResultFromExecution(delegation input.Delegation, execResult executil.Result
 		Verification: []result.Verification{},
 		Details:      executionDetails(execResult.Stdout, execResult.Stderr),
 		Metadata: result.Metadata{
-			CWD:          delegation.CWD,
-			Agent:        delegation.Agent,
-			Access:       accessMode(delegation),
-			Profile:      delegation.Profile,
-			Effort:       delegation.Effort,
-			Model:        delegation.Model,
-			AgentSession: agentSession(delegation, execResult),
-			ExitCode:     execResult.ExitCode,
+			KeepTerminalEnv: delegation.KeepTerminalEnv,
+			CWD:             delegation.CWD,
+			Agent:           delegation.Agent,
+			Access:          accessMode(delegation),
+			Profile:         delegation.Profile,
+			Effort:          delegation.Effort,
+			Model:           delegation.Model,
+			AgentSession:    agentSession(delegation, execResult),
+			ExitCode:        execResult.ExitCode,
 		},
 	}
 }

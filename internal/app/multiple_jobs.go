@@ -59,7 +59,8 @@ func (s *Service) JobStatuses(ctx context.Context, requests []JobRequest) ([]res
 			summary = result.CapacitySummary(job.Spec.Resume)
 		}
 		records = append(records, result.JobStatus{
-			LastEventAt: progress.At, LastMessage: progress.LastMessage, Summary: summary,
+			KeepTerminalEnv: job.Spec.KeepTerminalEnv,
+			LastEventAt:     progress.At, LastMessage: progress.LastMessage, Summary: summary,
 			JobID: job.ID, CWD: req.CWD, Status: ResultStatusFromJob(string(job.Status)),
 			Model: job.Spec.Model, Effort: job.Spec.Effort, AgentSession: job.Spec.Resume,
 			StartedAt: job.CreatedAt, CapacityBackoff: !jobs.IsTerminalStatus(job.Status) && job.CapacityBackoffUntil != nil && time.Now().Before(*job.CapacityBackoffUntil),

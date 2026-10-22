@@ -13,20 +13,21 @@ import (
 type Result = executil.Result
 
 type Options struct {
-	CWD        string
-	Prompt     string
-	FullAccess bool
-	Profile    string
-	Effort     string
-	Model      string
-	Resume     string
+	KeepTerminalEnv bool
+	CWD             string
+	Prompt          string
+	FullAccess      bool
+	Profile         string
+	Effort          string
+	Model           string
+	Resume          string
 }
 
 var lookPath = exec.LookPath
 
 func Exec(ctx context.Context, opts Options) (Result, error) {
 	state := streamState{}
-	return execWithRunner(ctx, executil.OSRunner{ObserveStdout: func(line string) (executil.CompletionObservation, error) {
+	return execWithRunner(ctx, executil.OSRunner{KeepTerminalEnv: opts.KeepTerminalEnv, ObserveStdout: func(line string) (executil.CompletionObservation, error) {
 		progress, changed := state.consume(line)
 		if changed {
 			if err := executil.ReportProgress(ctx, progress); err != nil {

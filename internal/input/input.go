@@ -14,7 +14,7 @@ import (
 	"github.com/nklisch/peeragent/internal/jobs"
 )
 
-const ValidOptions = "--agent --async --sandbox --full-access --worktree --effort --model --profile --resume --allow-concurrent-session --cwd --prompt-file --json --text --status --result --wait --wait-any --cancel --retry-capacity --capacity-backoff --help -h"
+const ValidOptions = "--agent --async --sandbox --full-access --worktree --effort --model --profile --resume --allow-concurrent-session --keep-terminal-env --cwd --prompt-file --json --text --status --result --wait --wait-any --cancel --retry-capacity --capacity-backoff --help -h"
 
 type JobReference struct {
 	JobID string
@@ -22,6 +22,7 @@ type JobReference struct {
 }
 
 type Request struct {
+	KeepTerminalEnv        bool
 	AllowConcurrentSession bool
 	StatusJobs             []JobReference
 	WaitAnyJobs            []JobReference
@@ -108,14 +109,15 @@ func Parse(args []string, stdin io.Reader, getwd func() (string, error)) (Reques
 	controlRequest := len(parsed.statusIDs) > 0 || len(parsed.waitAnyIDs) > 0 || parsed.statusJobID != "" || parsed.resultJobID != "" ||
 		parsed.waitJobID != "" || parsed.cancelJobID != "" || parsed.jobRunID != ""
 	delegation := Delegation{
-		TaskText:   taskText,
-		CWD:        parsed.cwd,
-		Agent:      parsed.agent,
-		FullAccess: parsed.fullAccess,
-		Profile:    parsed.profile,
-		Effort:     parsed.effort,
-		Model:      parsed.model,
-		Resume:     parsed.resume,
+		KeepTerminalEnv: parsed.keepTerminalEnv,
+		TaskText:        taskText,
+		CWD:             parsed.cwd,
+		Agent:           parsed.agent,
+		FullAccess:      parsed.fullAccess,
+		Profile:         parsed.profile,
+		Effort:          parsed.effort,
+		Model:           parsed.model,
+		Resume:          parsed.resume,
 	}
 	if controlRequest && strings.TrimSpace(delegation.TaskText) == "" {
 		// Control operations have no delegation task, but still pass their
@@ -132,6 +134,7 @@ func Parse(args []string, stdin io.Reader, getwd func() (string, error)) (Reques
 	}
 
 	return Request{
+		KeepTerminalEnv:        delegation.KeepTerminalEnv,
 		AllowConcurrentSession: parsed.allowConcurrentSession,
 		StatusJobs:             parsed.statusJobs,
 		WaitAnyJobs:            parsed.waitAnyJobs,
@@ -246,6 +249,7 @@ func isInteractiveTTY(stdin io.Reader) bool {
 }
 
 type parsedArgs struct {
+	keepTerminalEnv         bool
 	allowConcurrentSession  bool
 	statusIDs, waitAnyIDs   []string
 	statusJobs, waitAnyJobs []JobReference
@@ -340,6 +344,8 @@ func parseArgs(args []string) (parsedArgs, error) {
 		case "--resume":
 			i++
 			parsed.resume = strings.TrimSpace(args[i])
+		case "--keep-terminal-env":
+			parsed.keepTerminalEnv = true
 		case "--allow-concurrent-session":
 			parsed.allowConcurrentSession = true
 		case "--async":

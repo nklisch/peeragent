@@ -122,6 +122,12 @@ task text is arbitrary natural language, not shell syntax. Don't split
 the request into many wrapper calls unless the user explicitly asked for
 separate passes.
 
+Target agents start without inherited terminal-control addresses by default.
+Pass `--keep-terminal-env` only when intentionally delegating work that needs the
+launching terminal's control environment; job metadata records the override.
+Ordinary settings and authentication remain available. The repository's
+`docs/TERMINAL_ENV.md` is the canonical variable list and scope.
+
 ## Async Lifecycle
 
 Prefer `--async` for normal implementation, research, and review passes so a

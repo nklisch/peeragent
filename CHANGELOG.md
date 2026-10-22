@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.10.1
+
+### Security
+- Remove inherited terminal-control variables from every target agent by default, preventing use of the launching
+  terminal's inherited control addresses to inject input that appears to be from the user. Applies to blocking,
+  async, resumed and capacity-retried calls across Codex, Claude, Gemini and GLM.
+- Add the deliberate `--keep-terminal-env` override and record it in job/result metadata. Authentication and ordinary
+  shell settings remain available. The complete variable list is in [the terminal environment policy](docs/TERMINAL_ENV.md).
+
 ## v0.10.0
 
 ### Features

@@ -58,6 +58,7 @@ func RecordJobProgress(store jobs.Store, id string, progress executil.Progress) 
 }
 
 func enrichJobResult(res *result.Result, job jobs.Job) error {
+	res.Metadata.KeepTerminalEnv = job.Spec.KeepTerminalEnv
 	if res.Metadata.AgentSession == "" {
 		res.Metadata.AgentSession = job.Spec.Resume
 	}

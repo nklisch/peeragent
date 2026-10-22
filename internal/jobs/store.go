@@ -42,6 +42,7 @@ type Job struct {
 }
 
 type ExecSpec struct {
+	KeepTerminalEnv bool          `json:"keep_terminal_env,omitempty"`
 	RetryCapacity   int           `json:"retry_capacity,omitempty"`
 	CapacityBackoff time.Duration `json:"capacity_backoff,omitempty"`
 	Agent           string        `json:"agent"`
