@@ -35,6 +35,10 @@ func TestTellReceiptAndLegacyStatus(t *testing.T) {
 	cwd := t.TempDir()
 	modern := indexedTestJob(t, cwd)
 	legacy := indexedTestJob(t, cwd)
+	legacy.AgentSession = "legacy-session"
+	if err := jobs.NewStore(cwd).Save(legacy); err != nil {
+		t.Fatal(err)
+	}
 	// Remove the field entirely, as a pre-v0.11 job would have been written.
 	path := filepath.Join(filepath.Dir(legacy.LogPath), "job.json")
 	data, err := os.ReadFile(path)
@@ -65,7 +69,7 @@ func TestTellReceiptAndLegacyStatus(t *testing.T) {
 			}
 			delivery := "delivered"
 			if tc.warning {
-				delivery = "queued for the next resume (this job has no inbox)"
+				delivery = fmt.Sprintf("queued for the next --resume (%d pending)", n)
 			}
 			prefix := fmt.Sprintf("%s to job %s (codex, running); unread %d, oldest ", delivery, tc.job.ID, n)
 			suffix := contextNote + "\n"

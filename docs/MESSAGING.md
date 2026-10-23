@@ -18,16 +18,17 @@ then whole minutes; future timestamps display `0s`. Missing timestamps display
 running prompt are excluded until their reservation is released.
 
 New jobs record `messaging_enabled` in `job.json`, and launch JSON reports that same saved state.
-`tell` to a job without messaging prints `queued for the next resume (this job has no inbox)`;
-its replies stay in the job folder and are prepended to the next resume prompt, clearly labelled
-as messages sent while the job ran.
+`tell` to a job without messaging prints `queued for the next --resume (N pending)`
+when its agent session is known. Replies stay in the job folder and are prepended to the next
+resume prompt, clearly labelled as messages sent while the job ran. If no session is known,
+`tell` exits non-zero and says the message was not queued; retry after the session is recorded.
 
 For older jobs without that field, a saved messaging preamble or an outbound `say` entry proves messaging
 support. Controls report `messaging_enabled: true` and `messaging_source` as
 `inferred from prompt` or `inferred from outbox`, and show that source in text
 and delivery confirmations. Explicit recorded flags remain authoritative.
-Only jobs with neither evidence source get the pre-messaging warning; delivery
-still succeeds and replies are carried on `--resume`. `--no-preamble` jobs get
+Only jobs with neither evidence source get the pre-messaging warning; replies
+are queued for `--resume` when a session is known. `--no-preamble` jobs get
 a specific missing-preamble warning. Saving a legacy job's lifecycle preserves
 an absent marker so later controls can still infer support from evidence.
 

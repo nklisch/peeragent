@@ -95,6 +95,9 @@ func (s *Service) TellWithReceipt(ctx context.Context, raw JobRequest, from, tex
 		if err != nil {
 			return err
 		}
+		if !support.Enabled && strings.TrimSpace(job.Session()) == "" {
+			return fmt.Errorf("message not queued: job %s has no messaging inbox and no agent session to --resume; wait for its session to be recorded and try again", job.ID)
+		}
 		now := time.Now().UTC()
 		if err := store.AppendMessageLocked(job.ID, "inbox", jobs.Message{Time: now, From: from, Text: text}); err != nil {
 			return err

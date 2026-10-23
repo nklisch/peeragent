@@ -69,7 +69,7 @@ func runMessageCommand(ctx context.Context, req input.Request) error {
 		}
 		delivery := "delivered"
 		if !receipt.MessagingEnabled {
-			delivery = "queued for the next resume (this job has no inbox)"
+			delivery = fmt.Sprintf("queued for the next --resume (%d pending)", receipt.InboxUnread)
 		}
 		if _, err := fmt.Fprintf(os.Stdout, "%s to job %s (%s, %s); %s%s%s\n", delivery, receipt.JobID, receipt.Agent, receipt.Status, receipt.UnreadSummary(), contextNote, sourceNote); err != nil {
 			return err

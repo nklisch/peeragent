@@ -87,6 +87,10 @@ func TestLegacyMessagingEvidenceAcrossControls(t *testing.T) {
 			cwd := t.TempDir()
 			store := jobs.NewStore(cwd)
 			job := indexedTestJob(t, cwd)
+			job.AgentSession = "legacy-session"
+			if err := store.Save(job); err != nil {
+				t.Fatal(err)
+			}
 			if err := store.WritePrompt(job.ID, tc.text); err != nil {
 				t.Fatal(err)
 			}

@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.12.1
+
+### Fixes
+- Confirm replies to jobs without messaging as `queued for the next --resume (N pending)`.
+  If no agent session is known, fail clearly without storing an undeliverable message.
+- Use `capacity_exhausted` consistently in peeragent's capacity-stop summaries and text output,
+  with a `--retry-capacity` hint. Preserve agent log text and document JSON `status` as the
+  stable signal for scripts.
+
 ## v0.12.0
 
 ### Features

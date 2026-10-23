@@ -1,11 +1,11 @@
 package result
 
 func CapacitySummary(session string) string {
-	summary := "stopped: model at capacity"
+	summary := "stopped: " + string(StatusCapacity)
 	if session != "" {
 		summary += "; resumable with --resume " + session
 	}
-	return summary
+	return summary + "; use --retry-capacity N to retry automatically"
 }
 
 func OutputLimitSummary(session string) string {

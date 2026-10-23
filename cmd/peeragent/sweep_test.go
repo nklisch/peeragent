@@ -21,7 +21,7 @@ func TestNoInboxRepliesPrependOnResumeAndFinalSummary(t *testing.T) {
 	}
 	for _, message := range []string{"first reply", "second reply"} {
 		out, _, err := controlOutput(t, cwd, "tell", job.ID, message)
-		if err != nil || !strings.Contains(out, "queued for the next resume (this job has no inbox)") {
+		if err != nil || !strings.Contains(out, "queued for the next --resume (") {
 			t.Fatalf("receipt %q %v", out, err)
 		}
 	}

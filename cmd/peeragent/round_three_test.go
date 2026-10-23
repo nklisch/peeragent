@@ -39,7 +39,7 @@ func TestIncidentCapacityStopsReportAndRetry(t *testing.T) {
 					status := cliResult(t, cwd, "--status", launched.Metadata.JobID)
 					fetched := cliResult(t, cwd, "--result", launched.Metadata.JobID)
 					for _, res := range []result.Result{terminal, status, fetched} {
-						if res.Status != result.StatusCapacity || res.Summary != "stopped: model at capacity; resumable with --resume fake-session" {
+						if res.Status != result.StatusCapacity || res.Summary != "stopped: capacity_exhausted; resumable with --resume fake-session; use --retry-capacity N to retry automatically" {
 							t.Fatalf("capacity hidden: %#v", res)
 						}
 					}
