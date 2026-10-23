@@ -60,7 +60,7 @@ func fakeHeavy(t *testing.T) string {
 	if err := os.WriteFile(path, data, 0755); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("PATH", dir)
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 	t.Setenv("PEERAGENT_FAKE_HEAVY", "1")
 	return path
 }
