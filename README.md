@@ -380,8 +380,12 @@ then whole minutes; future timestamps display `0s`. Missing timestamps display
 `unknown`; an empty inbox has no oldest-unread fields. Entries reserved for a
 running prompt are excluded until their reservation is released.
 
-New jobs record `messaging_enabled` in `job.json`. For older jobs without that
-field, a saved messaging preamble or an outbound `say` entry proves messaging
+New jobs record `messaging_enabled` in `job.json`, and launch JSON reports that same saved state.
+`tell` to a job without messaging prints `queued for the next resume (this job has no inbox)`;
+its replies stay in the job folder and are prepended to the next resume prompt, clearly labelled
+as messages sent while the job ran.
+
+For older jobs without that field, a saved messaging preamble or an outbound `say` entry proves messaging
 support. Controls report `messaging_enabled: true` and `messaging_source` as
 `inferred from prompt` or `inferred from outbox`, and show that source in text
 and delivery confirmations. Explicit recorded flags remain authoritative.
@@ -406,6 +410,24 @@ capacity refusal releases them. A dead worker's unresolved reservation recovers
 on the next mailbox read. Later replies remain independently readable. Status shows `inbox_unread`,
 `outbox_sent`, and `last_message_at`; results include the ordered `conversation`
 after the agent message. See [messaging details](docs/MESSAGING.md).
+
+## Heavy integration
+
+When the optional `heavy` client is installed, delegated workers inherit
+`HEAVY_PARENT_SESSIONS`: the existing colon-separated lineage plus the launcher's
+owner from `heavy whoami`, falling back to `HEAVY_SESSION`, then `CODEX_THREAD_ID`.
+This lets heavyd authorize ancestor sessions to manage delegated heavy work.
+
+At handback, peeragent records queued or running heavy work in `pending_heavy_steps`
+(`job`, `state`, `command`) and warns in text output. Ownership matches process ancestry
+or the target's agent session, never just the directory. Linux also recognizes orphaned
+clients that remain in the worker's process session. It reads `heavy ls --json`, falling
+back to `$HEAVYD_DASHBOARD` (default `http://127.0.0.1:8473/api/overview`). Missing tools,
+unsupported subcommands, or unavailable dashboards silently skip this optional check.
+The warning records the handback snapshot; it does not wait for or cancel heavy steps.
+
+Result and wait summaries contain the final handback, trimmed to 600 characters with
+an ellipsis when needed. Details and text output keep the complete message.
 
 ## Async Jobs
 

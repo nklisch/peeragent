@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/nklisch/peeragent/internal/executil"
+	"github.com/nklisch/peeragent/internal/heavy"
 	"github.com/nklisch/peeragent/internal/input"
 	"github.com/nklisch/peeragent/internal/jobs"
 	"github.com/nklisch/peeragent/internal/result"
@@ -219,15 +220,17 @@ func runningJobResult(delegation input.Delegation, job jobs.Job) result.Result {
 		ChangedFiles: []string{},
 		Verification: []result.Verification{},
 		Metadata: result.Metadata{
-			KeepTerminalEnv: delegation.KeepTerminalEnv,
-			CWD:             delegation.CWD,
-			Agent:           delegation.Agent,
-			Access:          accessMode(delegation),
-			Profile:         delegation.Profile,
-			Effort:          delegation.Effort,
-			Model:           delegation.Model,
-			ExitCode:        0,
-			JobID:           job.ID,
+			MessagingEnabled: job.MessagingEnabled,
+			MessagingSource:  "recorded in job.json",
+			KeepTerminalEnv:  delegation.KeepTerminalEnv,
+			CWD:              delegation.CWD,
+			Agent:            delegation.Agent,
+			Access:           accessMode(delegation),
+			Profile:          delegation.Profile,
+			Effort:           delegation.Effort,
+			Model:            delegation.Model,
+			ExitCode:         0,
+			JobID:            job.ID,
 		},
 	}
 }
@@ -334,6 +337,7 @@ func (l ProcessLauncher) start(executable string, job jobs.Job) (*processWorker,
 	}
 	cmd := command(executable, "--job-run", job.ID, "--cwd", job.CWD)
 	cmd.Dir = job.CWD
+	cmd.Env = heavy.LaunchEnvironment(cmd.Environ(), job.CWD)
 	logFile, err := os.OpenFile(job.LogPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 	if err != nil {
 		return nil, err

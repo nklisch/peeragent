@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/nklisch/peeragent/internal/agent"
 	"github.com/nklisch/peeragent/internal/claude"
@@ -87,6 +88,10 @@ func ResultFromExecution(delegation input.Delegation, execResult executil.Result
 		summary = fmt.Sprintf("%s exited with non-zero status", agentDisplayName(delegation))
 	}
 
+	if execErr == nil && strings.TrimSpace(execResult.Stdout) != "" {
+		summary = messageSummary(execResult.Stdout)
+	}
+
 	if execResult.CapacityExhausted {
 		status = result.StatusCapacity
 		summary = result.CapacitySummary(agentSession(delegation, execResult))
@@ -152,4 +157,14 @@ func agentDefinition(id string) agent.Definition {
 	}
 	definition, _ = agent.Lookup(agent.DefaultID())
 	return definition
+}
+
+// Keep summaries compact without splitting a UTF-8 character. Details retain
+// the complete final message and diagnostics.
+func messageSummary(message string) string {
+	text := []rune(strings.TrimSpace(message))
+	if len(text) > 600 {
+		return string(text[:599]) + "…"
+	}
+	return string(text)
 }

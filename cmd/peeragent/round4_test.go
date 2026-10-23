@@ -63,7 +63,11 @@ func TestTellReceiptAndLegacyStatus(t *testing.T) {
 			if !tc.warning {
 				contextNote = "; " + jobs.InboxReadContext
 			}
-			prefix := fmt.Sprintf("delivered to job %s (codex, running); unread %d, oldest ", tc.job.ID, n)
+			delivery := "delivered"
+			if tc.warning {
+				delivery = "queued for the next resume (this job has no inbox)"
+			}
+			prefix := fmt.Sprintf("%s to job %s (codex, running); unread %d, oldest ", delivery, tc.job.ID, n)
 			suffix := contextNote + "\n"
 			age := strings.TrimSuffix(strings.TrimPrefix(out, prefix), suffix)
 			_, ageErr := time.ParseDuration(age)

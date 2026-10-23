@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"time"
 
+	"github.com/nklisch/peeragent/internal/heavy"
 	"github.com/nklisch/peeragent/internal/jobs"
 	"github.com/nklisch/peeragent/internal/result"
 )
@@ -47,6 +48,9 @@ func (s *Service) CancelJob(ctx context.Context, raw JobRequest) (result.Result,
 		}
 		return result.Result{}, fmt.Errorf("load async job %q: %w", req.JobID, err)
 	}
+
+	pid, _ := store.ReadPID(job.ID)
+	pendingHeavy := heavy.Pending(job.CWD, pid, job.Session())
 
 	var (
 		cancelResult       result.Result
@@ -93,6 +97,7 @@ func (s *Service) CancelJob(ctx context.Context, raw JobRequest) (result.Result,
 			cancelResult = prior
 		} else {
 			cancelResult = cancelledJobResult(req, current)
+			cancelResult.PendingHeavySteps = pendingHeavy
 			if err := enrichJobResult(&cancelResult, current); err != nil {
 				return err
 			}
@@ -127,7 +132,7 @@ func (s *Service) CancelJob(ctx context.Context, raw JobRequest) (result.Result,
 		return cancelResult, nil
 	}
 
-	pid, err := store.ReadPID(job.ID)
+	pid, err = store.ReadPID(job.ID)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return cancelResult, nil

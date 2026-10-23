@@ -17,8 +17,12 @@ then whole minutes; future timestamps display `0s`. Missing timestamps display
 `unknown`; an empty inbox has no oldest-unread fields. Entries reserved for a
 running prompt are excluded until their reservation is released.
 
-New jobs record `messaging_enabled` in `job.json`. For older jobs without that
-field, a saved messaging preamble or an outbound `say` entry proves messaging
+New jobs record `messaging_enabled` in `job.json`, and launch JSON reports that same saved state.
+`tell` to a job without messaging prints `queued for the next resume (this job has no inbox)`;
+its replies stay in the job folder and are prepended to the next resume prompt, clearly labelled
+as messages sent while the job ran.
+
+For older jobs without that field, a saved messaging preamble or an outbound `say` entry proves messaging
 support. Controls report `messaging_enabled: true` and `messaging_source` as
 `inferred from prompt` or `inferred from outbox`, and show that source in text
 and delivery confirmations. Explicit recorded flags remain authoritative.

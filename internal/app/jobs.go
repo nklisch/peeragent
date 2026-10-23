@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/nklisch/peeragent/internal/heavy"
 	"github.com/nklisch/peeragent/internal/jobs"
 	"github.com/nklisch/peeragent/internal/result"
 	"github.com/nklisch/peeragent/internal/version"
@@ -261,6 +262,12 @@ func JobStatusFromResult(status result.Status) jobs.Status {
 // conflict rules as cancellation. It remains an application operation even
 // though the child-run CLI is the adapter that invokes it.
 func FinishJob(store jobs.Store, job jobs.Job, res result.Result) error {
+	pid, _ := store.ReadPID(job.ID)
+	session := res.Metadata.AgentSession
+	if session == "" {
+		session = job.Session()
+	}
+	res.PendingHeavySteps = heavy.Pending(job.CWD, pid, session)
 	targetStatus := JobStatusFromResult(res.Status)
 	err := store.WithJobLock(job.ID, func() error {
 		current, err := store.Load(job.ID)

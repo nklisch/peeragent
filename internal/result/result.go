@@ -3,6 +3,7 @@ package result
 import (
 	"time"
 
+	"github.com/nklisch/peeragent/internal/heavy"
 	"github.com/nklisch/peeragent/internal/jobs"
 )
 
@@ -19,13 +20,14 @@ const (
 )
 
 type Result struct {
-	Status       Status         `json:"status"`
-	Summary      string         `json:"summary"`
-	ChangedFiles []string       `json:"changed_files"`
-	Verification []Verification `json:"verification"`
-	Details      string         `json:"details,omitempty"`
-	Conversation []jobs.Message `json:"conversation,omitempty"`
-	Metadata     Metadata       `json:"metadata"`
+	PendingHeavySteps []heavy.Step   `json:"pending_heavy_steps,omitempty"`
+	Status            Status         `json:"status"`
+	Summary           string         `json:"summary"`
+	ChangedFiles      []string       `json:"changed_files"`
+	Verification      []Verification `json:"verification"`
+	Details           string         `json:"details,omitempty"`
+	Conversation      []jobs.Message `json:"conversation,omitempty"`
+	Metadata          Metadata       `json:"metadata"`
 }
 
 type Verification struct {

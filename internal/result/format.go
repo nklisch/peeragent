@@ -20,6 +20,13 @@ func FormatText(res Result) string {
 	fmt.Fprintf(&b, "Alt Subagent: %s\n\n", res.Status)
 	fmt.Fprintf(&b, "Summary:\n%s\n\n", res.Summary)
 
+	for _, step := range res.PendingHeavySteps {
+		fmt.Fprintf(&b, "Warning: pending heavy step %s (%s): %s\n", step.Job, step.State, step.Command)
+	}
+	if len(res.PendingHeavySteps) > 0 {
+		b.WriteString("\n")
+	}
+
 	if len(res.ChangedFiles) > 0 {
 		b.WriteString("Changed Files:\n")
 		for _, file := range res.ChangedFiles {

@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.12.0
+
+### Features
+- Export `HEAVY_PARENT_SESSIONS` to delegated workers, preserving inherited lineage and appending the launcher
+  owner from `heavy whoami`, `HEAVY_SESSION`, or `CODEX_THREAD_ID`.
+- Add `pending_heavy_steps` and text warnings when a job finishes with owned heavy work still queued or running.
+  Ownership follows process ancestry or the target session; missing or older heavy clients and unavailable
+  dashboards are optional and never fail the job. Older clients are checked through help before subcommands
+  so observation cannot accidentally submit a workload.
+
+### Fixes
+- Launch JSON reports the messaging state already recorded in the job instead of a default false value.
+- `tell` to a job without messaging confirms that the reply is queued for its next resume. Resume prompts
+  prepend all unread replies, labelled as messages sent while the job ran, with existing acknowledgement recovery.
+- Result and wait summaries show the final handback, capped at 600 Unicode characters with an ellipsis. Full
+  details and text output retain the complete message; capacity and output-limit recovery summaries stay explicit.
+
 ## v0.11.3
 
 ### Fixes

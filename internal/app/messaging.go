@@ -308,10 +308,13 @@ func PrepareTurnInbox(ctx context.Context, job jobs.Job) (carry TurnInbox, prepa
 	sort.SliceStable(entries, func(i, j int) bool { return entries[i].entry.Time.Before(entries[j].entry.Time) })
 	var text strings.Builder
 	if len(entries) > 0 {
-		text.WriteString("\n\nLauncher messages reserved for this attempt:\n")
+		text.WriteString("\n\nLauncher messages sent while the job ran (reserved for this attempt):\n")
 	}
 	for _, item := range entries {
 		fmt.Fprintf(&text, "[%s · %s · job %s] %s\n", item.entry.Time.Format(time.RFC3339Nano), item.entry.From, item.id, item.entry.Text)
+	}
+	if len(entries) > 0 {
+		text.WriteString("\n")
 	}
 	carry.Text = text.String()
 	return carry, nil

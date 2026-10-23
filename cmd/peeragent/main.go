@@ -466,7 +466,7 @@ func runAsyncJob(req input.Request) error {
 			if err != nil {
 				return err
 			}
-			attemptReq.TaskText += carried.Text
+			attemptReq.TaskText = carried.Text + attemptReq.TaskText
 		}
 		res, execResult, execErr := applicationService.DelegateWithExecution(ctx, delegationFromRequest(attemptReq))
 		if err := carried.Acknowledge(execResult, execErr); err != nil {
