@@ -7,3 +7,11 @@ func CapacitySummary(session string) string {
 	}
 	return summary
 }
+
+func OutputLimitSummary(session string) string {
+	summary := "stopped: Codex max_output_tokens limit"
+	if session != "" {
+		summary += "; resumable with peeragent --agent codex --resume " + session + " \"Continue.\""
+	}
+	return summary
+}

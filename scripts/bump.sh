@@ -149,6 +149,7 @@ bump_manifest package.json
 
 echo "==> editing README release examples"
 bump_text README.md
+bump_text internal/version/version.go
 
 echo "==> repackaging plugin/"
 scripts/package-plugin.sh

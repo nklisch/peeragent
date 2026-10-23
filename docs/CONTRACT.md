@@ -57,10 +57,11 @@ Options:
 - `--agent <codex|gemini|claude|zai>`: Select the target agent. Defaults to
   `codex`. The `zai` target is fixed to Z.AI GLM 5.2 through Pi.
 - `--async`: Start the target in the background and return a job id.
-- `--retry-capacity <N>`: For async Codex delegation, resume capacity stops up
+- `--retry-capacity <N>`: For async Codex delegation, resume capacity/output-limit stops up
   to N additional times (non-negative integer; default zero). A captured or
   supplied session id is required; otherwise the capacity result is terminal.
-  Requires `--async --agent codex`, including with `--resume`.
+  Requires `--async --agent codex`, including with `--resume`. Output-limit
+  recovery is immediate and limited to one continuation within this shared budget.
 - `--capacity-backoff <duration>`: Positive delay between capacity retries,
   default `10m`. Requires `--async --agent codex`, including with `--resume`.
 - `--sandbox`: Use the default target mode. For Gemini this enables terminal
@@ -100,6 +101,8 @@ Options:
 - `--prompt-file <path>`: Read task text from a file.
 - `--json`: Emit JSON output. This is the default.
 - `--text`: Emit human-readable text output.
+- `--jobs [--cwd DIR] [--all]`: List jobs, with the scope and format below.
+- `--version`: Print the running binary version.
 - `--status <job-id>`: Inspect an async job.
 - `--result <job-id>`: Fetch an async job's current or terminal result.
 - `--wait <job-id>`: Stay attached until an async job has a terminal result,
@@ -136,6 +139,15 @@ refusal release them to unread. Later arrivals remain independently readable.
 A dead worker's unresolved reservations are released on the next mailbox read;
 a terminal acceptance record instead commits them read. Directory aliases are
 deduplicated by job ID.
+
+`tell` confirms the persisted delivery on stdout:
+`delivered to job <id> (<agent>, <status>); unread N`. The count is taken under
+the same lock as delivery; the job may read the reply immediately afterward.
+Jobs started before v0.11 received no inbox preamble and see replies only on
+`--resume`. Jobs without a recorded `messaging_enabled` flag get a warning on
+`tell` (stderr) and single/multiple status (`messaging_warning` in JSON, a note
+in text). Delivery still succeeds. New jobs record `messaging_enabled` in
+`job.json`; `--no-preamble` jobs receive a specific missing-preamble warning.
 
 Single-job status adds `metadata.inbox_unread`, `metadata.outbox_sent`, and
 optional `metadata.last_message_at`; multi-job records carry the same fields
@@ -186,6 +198,9 @@ Text results include `job_id`; blocking text calls print it to stderr before wai
   after the optional retry budget, or immediately when no retry/session is available.
   `metadata.agent_session` carries the resumable conversation when known.
   `metadata.capacity_retries` records additional attempts actually made.
+- `output_limit`: Codex stopped at `max_output_tokens`; terminal unless the shared
+  retry budget permits its one immediate continuation. Session and resume command
+  are reported as described below.
 - `cancelled`: Async job was cancelled.
 
 ## Text Result
@@ -296,8 +311,31 @@ selected job's ordinary result includes `metadata.job_id` and retains `--wait`
 exit behavior: terminal target outcomes exit `0`, with the target's outcome in
 `status` and `metadata.exit_code`.
 
+`peeragent --jobs [--cwd DIR] [--all] [--json | --text]` lists every job in
+that directory, including finished jobs and unindexed local jobs, newest first.
+`--all` also includes directories in the per-user job index; removed directories
+are skipped. It does not search arbitrary directories. JSON output is one object
+per line, using the multi-job status fields: job id, agent, model, status,
+`started_at` (creation time), `last_message_at` when available, and
+`agent_session`. An empty JSON list produces no lines; `--text` prints a table.
+`peeragent --version` prints the running binary's version. Status JSON carries
+that version in `metadata.version` for one job and `version` in each multi-job
+or listing row, even when the job was started by an older binary.
+
+Codex `max_output_tokens` stops return the terminal status `output_limit`,
+with the captured `agent_session` and a resume command in the summary. Under
+`--async --agent codex --retry-capacity N`, an output-limit stop consumes one
+of the same N additional attempts as capacity recovery. It resumes the same
+session immediately with a short continuation asking for a concise handback;
+`--capacity-backoff` applies only to capacity stops. Each job gets at most one
+automatic output-limit continuation, even if budget remains. Without a session,
+with N=0, after that continuation, or after the shared budget is spent, the stop
+is terminal. `metadata.capacity_retries` retains its existing name and counts
+all additional attempts, including the output-limit continuation. Other failures
+are never retried.
+
 `--status <job-id>...` with multiple ids emits one compact JSON object per line,
-with `job_id`, `status`, `model`, `effort`, `agent_session`, `started_at` (launch
+with `version`, `agent`, `messaging_enabled`, `job_id`, `status`, `model`, `effort`, `agent_session`, `started_at` (launch
 time), `capacity_backoff`, `final_received`, `cwd`, and optional `head_commit`,
 `last_event_at`, `last_message` and `summary`. Live timestamps use UTC RFC3339
 with fractional seconds; message previews are one short line. Single-id status

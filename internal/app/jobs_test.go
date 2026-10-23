@@ -21,6 +21,7 @@ func TestJobStatusMapsPersistedStates(t *testing.T) {
 	}{
 		{name: "running", status: jobs.StatusRunning, want: result.StatusRunning},
 		{name: "complete", status: jobs.StatusComplete, want: result.StatusSuccess},
+		{name: "output limit", status: jobs.StatusOutputLimit, want: result.StatusOutputLimit},
 		{name: "failed", status: jobs.StatusFailed, want: result.StatusFailed},
 		{name: "cancelled", status: jobs.StatusCancelled, want: result.StatusCancelled},
 		{name: "unknown is conservative", status: jobs.Status("future-state"), want: result.StatusRunning},
@@ -56,6 +57,7 @@ func TestJobStatusMappingsUsePersistedLifecycleConstants(t *testing.T) {
 		want   jobs.Status
 	}{
 		{name: "success", status: result.StatusSuccess, want: jobs.StatusComplete},
+		{name: "output limit", status: result.StatusOutputLimit, want: jobs.StatusOutputLimit},
 		{name: "cancelled", status: result.StatusCancelled, want: jobs.StatusCancelled},
 		{name: "failed", status: result.StatusFailed, want: jobs.StatusFailed},
 		{name: "running remains failed for persisted completion", status: result.StatusRunning, want: jobs.StatusFailed},

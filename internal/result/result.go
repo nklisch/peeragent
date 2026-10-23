@@ -9,12 +9,13 @@ import (
 type Status string
 
 const (
-	StatusCapacity  Status = "capacity_exhausted"
-	StatusSuccess   Status = "success"
-	StatusFailed    Status = "failed"
-	StatusBlocked   Status = "blocked"
-	StatusCancelled Status = "cancelled"
-	StatusRunning   Status = "running"
+	StatusCapacity    Status = "capacity_exhausted"
+	StatusOutputLimit Status = "output_limit"
+	StatusSuccess     Status = "success"
+	StatusFailed      Status = "failed"
+	StatusBlocked     Status = "blocked"
+	StatusCancelled   Status = "cancelled"
+	StatusRunning     Status = "running"
 )
 
 type Result struct {
@@ -34,6 +35,9 @@ type Verification struct {
 }
 
 type Metadata struct {
+	MessagingWarning string `json:"messaging_warning,omitempty"`
+	Version          string `json:"version"`
+	MessagingEnabled bool   `json:"messaging_enabled"`
 	*jobs.MessageStats
 	KeepTerminalEnv bool       `json:"keep_terminal_env,omitempty"`
 	LastEventAt     *time.Time `json:"last_event_at,omitempty"`

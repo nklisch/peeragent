@@ -94,6 +94,13 @@ func ResultFromExecution(delegation input.Delegation, execResult executil.Result
 			execResult.ExitCode = 1
 		}
 	}
+	if execResult.OutputLimit {
+		status = result.StatusOutputLimit
+		summary = result.OutputLimitSummary(agentSession(delegation, execResult))
+		if execResult.ExitCode == 0 {
+			execResult.ExitCode = 1
+		}
+	}
 	return result.Result{
 		Status:       status,
 		Summary:      summary,

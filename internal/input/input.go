@@ -14,7 +14,7 @@ import (
 	"github.com/nklisch/peeragent/internal/jobs"
 )
 
-const ValidOptions = "--agent --async --sandbox --full-access --worktree --effort --model --profile --resume --allow-concurrent-session --keep-terminal-env --no-preamble --cwd --prompt-file --json --text --status --result --wait --wait-any --cancel --retry-capacity --capacity-backoff --help -h"
+const ValidOptions = "--agent --async --sandbox --full-access --worktree --effort --model --profile --resume --allow-concurrent-session --keep-terminal-env --no-preamble --cwd --prompt-file --json --text --status --result --wait --wait-any --cancel --retry-capacity --capacity-backoff --jobs --all --version --help -h"
 
 type JobReference struct {
 	JobID string
@@ -22,6 +22,9 @@ type JobReference struct {
 }
 
 type Request struct {
+	Jobs                   bool
+	All                    bool
+	Version                bool
 	MessageCommand         string
 	MessageJobID           string
 	NoPreamble             bool
@@ -59,8 +62,22 @@ func Parse(args []string, stdin io.Reader, getwd func() (string, error)) (Reques
 		return Request{}, err
 	}
 
-	if parsed.help {
-		return Request{Help: true, JSON: parsed.json}, nil
+	if parsed.help || parsed.version {
+		return Request{Help: parsed.help, Version: parsed.version, JSON: parsed.json}, nil
+	}
+	if parsed.jobs {
+		cwd := parsed.cwd
+		if cwd == "" {
+			cwd, err = getwd()
+			if err != nil {
+				return Request{}, err
+			}
+		}
+		cwd, err = filepath.Abs(cwd)
+		if err != nil {
+			return Request{}, err
+		}
+		return Request{Jobs: true, All: parsed.all, CWD: cwd, JSON: parsed.json}, nil
 	}
 	if err := normalizeJobIDs(&parsed); err != nil {
 		return Request{}, err
@@ -257,6 +274,7 @@ func isInteractiveTTY(stdin io.Reader) bool {
 }
 
 type parsedArgs struct {
+	jobs, all, version      bool
 	noPreamble              bool
 	keepTerminalEnv         bool
 	allowConcurrentSession  bool
@@ -302,6 +320,12 @@ func parseArgs(args []string) (parsedArgs, error) {
 			}
 		}
 		switch arg {
+		case "--jobs":
+			parsed.jobs = true
+		case "--all":
+			parsed.all = true
+		case "--version":
+			parsed.version = true
 		case "--retry-capacity":
 			i++
 			n, err := strconv.Atoi(args[i])
@@ -404,9 +428,17 @@ func parseArgs(args []string) (parsedArgs, error) {
 	if parsed.help {
 		return parsed, nil
 	}
-	if len(parsed.waitAnyIDs) > 0 || len(parsed.statusIDs) > 0 {
+	if parsed.all && !parsed.jobs {
+		return parsedArgs{}, errors.New("--all requires --jobs")
+	}
+	if parsed.jobs || parsed.version {
+		if parsed.jobs && parsed.version || len(parsed.positionals) > 0 || parsed.promptFile != "" || parsed.resume != "" {
+			return parsedArgs{}, errors.New("--jobs and --version cannot be combined with each other or a task")
+		}
+	}
+	if parsed.jobs || parsed.version || len(parsed.waitAnyIDs) > 0 || len(parsed.statusIDs) > 0 {
 		controls := 0
-		for _, set := range []bool{len(parsed.waitAnyIDs) > 0, len(parsed.statusIDs) > 0, parsed.waitJobID != "", parsed.resultJobID != "", parsed.cancelJobID != "", parsed.jobRunID != "", parsed.async} {
+		for _, set := range []bool{parsed.jobs, parsed.version, len(parsed.waitAnyIDs) > 0, len(parsed.statusIDs) > 0, parsed.waitJobID != "", parsed.resultJobID != "", parsed.cancelJobID != "", parsed.jobRunID != "", parsed.async} {
 			if set {
 				controls++
 			}
@@ -415,7 +447,7 @@ func parseArgs(args []string) (parsedArgs, error) {
 			return parsedArgs{}, errors.New("job controls cannot be combined")
 		}
 	}
-	if (parsed.retrySet || parsed.backoffSet) && (!parsed.async || parsed.agent != "codex" || parsed.jobRunID != "" || len(parsed.statusIDs) > 0 || len(parsed.waitAnyIDs) > 0 || parsed.statusJobID != "" || parsed.waitJobID != "" || parsed.resultJobID != "" || parsed.cancelJobID != "") {
+	if (parsed.retrySet || parsed.backoffSet) && (!parsed.async || parsed.jobs || parsed.version || parsed.agent != "codex" || parsed.jobRunID != "" || len(parsed.statusIDs) > 0 || len(parsed.waitAnyIDs) > 0 || parsed.statusJobID != "" || parsed.waitJobID != "" || parsed.resultJobID != "" || parsed.cancelJobID != "") {
 		return parsedArgs{}, errors.New("capacity retry options require an async Codex launch; add --async (also with --resume), use --agent codex, and omit job-control options")
 	}
 	if parsed.sandbox && parsed.fullAccess {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // The index contains only working directories, never prompts or credentials.
@@ -75,4 +76,57 @@ func IndexSession(agent, session, cwd string) error {
 
 func LookupSession(agent, session string) (string, error) {
 	return readIndex("sessions", agent+"\x00"+session)
+}
+
+// IndexedDirectories returns distinct job directories without depending on the
+// hashed index filenames. Removed worktrees remain harmless stale entries.
+func IndexedDirectories() ([]string, error) {
+	path, err := indexPath("jobs", "")
+	if err != nil {
+		return nil, err
+	}
+	entries, err := os.ReadDir(filepath.Dir(path))
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("list job index: %w", err)
+	}
+	seen := map[string]bool{}
+	var dirs []string
+	for _, entry := range entries {
+		if entry.IsDir() || strings.HasPrefix(entry.Name(), ".index-") {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(filepath.Dir(path), entry.Name()))
+		if os.IsNotExist(err) {
+			continue
+		}
+		if err != nil {
+			return nil, fmt.Errorf("read job index entry: %w", err)
+		}
+		cwd := string(data)
+		if cwd != "" && !seen[cwd] {
+			seen[cwd] = true
+			dirs = append(dirs, cwd)
+		}
+	}
+	return dirs, nil
+}
+
+func (s Store) ListIDs() ([]string, error) {
+	entries, err := os.ReadDir(s.Root)
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("list jobs: %w", err)
+	}
+	var ids []string
+	for _, entry := range entries {
+		if entry.IsDir() && ValidateID(entry.Name()) == nil {
+			ids = append(ids, entry.Name())
+		}
+	}
+	return ids, nil
 }

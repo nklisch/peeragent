@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.11.2
+
+### Features
+- `tell` confirms delivery with the target job, agent, status, and locked unread count.
+- New jobs record messaging support. `tell` and status warn when an older job has no recorded messaging preamble;
+  replies still deliver and are carried on `--resume`.
+- `--jobs [--cwd DIR] [--all]` lists jobs newest first, including agent/model, lifecycle, creation time, last message
+  time and live session. The default scope is the selected directory; `--all` also includes indexed directories.
+- Persist `agent_session` directly in `job.json` as soon as a target reports it.
+- `--version` prints the running binary version; single and multiple status JSON carry it too.
+
+### Fixes
+- Classify Codex `max_output_tokens` stops as `output_limit`, retaining the session and resume command. Opt-in
+  `--retry-capacity N` shares its additional-attempt budget with one immediate output-limit continuation per job;
+  capacity stops retain their configured backoff. Repeated limits, missing sessions and spent budgets remain terminal.
+
 ## v0.11.1
 
 ### Fixes

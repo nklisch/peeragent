@@ -18,11 +18,12 @@ import (
 type Status string
 
 const (
-	StatusRunning   Status = "running"
-	StatusComplete  Status = "complete"
-	StatusFailed    Status = "failed"
-	StatusCancelled Status = "cancelled"
-	StatusCapacity  Status = "capacity_exhausted"
+	StatusRunning     Status = "running"
+	StatusComplete    Status = "complete"
+	StatusFailed      Status = "failed"
+	StatusCancelled   Status = "cancelled"
+	StatusCapacity    Status = "capacity_exhausted"
+	StatusOutputLimit Status = "output_limit"
 )
 
 type InboxSource struct {
@@ -31,6 +32,8 @@ type InboxSource struct {
 }
 
 type Job struct {
+	MessagingEnabled     bool          `json:"messaging_enabled"`
+	AgentSession         string        `json:"agent_session,omitempty"`
 	InboxSources         []InboxSource `json:"inbox_sources,omitempty"`
 	Branch               string        `json:"branch,omitempty"`
 	MessagePath          string        `json:"message_path,omitempty"`
@@ -85,15 +88,17 @@ func (s Store) Create(cwd string, spec ExecSpec, prompt string) (Job, error) {
 		return Job{}, err
 	}
 	job := Job{
-		ID:         id,
-		Status:     StatusRunning,
-		CWD:        cwd,
-		Spec:       spec,
-		CreatedAt:  now,
-		UpdatedAt:  now,
-		LogPath:    filepath.Join(dir, "agent.log"),
-		ResultPath: filepath.Join(dir, "result.json"),
-		PromptPath: filepath.Join(dir, "prompt.txt"),
+		MessagingEnabled: !spec.NoPreamble,
+		AgentSession:     spec.Resume,
+		ID:               id,
+		Status:           StatusRunning,
+		CWD:              cwd,
+		Spec:             spec,
+		CreatedAt:        now,
+		UpdatedAt:        now,
+		LogPath:          filepath.Join(dir, "agent.log"),
+		ResultPath:       filepath.Join(dir, "result.json"),
+		PromptPath:       filepath.Join(dir, "prompt.txt"),
 	}
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return Job{}, err
@@ -283,9 +288,29 @@ func AtomicWriteFile(path string, content []byte, perm os.FileMode) error {
 // cannot be accidentally overwritten by an older process.
 func IsTerminalStatus(status Status) bool {
 	switch status {
-	case StatusComplete, StatusFailed, StatusCancelled, StatusCapacity:
+	case StatusComplete, StatusFailed, StatusCancelled, StatusCapacity, StatusOutputLimit:
 		return true
 	default:
 		return false
 	}
+}
+
+// Session retains compatibility with jobs written before agent_session was explicit.
+func (j Job) Session() string {
+	if j.AgentSession != "" {
+		return j.AgentSession
+	}
+	return j.Spec.Resume
+}
+
+const LegacyMessagingWarning = "this job started before messaging; it will see replies only on --resume"
+
+func (j Job) MessagingWarning() string {
+	if j.MessagingEnabled {
+		return ""
+	}
+	if j.Spec.NoPreamble {
+		return "this job started without a messaging preamble; it will see replies only on --resume"
+	}
+	return LegacyMessagingWarning
 }

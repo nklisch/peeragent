@@ -12,6 +12,7 @@ import (
 
 type Result struct {
 	TurnStarted       bool
+	OutputLimit       bool
 	CapacityExhausted bool
 	ExitCode          int
 	Stdout            string

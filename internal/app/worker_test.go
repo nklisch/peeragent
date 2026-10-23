@@ -71,7 +71,7 @@ func TestWorkerExitHelper(t *testing.T) {
 }
 
 func TestWorkerExitPreservesTerminalWinner(t *testing.T) {
-	for _, status := range []result.Status{result.StatusSuccess, result.StatusFailed, result.StatusCapacity, result.StatusCancelled} {
+	for _, status := range []result.Status{result.StatusSuccess, result.StatusFailed, result.StatusCapacity, result.StatusOutputLimit, result.StatusCancelled} {
 		t.Run(string(status), func(t *testing.T) {
 			cwd := t.TempDir()
 			store := jobs.NewStore(cwd)
@@ -82,6 +82,9 @@ func TestWorkerExitPreservesTerminalWinner(t *testing.T) {
 			want := result.Result{Status: status, Summary: "original terminal result", Metadata: result.Metadata{JobID: job.ID, CWD: cwd, AgentSession: "same", ExitCode: 7}}
 			if status == result.StatusCapacity {
 				want.Summary = result.CapacitySummary("same")
+			}
+			if status == result.StatusOutputLimit {
+				want.Summary = result.OutputLimitSummary("same")
 			}
 			if err := FinishJob(store, job, want); err != nil {
 				t.Fatal(err)

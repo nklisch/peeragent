@@ -43,7 +43,7 @@ codex plugin add peeragent@peeragent
 Pi:
 
 ```sh
-pi install git:github.com/nklisch/peeragent@v0.11.1
+pi install git:github.com/nklisch/peeragent@v0.11.2
 ```
 
 The Pi package loads the `peer` skill from `plugin/skills`, so its wrapper
@@ -369,6 +369,15 @@ per five minutes per job. Without a recorded launcher pane, or if Herdr refuses,
 `say` exits nonzero and directs the job to its handback. Windows reports
 `no launcher channel on this platform`; its inbox/tell path works normally.
 
+`tell` confirms the persisted delivery on stdout:
+`delivered to job <id> (<agent>, <status>); unread N`. The count is taken under
+the same lock as delivery; the job may read the reply immediately afterward.
+Jobs started before v0.11 received no inbox preamble and see replies only on
+`--resume`. Jobs without a recorded `messaging_enabled` flag get a warning on
+`tell` (stderr) and single/multiple status (`messaging_warning` in JSON, a note
+in text). Delivery still succeeds. New jobs record `messaging_enabled` in
+`job.json`; `--no-preamble` jobs receive a specific missing-preamble warning.
+
 Prompts instruct every target to check `peeragent inbox` after long steps and
 before handback. `--no-preamble` sends task text only. Each command inside a job
 announces unread replies on stderr. Resumes include unread messages in the new
@@ -412,6 +421,17 @@ Check status without waiting:
 ```sh
 bin/peeragent --status <job-id>
 ```
+
+`peeragent --jobs [--cwd DIR] [--all] [--json | --text]` lists every job in
+that directory, including finished jobs and unindexed local jobs, newest first.
+`--all` also includes directories in the per-user job index; removed directories
+are skipped. It does not search arbitrary directories. JSON output is one object
+per line, using the multi-job status fields: job id, agent, model, status,
+`started_at` (creation time), `last_message_at` when available, and
+`agent_session`. An empty JSON list produces no lines; `--text` prints a table.
+`peeragent --version` prints the running binary's version. Status JSON carries
+that version in `metadata.version` for one job and `version` in each multi-job
+or listing row, even when the job was started by an older binary.
 
 For several jobs, `--status <job-id> <other-job-id>` prints one compact JSON
 record per line. Add `--text` for a table of status, model, effort, session,
@@ -499,6 +519,18 @@ additional attempts with a ten-minute delay:
 bin/peeragent --async --retry-capacity 12 "Implement the requested change."
 ```
 
+Codex `max_output_tokens` stops return the terminal status `output_limit`,
+with the captured `agent_session` and a resume command in the summary. Under
+`--async --agent codex --retry-capacity N`, an output-limit stop consumes one
+of the same N additional attempts as capacity recovery. It resumes the same
+session immediately with a short continuation asking for a concise handback;
+`--capacity-backoff` applies only to capacity stops. Each job gets at most one
+automatic output-limit continuation, even if budget remains. Without a session,
+with N=0, after that continuation, or after the shared budget is spent, the stop
+is terminal. `metadata.capacity_retries` retains its existing name and counts
+all additional attempts, including the output-limit continuation. Other failures
+are never retried.
+
 `--capacity-backoff <duration>` changes the delay, for example `--capacity-backoff
 5m`. Retry options require `--async --agent codex`, including when using
 `--resume`; add `--async` to a resumed call to enable them. Each retry resumes
@@ -541,23 +573,23 @@ published as downloadable archives for manual install.
 Build release archives locally:
 
 ```sh
-make release VERSION=0.11.1
+make release VERSION=0.11.2
 ```
 
 That writes:
 
 ```text
-dist/release/peeragent_0.11.1_linux_amd64.tar.gz
-dist/release/peeragent_0.11.1_linux_arm64.tar.gz
-dist/release/peeragent_0.11.1_darwin_amd64.tar.gz
-dist/release/peeragent_0.11.1_darwin_arm64.tar.gz
+dist/release/peeragent_0.11.2_linux_amd64.tar.gz
+dist/release/peeragent_0.11.2_linux_arm64.tar.gz
+dist/release/peeragent_0.11.2_darwin_amd64.tar.gz
+dist/release/peeragent_0.11.2_darwin_arm64.tar.gz
 dist/release/checksums.txt
 ```
 
 Publish a GitHub release from a machine with `gh` authenticated:
 
 ```sh
-make publish-release VERSION=0.11.1
+make publish-release VERSION=0.11.2
 ```
 
 The GitHub Actions workflow in `.github/workflows/release.yml` also publishes

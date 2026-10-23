@@ -52,28 +52,52 @@ func recordLauncher(job jobs.Job) error {
 	return jobs.AtomicWriteFile(filepath.Join(filepath.Dir(job.LogPath), "launcher.json"), data, 0o600)
 }
 
+type TellReceipt struct {
+	JobID            string
+	Agent            string
+	Status           jobs.Status
+	Unread           int
+	MessagingEnabled bool
+	Warning          string
+}
+
 func (s *Service) Tell(ctx context.Context, raw JobRequest, from, text string) error {
+	_, err := s.TellWithReceipt(ctx, raw, from, text)
+	return err
+}
+
+func (s *Service) TellWithReceipt(ctx context.Context, raw JobRequest, from, text string) (receipt TellReceipt, err error) {
 	req, err := s.normalizeJobRequest(ctx, raw)
 	if err != nil {
-		return err
+		return receipt, err
 	}
 	if strings.TrimSpace(text) == "" {
-		return errors.New("tell requires message text")
+		return receipt, errors.New("tell requires message text")
 	}
 	if from == "" {
 		from = "launcher"
 	}
 	store := jobs.NewStore(req.CWD)
-	return store.WithJobLock(req.JobID, func() error {
+	err = store.WithJobLock(req.JobID, func() error {
 		job, err := store.Load(req.JobID)
 		if err != nil {
 			return fmt.Errorf("load job %s: %w", req.JobID, err)
 		}
 		if jobs.IsTerminalStatus(job.Status) {
-			return fmt.Errorf("job %s is finished; use --resume %s to continue", job.ID, resumeHint(job.Spec.Resume))
+			return fmt.Errorf("job %s is finished; use --resume %s to continue", job.ID, resumeHint(job.Session()))
 		}
-		return store.AppendMessageLocked(job.ID, "inbox", jobs.Message{Time: time.Now().UTC(), From: from, Text: text})
+		mailbox, err := jobs.MailboxSnapshotLocked(ctx, store, job.ID)
+		if err != nil {
+			return err
+		}
+		if err := store.AppendMessageLocked(job.ID, "inbox", jobs.Message{Time: time.Now().UTC(), From: from, Text: text}); err != nil {
+			return err
+		}
+
+		receipt = TellReceipt{JobID: job.ID, Agent: job.Spec.Agent, Status: job.Status, Unread: mailbox.UnreadCount() + 1, MessagingEnabled: job.MessagingEnabled, Warning: job.MessagingWarning()}
+		return nil
 	})
+	return receipt, err
 }
 
 func resumeHint(session string) string {
@@ -308,6 +332,8 @@ func addMessaging(ctx context.Context, res *result.Result, job jobs.Job, convers
 	}
 	stats := m.Stats()
 	res.Metadata.MessageStats = &stats
+	res.Metadata.MessagingEnabled = job.MessagingEnabled
+	res.Metadata.MessagingWarning = job.MessagingWarning()
 	if conversation {
 		res.Conversation = m.Conversation()
 	}

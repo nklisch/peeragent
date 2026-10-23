@@ -10,6 +10,7 @@ func TestIsTerminalStatusUsesKnownPersistedStatesOnly(t *testing.T) {
 	}{
 		{name: "running", status: StatusRunning},
 		{name: "complete", status: StatusComplete, terminal: true},
+		{name: "output limit", status: StatusOutputLimit, terminal: true},
 		{name: "failed", status: StatusFailed, terminal: true},
 		{name: "cancelled", status: StatusCancelled, terminal: true},
 		{name: "unknown remains non-terminal", status: Status("future-state")},

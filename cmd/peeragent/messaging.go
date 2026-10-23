@@ -54,7 +54,19 @@ func runMessageCommand(ctx context.Context, req input.Request) error {
 		if from == "" {
 			from = os.Getenv("PEERAGENT_JOB_ID")
 		}
-		return applicationService.Tell(ctx, app.JobRequest{CWD: req.CWD, JobID: req.MessageJobID}, from, req.TaskText)
+		receipt, err := applicationService.TellWithReceipt(ctx, app.JobRequest{CWD: req.CWD, JobID: req.MessageJobID}, from, req.TaskText)
+		if err != nil {
+			return err
+		}
+		if _, err := fmt.Fprintf(os.Stdout, "delivered to job %s (%s, %s); unread %d\n", receipt.JobID, receipt.Agent, receipt.Status, receipt.Unread); err != nil {
+			return err
+		}
+		if !receipt.MessagingEnabled {
+			if _, err := fmt.Fprintln(os.Stderr, "warning: "+receipt.Warning); err != nil {
+				return err
+			}
+		}
+		return nil
 	}
 	store, id, err := currentJob()
 	if err != nil {

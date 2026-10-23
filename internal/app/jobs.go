@@ -11,6 +11,7 @@ import (
 
 	"github.com/nklisch/peeragent/internal/jobs"
 	"github.com/nklisch/peeragent/internal/result"
+	"github.com/nklisch/peeragent/internal/version"
 )
 
 // JobRequest identifies a repository-local asynchronous job. CWD is optional
@@ -158,11 +159,13 @@ func jobStatusResult(req JobRequest, job jobs.Job) result.Result {
 		ChangedFiles: []string{},
 		Verification: []result.Verification{},
 		Metadata: result.Metadata{
-			KeepTerminalEnv: job.Spec.KeepTerminalEnv,
-			AgentSession:    job.Spec.Resume,
-			CWD:             req.CWD,
-			ExitCode:        0,
-			JobID:           job.ID,
+			Version:          version.Version,
+			MessagingEnabled: job.MessagingEnabled,
+			KeepTerminalEnv:  job.Spec.KeepTerminalEnv,
+			AgentSession:     job.Session(),
+			CWD:              req.CWD,
+			ExitCode:         0,
+			JobID:            job.ID,
 		},
 	}
 	if job.FinalReceived && !jobs.IsTerminalStatus(job.Status) {
@@ -170,7 +173,10 @@ func jobStatusResult(req JobRequest, job jobs.Job) result.Result {
 	}
 	res.Metadata.FinalReceived = job.FinalReceived
 	if job.Status == jobs.StatusCapacity {
-		res.Summary = result.CapacitySummary(job.Spec.Resume)
+		res.Summary = result.CapacitySummary(job.Session())
+	}
+	if job.Status == jobs.StatusOutputLimit {
+		res.Summary = result.OutputLimitSummary(job.Session())
 	}
 	return res
 }
@@ -182,11 +188,13 @@ func runningJobResultForRequest(req JobRequest, job jobs.Job) result.Result {
 		ChangedFiles: []string{},
 		Verification: []result.Verification{},
 		Metadata: result.Metadata{
-			KeepTerminalEnv: job.Spec.KeepTerminalEnv,
-			AgentSession:    job.Spec.Resume,
-			CWD:             req.CWD,
-			ExitCode:        0,
-			JobID:           job.ID,
+			Version:          version.Version,
+			MessagingEnabled: job.MessagingEnabled,
+			KeepTerminalEnv:  job.Spec.KeepTerminalEnv,
+			AgentSession:     job.Session(),
+			CWD:              req.CWD,
+			ExitCode:         0,
+			JobID:            job.ID,
 		},
 	}
 }
@@ -213,6 +221,8 @@ func ResultStatusFromJob(status string) result.Status {
 	switch jobs.Status(status) {
 	case jobs.StatusComplete:
 		return result.StatusSuccess
+	case jobs.StatusOutputLimit:
+		return result.StatusOutputLimit
 	case jobs.StatusCapacity:
 		return result.StatusCapacity
 	case jobs.StatusFailed:
@@ -234,6 +244,8 @@ func IsTerminalJobStatus(status string) bool {
 // job lifecycle value used by job.json.
 func JobStatusFromResult(status result.Status) jobs.Status {
 	switch status {
+	case result.StatusOutputLimit:
+		return jobs.StatusOutputLimit
 	case result.StatusCapacity:
 		return jobs.StatusCapacity
 	case result.StatusSuccess:
@@ -272,6 +284,7 @@ func FinishJob(store jobs.Store, job jobs.Job, res result.Result) error {
 		}
 		if res.Metadata.AgentSession != "" {
 			current.Spec.Resume = res.Metadata.AgentSession
+			current.AgentSession = res.Metadata.AgentSession
 		}
 		current.CapacityBackoffUntil = nil
 		current.Status = targetStatus
@@ -313,6 +326,7 @@ func readStoredResult(path string) (result.Result, bool, error) {
 func isTerminalResultStatus(status result.Status) bool {
 	for _, persisted := range []jobs.Status{
 		jobs.StatusCapacity,
+		jobs.StatusOutputLimit,
 		jobs.StatusComplete,
 		jobs.StatusFailed,
 		jobs.StatusCancelled,

@@ -15,6 +15,7 @@ import (
 	"github.com/nklisch/peeragent/internal/input"
 	"github.com/nklisch/peeragent/internal/jobs"
 	"github.com/nklisch/peeragent/internal/result"
+	"github.com/nklisch/peeragent/internal/version"
 )
 
 var applicationService = app.NewService(app.Options{})
@@ -49,6 +50,8 @@ const usageText = `peeragent — delegate a task pass to another local coding as
 Usage:
   peeragent [flags] <task text>
   peeragent --prompt-file <path> [flags]
+  peeragent --jobs [--cwd DIR] [--all] [--json | --text]
+  peeragent --version
   peeragent say "<text>"
   peeragent tell <job-id> [--cwd DIR] "<text>"
   peeragent inbox
@@ -81,10 +84,13 @@ Flags:
   --prompt-file <path>            Read task text from a file.
   --async                         Start a background job and return its id.
                                   Add --retry-capacity N for opt-in Codex recovery.
-  --retry-capacity <N>            Retry capacity stops up to N times; requires --async --agent codex,
-                                  including with --resume.
+  --retry-capacity <N>            Retry capacity/output-limit stops up to N times; requires --async --agent codex,
+                                  including with --resume. Output limits resume once immediately, sharing N.
   --capacity-backoff <duration>   Delay between capacity retries (default 10m); requires
                                   --async --agent codex, including with --resume.
+  --jobs                         List jobs in the selected directory; --all includes indexed directories.
+  --all                          With --jobs, include every indexed directory.
+  --version                      Print the running version.
   --status <job-id>...            One job: existing result; several: JSONL or --text table.
   --result <job-id>               Print a background job's current/final result.
   --wait <job-id>                 Wait for and print a job's terminal result.
@@ -141,6 +147,13 @@ func runCommand(parent context.Context, args []string) (runErr error) {
 	if req.Help {
 		fmt.Print(usageText)
 		return nil
+	}
+	if req.Version {
+		fmt.Fprintln(os.Stdout, version.Version)
+		return nil
+	}
+	if req.Jobs {
+		return listJobs(ctx, req)
 	}
 	if req.JobRunID != "" {
 		return runAsyncJob(req)
@@ -288,6 +301,24 @@ func showMultipleJobStatuses(ctx context.Context, req input.Request) error {
 	return err
 }
 
+func listJobs(ctx context.Context, req input.Request) error {
+	records, err := applicationService.ListJobs(ctx, req.CWD, req.All)
+	if err != nil {
+		return err
+	}
+	if req.JSON {
+		encoder := json.NewEncoder(os.Stdout)
+		for _, record := range records {
+			if err := encoder.Encode(record); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	_, err = fmt.Fprint(os.Stdout, result.FormatJobStatuses(records))
+	return err
+}
+
 func waitForAnyJobResult(ctx context.Context, req input.Request) error {
 	requests, err := applicationService.ResolveJobs(ctx, jobRequests(req.WaitAnyJobs))
 	if err != nil {
@@ -419,6 +450,7 @@ func runAsyncJob(req input.Request) error {
 		return app.RecordJobProgress(store, job.ID, progress)
 	})
 
+	outputLimitRetried := false
 	for attempt := 0; ; attempt++ {
 		current, err := store.Load(job.ID)
 		if err != nil {
@@ -447,13 +479,25 @@ func runAsyncJob(req input.Request) error {
 			logPath = filepath.Join(filepath.Dir(job.LogPath), fmt.Sprintf("target-retry-%d.log", attempt))
 		}
 		attachExecutionLog(jobReq, &res, execResult, logPath)
-		if res.Status != result.StatusCapacity || attempt >= job.Spec.RetryCapacity || res.Metadata.AgentSession == "" {
+		outputLimit := res.Status == result.StatusOutputLimit
+		if (res.Status != result.StatusCapacity && !outputLimit) || (outputLimit && outputLimitRetried) || attempt >= job.Spec.RetryCapacity || res.Metadata.AgentSession == "" {
 			return finishAsyncJob(store, job, res)
 		}
 		// Never start a fresh conversation on retry. Preserve all execution options,
 		// continuing the same session with a continuation prompt instead of replaying work.
 		jobReq.Resume = res.Metadata.AgentSession
 		jobReq.TaskText = "Continue the task from where you stopped when model capacity was exhausted."
+		if outputLimit {
+			outputLimitRetried = true
+			jobReq.TaskText = "Continue from where you stopped at the output limit. Finish your handback concisely."
+		}
+		backoff := job.Spec.CapacityBackoff
+		if backoff <= 0 {
+			backoff = 10 * time.Minute
+		}
+		if outputLimit {
+			backoff = 0
+		}
 		proceed := false
 		err = store.WithJobLock(job.ID, func() error {
 			current, err := store.Load(job.ID)
@@ -464,10 +508,7 @@ func runAsyncJob(req input.Request) error {
 				return nil
 			}
 			current.Spec.Resume = jobReq.Resume
-			backoff := job.Spec.CapacityBackoff
-			if backoff <= 0 {
-				backoff = 10 * time.Minute
-			}
+			current.AgentSession = jobReq.Resume
 			until := time.Now().UTC().Add(backoff)
 			current.CapacityBackoffUntil = &until
 			current.CapacityRetries = attempt
@@ -483,10 +524,6 @@ func runAsyncJob(req input.Request) error {
 		}
 		if !proceed {
 			return nil
-		}
-		backoff := job.Spec.CapacityBackoff
-		if backoff <= 0 {
-			backoff = 10 * time.Minute
 		}
 		select {
 		case <-time.After(backoff):

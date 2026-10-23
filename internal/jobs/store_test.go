@@ -382,3 +382,24 @@ func TestAtomicSaveFailureLeavesExistingJobJSON(t *testing.T) {
 		t.Fatalf("job.json changed after failed save:\n%s", after)
 	}
 }
+
+func TestCreatedJobsRecordMessagingSupport(t *testing.T) {
+	cwd := t.TempDir()
+	store := NewStore(cwd)
+	for _, noPreamble := range []bool{false, true} {
+		job, err := store.Create(cwd, ExecSpec{Agent: "codex", NoPreamble: noPreamble}, "task")
+		if err != nil {
+			t.Fatal(err)
+		}
+		loaded, err := store.Load(job.ID)
+		if err != nil || loaded.MessagingEnabled == noPreamble {
+			t.Fatalf("preamble marker: %#v %v", loaded, err)
+		}
+		if noPreamble && loaded.MessagingWarning() != "this job started without a messaging preamble; it will see replies only on --resume" {
+			t.Fatalf("missing-preamble warning: %q", loaded.MessagingWarning())
+		}
+		if !noPreamble && loaded.MessagingWarning() != "" {
+			t.Fatalf("spurious warning: %q", loaded.MessagingWarning())
+		}
+	}
+}

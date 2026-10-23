@@ -85,7 +85,20 @@ starts. A `--` separator permits literal task text starting with a dash.
 Codex capacity stops return `capacity_exhausted` and retain the target session.
 Async callers may opt into `--retry-capacity N` additional attempts with
 `--capacity-backoff <duration>` (default ten minutes). Retries resume that
-session under the original job id and never retry other failures.
+session under the original job id. A `max_output_tokens` stop reports
+`output_limit`; the same budget permits one immediate, concise continuation
+per job. Other failures are never retried.
+
+`peeragent --jobs [--cwd DIR] [--all] [--json | --text]` lists every job in
+that directory, including finished jobs and unindexed local jobs, newest first.
+`--all` also includes directories in the per-user job index; removed directories
+are skipped. It does not search arbitrary directories. JSON output is one object
+per line, using the multi-job status fields: job id, agent, model, status,
+`started_at` (creation time), `last_message_at` when available, and
+`agent_session`. An empty JSON list produces no lines; `--text` prints a table.
+`peeragent --version` prints the running binary's version. Status JSON carries
+that version in `metadata.version` for one job and `version` in each multi-job
+or listing row, even when the job was started by an older binary.
 
 ### Job messaging
 

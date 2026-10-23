@@ -156,19 +156,40 @@ non-capacity outcome mark them read. Startup failure, cancellation and capacity
 refusal release them to unread; a dead worker's unresolved reservation is
 released on the next mailbox read. Later replies remain independently readable.
 
+`tell` confirms the persisted delivery on stdout:
+`delivered to job <id> (<agent>, <status>); unread N`. The count is taken under
+the same lock as delivery; the job may read the reply immediately afterward.
+Jobs started before v0.11 received no inbox preamble and see replies only on
+`--resume`. Jobs without a recorded `messaging_enabled` flag get a warning on
+`tell` (stderr) and single/multiple status (`messaging_warning` in JSON, a note
+in text). Delivery still succeeds. New jobs record `messaging_enabled` in
+`job.json`; `--no-preamble` jobs receive a specific missing-preamble warning.
+
 ## Async Lifecycle
 
 Prefer `--async` for normal implementation, research, and review passes so a
 long-running peer does not consume or exceed the launch tool call. For async
-Codex work, add `--retry-capacity N` to opt into recovery from capacity stops;
-it is disabled by default, resumes the same session, and waits `10m` between
-attempts unless `--capacity-backoff` overrides it. Retry options require
+Codex work, add `--retry-capacity N` to opt into recovery from capacity and
+output-limit stops. It is disabled by default and resumes the same session.
+Capacity retries wait `10m` unless `--capacity-backoff` overrides it. Retry options require
 `--async --agent codex` even with `--resume`; add `--async` to a resumed call.
 For example:
 
 ```bash
 <resolved-peeragent-bin> --async --agent codex --retry-capacity 12 --prompt-file <brief>
 ```
+
+Codex `max_output_tokens` stops return the terminal status `output_limit`,
+with the captured `agent_session` and a resume command in the summary. Under
+`--async --agent codex --retry-capacity N`, an output-limit stop consumes one
+of the same N additional attempts as capacity recovery. It resumes the same
+session immediately with a short continuation asking for a concise handback;
+`--capacity-backoff` applies only to capacity stops. Each job gets at most one
+automatic output-limit continuation, even if budget remains. Without a session,
+with N=0, after that continuation, or after the shared budget is spent, the stop
+is terminal. `metadata.capacity_retries` retains its existing name and counts
+all additional attempts, including the output-limit continuation. Other failures
+are never retried.
 
 Every launch carries a job id in JSON and text, including resumed calls. A
 resume refuses with exit `2` while another job for that agent/session has a
@@ -182,6 +203,17 @@ launch returns a job id, start peeragent's attached waiter:
 ```bash
 <resolved-peeragent-bin> --wait <job-id> [--cwd <same-cwd>]
 ```
+
+`peeragent --jobs [--cwd DIR] [--all] [--json | --text]` lists every job in
+that directory, including finished jobs and unindexed local jobs, newest first.
+`--all` also includes directories in the per-user job index; removed directories
+are skipped. It does not search arbitrary directories. JSON output is one object
+per line, using the multi-job status fields: job id, agent, model, status,
+`started_at` (creation time), `last_message_at` when available, and
+`agent_session`. An empty JSON list produces no lines; `--text` prints a table.
+`peeragent --version` prints the running binary's version. Status JSON carries
+that version in `metadata.version` for one job and `version` in each multi-job
+or listing row, even when the job was started by an older binary.
 
 For several outstanding jobs, attach one monitor to
 `--wait-any <job-id> <other-job-id>`. It validates every id before waiting and
@@ -275,7 +307,11 @@ starts with a dash. Validate session variables before constructing a resume call
   N additional attempts with a default ten-minute backoff (override with
   `--capacity-backoff <duration>`). Retries resume that session under one job id;
   they stop without a session id or when the budget is spent. Other failures
-  are never retried. `metadata.capacity_retries` counts additional attempts.
+  are never retried except the single output-limit continuation.
+  `metadata.capacity_retries` counts all additional attempts.
+- `status: output_limit` — Codex stopped at `max_output_tokens`. Keep the session
+  and resume command. The shared async retry budget permits one immediate
+  continuation; a repeated limit is terminal.
 - `status: running` — keep monitoring the async job; report only an interim
   update if useful, then retrieve its terminal result before concluding.
 - `status: cancelled` — only after `--cancel`; report cleanly.
@@ -303,8 +339,11 @@ Use advanced modes only when the request calls for them:
 - `--async` — preferred for substantive work; starts a background job and
   returns a `job_id` immediately with `status: running`; add opt-in
   `--retry-capacity N` for Codex capacity recovery.
-- `--retry-capacity <N>` — opt into at most N capacity retries (async Codex only).
+- `--retry-capacity <N>` — opt into at most N shared capacity/output-limit retries (async Codex only).
 - `--capacity-backoff <duration>` — positive retry delay (default `10m`).
+- `--jobs [--cwd DIR] [--all]` — list local jobs, or all indexed directories;
+  JSONL by default, `--text` for a table.
+- `--version` — print the running binary version.
 - `--status <job-id>...` — check one job or get compact JSONL / a text table
   for several.
 - `--result <job-id>` — fetch an async job's current or final result.

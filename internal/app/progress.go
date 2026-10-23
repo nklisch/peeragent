@@ -9,6 +9,7 @@ import (
 	"github.com/nklisch/peeragent/internal/executil"
 	"github.com/nklisch/peeragent/internal/jobs"
 	"github.com/nklisch/peeragent/internal/result"
+	"github.com/nklisch/peeragent/internal/version"
 )
 
 // RecordJobProgress shares cancellation's lock, so an observation can never
@@ -39,12 +40,13 @@ func RecordJobProgress(store jobs.Store, id string, progress executil.Progress) 
 				return fmt.Errorf("append job %s progress: %w", id, err)
 			}
 		}
-		changed := progress.AgentSession != "" && progress.AgentSession != job.Spec.Resume || progress.Message != "" || job.FinalReceived != progress.FinalReceived
+		changed := progress.AgentSession != "" && progress.AgentSession != job.AgentSession || progress.Message != "" || job.FinalReceived != progress.FinalReceived
 		if !changed {
 			return nil
 		}
 		if progress.AgentSession != "" {
 			job.Spec.Resume = progress.AgentSession
+			job.AgentSession = progress.AgentSession
 		}
 		if progress.Message != "" {
 			job.MessagePath = filepath.Join(filepath.Dir(job.LogPath), "message.txt")
@@ -59,13 +61,18 @@ func RecordJobProgress(store jobs.Store, id string, progress executil.Progress) 
 
 func enrichJobResult(res *result.Result, job jobs.Job) error {
 	res.Metadata.KeepTerminalEnv = job.Spec.KeepTerminalEnv
+	res.Metadata.MessagingEnabled = job.MessagingEnabled
+	res.Metadata.Version = version.Version
 	if res.Metadata.AgentSession == "" {
-		res.Metadata.AgentSession = job.Spec.Resume
+		res.Metadata.AgentSession = job.Session()
 	}
 	res.Metadata.MessagePath = job.MessagePath
 	res.Metadata.FinalReceived = job.FinalReceived
 	if res.Status == result.StatusCapacity {
 		res.Summary = result.CapacitySummary(res.Metadata.AgentSession)
+	}
+	if res.Status == result.StatusOutputLimit {
+		res.Summary = result.OutputLimitSummary(res.Metadata.AgentSession)
 	}
 	if res.Details == "" && job.MessagePath != "" {
 		text, err := os.ReadFile(job.MessagePath)

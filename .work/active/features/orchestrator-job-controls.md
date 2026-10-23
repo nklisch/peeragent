@@ -7,13 +7,14 @@ parent: null
 depends_on: []
 release_binding: null
 created: 2026-10-21
-updated: 2026-10-22
+updated: 2026-10-23
 ---
 
 # Job controls for orchestrators running many peers
 
-Requested by Nathan through godot-41. Ready for owner review, without release,
-installed-plugin changes, committed binary refresh, tag or push.
+Requested by Nathan through godot-41. Ready for owner review. Round 4 prepares
+v0.11.2 metadata; installed-plugin changes, committed binary refresh, tag and
+push remain with the publishing owner.
 
 ## Implementation
 
@@ -482,3 +483,64 @@ The accepted finding is fixed rather than deferred. All launch/wait changes
 stay local to this branch; no installed plugin/binary, release metadata/tag,
 main checkout, other sessions' jobs or review files were modified. Godot-41
 owns review, landing and release.
+
+
+## Round 4: delivery receipts, job discovery and output-limit recovery
+
+Requested for v0.11.2 on 2026-10-23. Implemented directly on `round-4`:
+
+- `tell` reports `delivered to job <id> (<agent>, <status>); unread N` after
+  persisting the reply. The count and lifecycle come from the delivery lock.
+  New jobs record `messaging_enabled`; missing markers warn that replies reach
+  the job on `--resume`. Both status formats expose the warning, and delivery
+  still succeeds. Explicit `--no-preamble` gets its own accurate warning.
+- `peeragent --jobs [--cwd DIR] [--all] [--json | --text]` lists every lifecycle
+  in the selected directory, newest first, including unindexed local jobs.
+  `--all` adds indexed directories, skipping removed worktrees/absent metadata
+  but reporting corrupt or unreadable state. Rows reuse the multi-job contract,
+  adding agent and version alongside model, status, creation (`started_at`),
+  last message time and session. Empty JSON lists emit no rows.
+- `agent_session` is persisted directly in `job.json` on live progress and
+  completion; old `spec.resume` remains readable and synchronized.
+- Codex's exact incident diagnostic, `Incomplete response returned, reason:
+  max_output_tokens`, followed by `turn.failed` with the same message, now
+  produces terminal `output_limit`. The partial handback, session and resume
+  command remain available. Unrelated mentions/configuration errors do not
+  trigger recovery; later authoritative outcomes override diagnostic history.
+- Async Codex's existing `--retry-capacity N` budget permits one immediate
+  output-limit continuation per job, sharing N with capacity retries. Capacity
+  retains its configured delay. A repeated limit, missing session or spent
+  budget remains terminal. `metadata.capacity_retries` keeps its compatible
+  name and counts all additional attempts. Continuations preserve settings
+  and the same session/job, and do not replay the original task.
+- `peeragent --version` prints `0.11.2`; single status uses `metadata.version`,
+  and multi-job/list rows use `version`, identifying the currently running
+  binary even for older jobs. Release bump/validation scripts keep that
+  runtime version synchronized with all six manifests. CHANGELOG, README,
+  contract/messaging/spec docs and both copies of the peer skill are current.
+
+### Round 4 verification
+
+`go version go1.26.4 linux/amd64`. All requested checks passed:
+
+- `go build ./...` and `go vet ./...`.
+- `go test -json ./...`: **283 top-level / 468 including subtests**, 13 tested
+  packages, zero failures/skips. Two helper packages have no tests. This adds
+  ten top-level tests and 22 total cases over the starting branch, covering
+  receipts, legacy/no-preamble warnings, listings/scope/order/stale indexes,
+  live session capture, version synchronization, exact output-limit events,
+  false positives, shared budgets, repeated limits, missing sessions and
+  preservation of terminal output-limit results during worker cleanup.
+- `./scripts/validate.sh`: passed, including its required suite replay,
+  build/package/shim/documentation checks, runtime version check and Linux/macOS
+  amd64/arm64 release archive builds. The existing optional missing-icon
+  advisory remains; plugin validation passed.
+- `GOOS=windows go vet ./...` and `git diff --check`.
+
+Tests use fake target agents; there were no real model calls or timing runs.
+Only repository source/shims/binaries were used for controls and validation;
+no installed binary/plugin or main checkout was touched. Native macOS and
+Windows execution remain unverified on this Linux host; the publisher owns
+Windows CI. No push or tag was made. Generated archives/binaries and this
+round's temporary logs are removed before handback. No in-scope work is
+backlogged or deferred; owner review and publishing remain with godot-41.

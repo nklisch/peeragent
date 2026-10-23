@@ -2,13 +2,16 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os/exec"
 	"strings"
 	"time"
 
 	"github.com/nklisch/peeragent/internal/jobs"
 	"github.com/nklisch/peeragent/internal/result"
+	"github.com/nklisch/peeragent/internal/version"
 )
 
 // ResolveJobs validates the whole wait set before any terminal result can win.
@@ -31,6 +34,10 @@ func (s *Service) ResolveJobs(ctx context.Context, requests []JobRequest) ([]Job
 // JobStatuses loads each job once and reads HEAD once per distinct directory.
 // Missing git or a non-repository directory simply omits the optional commit.
 func (s *Service) JobStatuses(ctx context.Context, requests []JobRequest) ([]result.JobStatus, error) {
+	return s.jobStatuses(ctx, requests, false)
+}
+
+func (s *Service) jobStatuses(ctx context.Context, requests []JobRequest, skipMissing bool) ([]result.JobStatus, error) {
 	records := make([]result.JobStatus, 0, len(requests))
 	heads := map[string]string{}
 	for _, raw := range requests {
@@ -40,6 +47,9 @@ func (s *Service) JobStatuses(ctx context.Context, requests []JobRequest) ([]res
 		}
 		job, err := jobs.NewStore(req.CWD).Load(req.JobID)
 		if err != nil {
+			if skipMissing && errors.Is(err, fs.ErrNotExist) {
+				continue
+			}
 			return nil, fmt.Errorf("load async job %q: %w", req.JobID, err)
 		}
 		head, known := heads[req.CWD]
@@ -56,18 +66,23 @@ func (s *Service) JobStatuses(ctx context.Context, requests []JobRequest) ([]res
 		}
 		summary := ""
 		if job.Status == jobs.StatusCapacity {
-			summary = result.CapacitySummary(job.Spec.Resume)
+			summary = result.CapacitySummary(job.Session())
 		}
+		if job.Status == jobs.StatusOutputLimit {
+			summary = result.OutputLimitSummary(job.Session())
+		}
+		warning := job.MessagingWarning()
 		mailbox, err := jobs.MailboxSnapshot(ctx, jobs.NewStore(req.CWD), job.ID)
 		if err != nil {
 			return nil, fmt.Errorf("read job %s mailbox: %w", job.ID, err)
 		}
 		records = append(records, result.JobStatus{
-			MessageStats:    mailbox.Stats(),
+			MessageStats: mailbox.Stats(),
+			Version:      version.Version, Agent: job.Spec.Agent, MessagingEnabled: job.MessagingEnabled, MessagingWarning: warning,
 			KeepTerminalEnv: job.Spec.KeepTerminalEnv,
 			LastEventAt:     progress.At, LastMessage: progress.LastMessage, Summary: summary,
 			JobID: job.ID, CWD: req.CWD, Status: ResultStatusFromJob(string(job.Status)),
-			Model: job.Spec.Model, Effort: job.Spec.Effort, AgentSession: job.Spec.Resume,
+			Model: job.Spec.Model, Effort: job.Spec.Effort, AgentSession: job.Session(),
 			StartedAt: job.CreatedAt, CapacityBackoff: !jobs.IsTerminalStatus(job.Status) && job.CapacityBackoffUntil != nil && time.Now().Before(*job.CapacityBackoffUntil),
 			HeadCommit: head, FinalReceived: job.FinalReceived && !jobs.IsTerminalStatus(job.Status),
 		})

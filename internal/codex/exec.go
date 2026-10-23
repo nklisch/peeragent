@@ -160,6 +160,7 @@ type streamState struct {
 	started                     bool
 	session, message, preview   string
 	capacity, terminal, success bool
+	outputLimit                 bool
 	turnComplete                bool
 	observation                 executil.CompletionObservation
 }
@@ -170,6 +171,9 @@ func (s *streamState) consume(line string) (executil.Progress, bool) {
 	if err := json.Unmarshal([]byte(line), &event); err != nil {
 		if !s.terminal && isCapacityDiagnostic(line) {
 			s.capacity = true
+		}
+		if !s.terminal && isOutputLimitDiagnostic(line) {
+			s.outputLimit = true
 		}
 		return executil.Progress{}, false
 	}
@@ -184,6 +188,7 @@ func (s *streamState) consume(line string) (executil.Progress, bool) {
 	oldMessage := s.message
 	if s.turnComplete && isActivityEvent(event.Type) {
 		s.turnComplete, s.terminal = false, false
+		s.outputLimit = false
 		s.observation = executil.CompletionActive
 	}
 	switch event.Type {
@@ -214,6 +219,7 @@ func (s *streamState) consume(line string) (executil.Progress, bool) {
 			}
 			if item.Phase == "final" || item.Phase == "final_answer" {
 				s.terminal, s.success, s.capacity = true, true, false
+				s.outputLimit = false
 				s.turnComplete = false
 				s.observation = executil.CompletionPending
 			}
@@ -223,10 +229,14 @@ func (s *streamState) consume(line string) (executil.Progress, bool) {
 			s.message = event.Message
 		}
 	case "error":
+		if !s.terminal && outputLimitEvent(event) {
+			s.outputLimit = true
+		}
 		if !s.terminal && (isCapacityDiagnostic(event.Message) || isCapacityDiagnostic(event.Error.Message)) {
 			s.capacity = true
 		}
 	case "turn.failed":
+		s.outputLimit = outputLimitEvent(event)
 		s.capacity = isCapacityDiagnostic(event.Message) || isCapacityDiagnostic(event.Error.Message)
 		s.terminal, s.success = true, false
 		s.turnComplete = false
@@ -242,6 +252,7 @@ func (s *streamState) consume(line string) (executil.Progress, bool) {
 			s.message = event.LastAgentMessage
 		}
 		s.capacity, s.terminal, s.success = false, true, true
+		s.outputLimit = false
 	}
 	if oldMessage != s.message {
 		s.preview = executil.MessagePreview(s.message)
@@ -284,6 +295,7 @@ func normalizeStreamResult(result *Result, state streamState) {
 		}
 	}
 	result.CapacityExhausted = capacity
+	result.OutputLimit = state.outputLimit
 	if result.RawStderr == "" {
 		result.RawStderr = result.Stderr
 	}
@@ -293,6 +305,9 @@ func normalizeStreamResult(result *Result, state streamState) {
 		// A structured terminal outcome is authoritative over stderr history.
 		if !terminal && !result.CapacityExhausted && isCapacityDiagnostic(line) {
 			result.CapacityExhausted = true
+		}
+		if !terminal && !result.OutputLimit && isOutputLimitDiagnostic(line) {
+			result.OutputLimit = true
 		}
 		if !strings.HasPrefix(strings.TrimSpace(line), "Orphan custom tool call:") {
 			filtered = append(filtered, line)
@@ -318,6 +333,23 @@ func isCapacityDiagnostic(text string) bool {
 		return false
 	}
 	// Require the diagnostic's own prefix, not a quoted or historical mention.
+	suffix := strings.TrimPrefix(text, diagnostic)
+	return suffix == "" || strings.ContainsRune(" \t.,:;!?", rune(suffix[0]))
+}
+
+// Only error/outcome envelopes call this; assistant prose mentioning the limit
+// must not turn a successful handback into another execution attempt.
+func outputLimitEvent(e codexEvent) bool {
+	return isOutputLimitDiagnostic(e.Error.Message) || isOutputLimitDiagnostic(e.Message)
+}
+
+func isOutputLimitDiagnostic(text string) bool {
+	text = strings.TrimSpace(strings.ToLower(text))
+	text = strings.TrimSpace(strings.TrimPrefix(text, "error:"))
+	const diagnostic = "incomplete response returned, reason: max_output_tokens"
+	if !strings.HasPrefix(text, diagnostic) {
+		return false
+	}
 	suffix := strings.TrimPrefix(text, diagnostic)
 	return suffix == "" || strings.ContainsRune(" \t.,:;!?", rune(suffix[0]))
 }

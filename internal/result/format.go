@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/nklisch/peeragent/internal/version"
 )
 
 func FormatJSON(res Result) ([]byte, error) {
+	res.Metadata.Version = version.Version
 	return json.Marshal(res)
 }
 
@@ -52,6 +55,10 @@ func FormatText(res Result) string {
 		b.WriteString("\n")
 	}
 	b.WriteString("Metadata:\n")
+	fmt.Fprintf(&b, "- version: %s\n", version.Version)
+	if res.Metadata.MessagingWarning != "" {
+		fmt.Fprintf(&b, "- warning: %s\n", res.Metadata.MessagingWarning)
+	}
 	if stats := res.Metadata.MessageStats; stats != nil {
 		fmt.Fprintf(&b, "- inbox_unread: %d\n- outbox_sent: %d\n", stats.InboxUnread, stats.OutboxSent)
 		if stats.LastMessageAt != nil {

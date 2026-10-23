@@ -79,6 +79,9 @@ test -f "dist/release/peeragent_${VERSION}_darwin_amd64.tar.gz"
 test -f "dist/release/peeragent_${VERSION}_darwin_arm64.tar.gz"
 test -f dist/release/checksums.txt
 
+step "runtime version"
+test "$(dist/peeragent --version)" = "$VERSION"
+
 step "plugin metadata"
 grep -q '"name": "peeragent"' .claude-plugin/plugin.json
 grep -q '"name": "peeragent"' .codex-plugin/plugin.json

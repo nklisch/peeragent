@@ -6,6 +6,15 @@ appends `{time, from, text}` to `inbox.jsonl`. `from` uses the caller's Herdr pa
 its peeragent job identity, or `launcher`. A finished job refuses replies and
 suggests `--resume <agent-session>`.
 
+`tell` confirms the persisted delivery on stdout:
+`delivered to job <id> (<agent>, <status>); unread N`. The count is taken under
+the same lock as delivery; the job may read the reply immediately afterward.
+Jobs started before v0.11 received no inbox preamble and see replies only on
+`--resume`. Jobs without a recorded `messaging_enabled` flag get a warning on
+`tell` (stderr) and single/multiple status (`messaging_warning` in JSON, a note
+in text). Delivery still succeeds. New jobs record `messaging_enabled` in
+`job.json`; `--no-preamble` jobs receive a specific missing-preamble warning.
+
 Inside a job, `peeragent inbox` emits unread replies as JSONL in arrival order.
 It holds the job lock through printing and marking them read. Concurrent tells
 stay in the next unread batch if they arrive after that lock was acquired.
