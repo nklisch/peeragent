@@ -167,8 +167,8 @@ func TestExecWithRunnerNormalizesStructuredOutputAndCapturesSession(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Stdout != "completed" {
-		t.Fatalf("Stdout = %q", result.Stdout)
+	if result.Stdout != "completed" || result.FinalMessage != "completed" {
+		t.Fatalf("Stdout = %q, FinalMessage = %q", result.Stdout, result.FinalMessage)
 	}
 	if result.AgentSession != "conversation-new" {
 		t.Fatalf("AgentSession = %q", result.AgentSession)

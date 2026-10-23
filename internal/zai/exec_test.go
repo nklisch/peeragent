@@ -127,8 +127,8 @@ func TestTurnStartedRequiresPrintResponse(t *testing.T) {
 	}{{"", false}, {" \n", false}, {"answer", true}} {
 		runner := &testsupport.RecordingRunner{Result: Result{Stdout: test.output}}
 		res, err := ExecWithRunner(context.Background(), runner, Options{CWD: "/repo", Prompt: "task"})
-		if err != nil || res.TurnStarted != test.started {
-			t.Fatalf("output %q started %t err %v", test.output, res.TurnStarted, err)
+		if err != nil || res.TurnStarted != test.started || (res.FinalMessage != "") != test.started {
+			t.Fatalf("output %q started %t final %q err %v", test.output, res.TurnStarted, res.FinalMessage, err)
 		}
 	}
 }

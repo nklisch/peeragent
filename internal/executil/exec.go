@@ -20,6 +20,10 @@ type Result struct {
 	RawStdout         string
 	RawStderr         string
 	AgentSession      string
+	// FinalMessage is the target's final agent message when the adapter could
+	// identify one; empty means the target produced none. Stdout may instead
+	// hold raw CLI output when no message was found.
+	FinalMessage      string
 	CompletionStopped bool
 }
 

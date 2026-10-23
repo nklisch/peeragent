@@ -183,6 +183,7 @@ The default result is JSON:
 {
   "status": "success",
   "summary": "Claude implementation completed",
+  "final_message": "Claude implementation completed",
   "changed_files": [],
   "verification": [],
   "details": "stdout:\n...",
@@ -200,6 +201,17 @@ The default result is JSON:
   }
 }
 ```
+
+`final_message` is the job's complete final agent message as a plain string,
+never trimmed, so scripts can read the handback without parsing `details`.
+`summary` keeps its 600-character preview and `details` keeps its
+`stdout:`/`stderr:` shape. `final_message` is `null` while a job runs (until
+the target reports its final message), after a `capacity_exhausted` or
+`output_limit` stop, and when the target produced no agent message, such as a
+failure that printed only diagnostics. A failed job keeps its last agent
+message. `--result`, `--wait` and blocking calls fill it in; launch and
+`--status` results carry `null`. Text output already shows the message under
+details, so it adds no separate section.
 
 When available, `metadata.agent_session` contains the target-agent session id
 that can be passed back with `--resume`. Every CLI launch, including blocking

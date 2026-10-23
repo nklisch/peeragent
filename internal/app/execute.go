@@ -106,9 +106,15 @@ func ResultFromExecution(delegation input.Delegation, execResult executil.Result
 			execResult.ExitCode = 1
 		}
 	}
+	// A capacity or output-limit stop leaves an interim message, not a handback.
+	var finalMessage *string
+	if execResult.FinalMessage != "" && status != result.StatusCapacity && status != result.StatusOutputLimit {
+		finalMessage = &execResult.FinalMessage
+	}
 	return result.Result{
 		Status:       status,
 		Summary:      summary,
+		FinalMessage: finalMessage,
 		ChangedFiles: []string{},
 		Verification: []result.Verification{},
 		Details:      executionDetails(execResult.Stdout, execResult.Stderr),

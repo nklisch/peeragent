@@ -237,7 +237,9 @@ for continuity inside one review loop. Start a fresh call without `--resume`
 when you want an independent second opinion.
 
 The default result is intentionally compact: for Codex JSONL output, peeragent
-surfaces only the final completed agent message in `details`. If you need to
+surfaces only the final completed agent message in `details`. Scripts should
+read the complete, untrimmed handback from the top-level `final_message` string
+(`null` while running or when the target produced none). If you need to
 inspect the raw target stdout/stderr, open `metadata.log_path`; for continuity,
 use `metadata.agent_session` to resume the target session.
 

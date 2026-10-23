@@ -61,6 +61,7 @@ func normalizeResult(result *Result) {
 			result.AgentSession = envelope.ConversationID
 		}
 		result.Stdout = envelope.Response
+		result.FinalMessage = envelope.Response
 		if result.ExitCode == 0 && !strings.EqualFold(envelope.Status, "SUCCESS") {
 			result.ExitCode = 1
 		}

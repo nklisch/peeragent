@@ -19,10 +19,15 @@ const (
 	StatusRunning     Status = "running"
 )
 
+// Result is the public result contract. FinalMessage is the job's complete
+// final agent message, or null while none is known: still running, a capacity
+// or output-limit stop, or a target that produced none. Summary and Details
+// keep their established shapes.
 type Result struct {
 	PendingHeavySteps []heavy.Step   `json:"pending_heavy_steps,omitempty"`
 	Status            Status         `json:"status"`
 	Summary           string         `json:"summary"`
+	FinalMessage      *string        `json:"final_message"`
 	ChangedFiles      []string       `json:"changed_files"`
 	Verification      []Verification `json:"verification"`
 	Details           string         `json:"details,omitempty"`

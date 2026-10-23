@@ -74,12 +74,21 @@ func enrichJobResult(res *result.Result, job jobs.Job) error {
 	if res.Status == result.StatusOutputLimit {
 		res.Summary = result.OutputLimitSummary(res.Metadata.AgentSession)
 	}
-	if res.Details == "" && job.MessagePath != "" {
-		text, err := os.ReadFile(job.MessagePath)
+	// A running job's message file holds its final message once the target
+	// reported completion; terminal results carry their own final message.
+	needFinal := res.Status == result.StatusRunning && res.FinalMessage == nil && job.FinalReceived
+	if (res.Details == "" || needFinal) && job.MessagePath != "" {
+		data, err := os.ReadFile(job.MessagePath)
 		if err != nil {
 			return err
 		}
-		res.Details = executionDetails(string(text), "")
+		text := string(data)
+		if res.Details == "" {
+			res.Details = executionDetails(text, "")
+		}
+		if needFinal && text != "" {
+			res.FinalMessage = &text
+		}
 	}
 	return nil
 }

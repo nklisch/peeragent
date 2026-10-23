@@ -35,7 +35,11 @@ func ExecWithRunner(ctx context.Context, run executil.Runner, opts Options) (Res
 		return Result{ExitCode: 127}, errors.New("Pi CLI not found in PATH")
 	}
 	result, err := run.Run(ctx, path, buildArgs(opts), opts.CWD, "")
+	// Pi's print mode writes only the final assistant message to stdout.
 	result.TurnStarted = strings.TrimSpace(result.Stdout) != ""
+	if result.TurnStarted {
+		result.FinalMessage = result.Stdout
+	}
 	result.AgentSession = opts.Resume
 	return result, err
 }

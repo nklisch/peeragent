@@ -82,5 +82,6 @@ func normalizeJSONResult(result *Result) {
 	}
 	if parsed.Result != "" {
 		result.Stdout = parsed.Result
+		result.FinalMessage = parsed.Result
 	}
 }

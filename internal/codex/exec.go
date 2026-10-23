@@ -319,6 +319,7 @@ func normalizeStreamResult(result *Result, state streamState) {
 	}
 	if text != "" {
 		result.Stdout = text
+		result.FinalMessage = text
 	}
 }
 

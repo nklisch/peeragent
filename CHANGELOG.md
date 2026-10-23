@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.12.2
+
+### Features
+- Add a top-level `final_message` to result JSON: the job's complete final agent message as a plain,
+  untrimmed string, so scripts no longer parse it out of `details`. It is `null` while a job runs (until
+  the target reports its final message), after capacity or output-limit stops, and when the target
+  produced no agent message. Failed jobs keep their last agent message. `summary` and `details` are
+  unchanged, and text output already shows the message under details.
+
 ## v0.12.1
 
 ### Fixes

@@ -268,7 +268,9 @@ result handling directly.
 
 The default `details` payload is compact. For Codex targets, peeragent surfaces
 the final completed agent message instead of the full stream of interim assistant
-messages. If a deeper look is needed, inspect `metadata.log_path` for raw target
+messages. Read the complete handback from the top-level `final_message` string;
+it is `null` while the job runs, after a capacity or output-limit stop, or when
+the target produced no message. If a deeper look is needed, inspect `metadata.log_path` for raw target
 stdout/stderr, or use `metadata.agent_session` with `--resume` for continuity.
 Codex records session ids as they arrive, including while running and after
 cancellation. `--result` preserves completed messages without truncation, or
