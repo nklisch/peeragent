@@ -128,7 +128,13 @@ stderr, preserving machine-readable stdout. `inbox` emits unread `{time, from,
 text}` entries as JSONL and marks them read under the same lock as `tell`.
 Finished jobs reject `tell` and suggest `--resume`.
 
-The standard prompt includes instructions for checking and sending messages.
+The standard prompt includes these instructions for checking and sending messages:
+
+Use `peeragent say` only to ask a question you can't settle yourself, never for status or progress updates.
+Your final handback carries the final status, so don't repeat it in a message.
+After asking a question, watch your inbox for the answer: run `peeragent inbox` every few minutes, between steps,
+until it arrives, and keep doing independent work meanwhile.
+
 `--no-preamble` persists in the execution spec and suppresses the whole standard
 execution/messaging preamble. Resumed prompts include unread entries from prior
 jobs for that agent/session; capacity continuations include their own unread

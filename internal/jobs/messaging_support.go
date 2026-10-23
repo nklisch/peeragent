@@ -22,7 +22,7 @@ func (s Store) MessagingSupport(job Job, mailbox Mailbox) (MessagingSupport, err
 		return MessagingSupport{Enabled: job.MessagingEnabled, Source: "recorded in job.json", Warning: job.MessagingWarning()}, nil
 	}
 	text, err := s.ReadPrompt(job.ID)
-	if err == nil && strings.Contains(strings.ReplaceAll(text, "\r\n", "\n"), prompt.MessagingPreamble) {
+	if err == nil && strings.Contains(strings.ReplaceAll(text, "\r\n", "\n"), prompt.MessagingPreambleIntro) {
 		return MessagingSupport{Enabled: true, Source: "inferred from prompt"}, nil
 	}
 	if len(mailbox.Outbox) > 0 {

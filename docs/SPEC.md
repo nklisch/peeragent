@@ -108,6 +108,11 @@ preamble, unless `--no-preamble` requests task text only. `peeragent tell <job-i
 prints and acknowledges unread replies; commands inside a job announce unread
 counts on stderr. Resumes carry unread replies into the resumed prompt.
 
+Use `peeragent say` only to ask a question you can't settle yourself, never for status or progress updates.
+Your final handback carries the final status, so don't repeat it in a message.
+After asking a question, watch your inbox for the answer: run `peeragent inbox` every few minutes, between steps,
+until it arrives, and keep doing independent work meanwhile.
+
 `peeragent say "<text>"` sends a mandatory labelled message through the recorded
 launcher's Herdr pane. It strips header brackets from the body, bounds text to
 2,000 characters and three messages per five minutes per job, and logs sent or

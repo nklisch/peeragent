@@ -3,6 +3,9 @@
 ## v0.11.3
 
 ### Fixes
+- Make the standard messaging preamble questions-only: never send status/progress updates or repeat the final
+  handback's status. After asking, check the inbox every few minutes between steps until answered, while continuing
+  independent work. Keep original saved preambles recognizable for messaging-support inference.
 - Infer messaging support for jobs without a recorded flag from a saved messaging preamble or an outbound `say`;
   report the source instead of incorrectly calling v0.11.0/v0.11.1 jobs pre-messaging. Preserve missing legacy flags
   during lifecycle saves, and keep explicit recorded flags authoritative.

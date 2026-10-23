@@ -6,9 +6,16 @@ func Build(taskText string) string {
 	return BuildForAgent("Codex", taskText)
 }
 
-const MessagingPreamble = "Your launching session may send you messages. Run `peeragent inbox` after each long step and before your handback.\n" +
-	"To reach the launching session, use `peeragent say \"<text>\"`; never use terminal, desktop or keyboard input, and\n" +
-	"keep messages for questions you can't settle and short status the launcher asked for."
+// Keep this introduction stable so older saved prompts remain evidence of
+// messaging support when the instructions that follow it change.
+const MessagingPreambleIntro = "Your launching session may send you messages. Run `peeragent inbox` after each long step and before your handback."
+
+const MessagingPreamble = MessagingPreambleIntro + "\n" +
+	"Use `peeragent say` only to ask a question you can't settle yourself, never for status or progress updates.\n" +
+	"Your final handback carries the final status, so don't repeat it in a message.\n" +
+	"After asking a question, watch your inbox for the answer: run `peeragent inbox` every few minutes, between steps,\n" +
+	"until it arrives, and keep doing independent work meanwhile.\n" +
+	"Never use terminal, desktop or keyboard input to contact the launching session."
 
 func BuildForAgent(agentName string, taskText string) string {
 	return BuildWithOptions(agentName, taskText, false)

@@ -44,6 +44,7 @@ func TestMessagingSupportUsesRecordedOrObservedEvidence(t *testing.T) {
 		{name: "recorded enabled", want: true, source: "recorded in job.json"},
 		{name: "recorded disabled remains explicit", noPreamble: true, text: prompt.MessagingPreamble, outbox: "sent", source: "recorded in job.json"},
 		{name: "legacy prompt", legacy: true, text: prompt.Build("work"), want: true, source: "inferred from prompt"},
+		{name: "original v0.11 preamble", legacy: true, text: "Your launching session may send you messages. Run `peeragent inbox` after each long step and before your handback.\nTo reach the launching session, use `peeragent say \"<text>\"`; never use terminal, desktop or keyboard input, and\nkeep messages for questions you can't settle and short status the launcher asked for.", want: true, source: "inferred from prompt"},
 		{name: "legacy Windows line endings", legacy: true, text: strings.ReplaceAll(prompt.Build("work"), "\n", "\r\n"), want: true, source: "inferred from prompt"},
 		{name: "legacy say", legacy: true, text: "old task", outbox: "sent", want: true, source: "inferred from outbox"},
 		{name: "legacy refused say", legacy: true, missingPrompt: true, outbox: "refused", want: true, source: "inferred from outbox"},

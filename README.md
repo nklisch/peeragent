@@ -391,8 +391,15 @@ a specific missing-preamble warning. Saving a legacy job's lifecycle preserves
 an absent marker so later controls can still infer support from evidence.
 
 Prompts instruct every target to check `peeragent inbox` after long steps and
-before handback. `--no-preamble` sends task text only. Each command inside a job
-announces unread replies on stderr. Resumes include unread messages in the new
+before handback:
+
+Use `peeragent say` only to ask a question you can't settle yourself, never for status or progress updates.
+Your final handback carries the final status, so don't repeat it in a message.
+After asking a question, watch your inbox for the answer: run `peeragent inbox` every few minutes, between steps,
+until it arrives, and keep doing independent work meanwhile.
+
+`--no-preamble` sends task text only. Each command inside a job announces unread
+replies on stderr. Resumes include unread messages in the new
 prompt and reserve them, hiding them from the running target's inbox and unread
 count. Target output and a non-capacity outcome mark them read; failure or
 capacity refusal releases them. A dead worker's unresolved reservation recovers

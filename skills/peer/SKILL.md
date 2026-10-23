@@ -136,9 +136,15 @@ the job reads them with `peeragent inbox` after long steps and before handback.
 Every command inside a job announces unread replies on stderr.
 
 A job can use `peeragent say "<text>"` to reach its recorded launching Herdr
-pane with a mandatory origin and reply header. Use it for unsettled questions
-or short status the launcher requested. Never use raw terminal, desktop or
-keyboard input to contact the launcher. Outbound messages have a 2,000-character
+pane with a mandatory origin and reply header.
+
+Use `peeragent say` only to ask a question you can't settle yourself, never for status or progress updates.
+Your final handback carries the final status, so don't repeat it in a message.
+After asking a question, watch your inbox for the answer: run `peeragent inbox` every few minutes, between steps,
+until it arrives, and keep doing independent work meanwhile.
+
+Never use raw terminal, desktop or keyboard input to contact the launcher.
+Outbound messages have a 2,000-character
 limit and a three-per-five-minutes job limit; refusal directs the job to its
 handback. Windows has no outbound launcher channel. `--status` shows mailbox
 counts/time; `--result` includes the ordered conversation after the agent message.

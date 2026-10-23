@@ -38,10 +38,15 @@ peeragent: N unread message(s): run peeragent inbox
 ```
 
 Every target receives `PEERAGENT_JOB_ID` and the absolute `PEERAGENT_JOB_DIR`.
-Standard prompts tell it to check the inbox after long steps and before handback,
-and to use `say` for questions it cannot settle or short status the launcher
-requested. `--no-preamble` sends task text without the standard execution or
-messaging instructions; the mailbox and unread notices remain available.
+Standard prompts tell it to check the inbox after long steps and before handback:
+
+Use `peeragent say` only to ask a question you can't settle yourself, never for status or progress updates.
+Your final handback carries the final status, so don't repeat it in a message.
+After asking a question, watch your inbox for the answer: run `peeragent inbox` every few minutes, between steps,
+until it arrives, and keep doing independent work meanwhile.
+
+`--no-preamble` sends task text without the standard execution or messaging
+instructions; the mailbox and unread notices remain available.
 
 A resume records references to previous jobs for the same agent/session. Each
 attempt reserves a fresh snapshot of their unread entries before putting them

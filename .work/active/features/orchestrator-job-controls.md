@@ -648,3 +648,29 @@ macOS cross-builds and Windows vet passed, and godot-41 owns Windows CI and
 publication. Generated release/build files and this round's scratch are removed
 before handback; the pre-existing `dist` directory itself is retained. No
 in-scope work is backlogged or deferred beyond native Windows confirmation.
+
+
+### Round 5 pre-release addition: questions-only messaging preamble
+
+Nathan requested the standard preamble's exact three instructions: `say` only
+for a question the job cannot settle, never status/progress; the final handback
+carries final status; after asking, watch the inbox every few minutes between
+steps until answered while doing independent work. The generated prompt,
+README, messaging/contract/spec docs and both peer skill copies now agree.
+The v0.11.3 CHANGELOG records the change; the release version stays v0.11.3.
+
+Messaging-support inference recognizes the stable original introduction rather
+than requiring the whole evolving preamble. A literal original v0.11 preamble
+fixture pins compatibility so this wording change cannot undo legacy labels.
+`TestMessagingPreambleQuestionsOnly` checks the exact instructions for all four
+targets, retained launcher-transport guidance and `--no-preamble` behavior.
+
+All requested checks passed: `go build ./...`, `go vet ./...`,
+`go test -json ./...` (**293 top-level / 501 including subtests**, 13 tested
+packages, zero failures/skips), `./scripts/validate.sh`,
+`GOOS=windows go vet ./...`, and `git diff --check`. The validator includes its
+required suite replay and Linux/macOS archive builds; the existing optional
+missing-icon advisory remains nonblocking. Native Windows/macOS execution is
+still unavailable here. Generated files and this addition's scratch are removed
+before handback; the pre-existing dist directory is retained. No blocker,
+in-scope deferral, installed-plugin change, push or tag.
