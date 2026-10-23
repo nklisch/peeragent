@@ -71,14 +71,17 @@ func (s *Service) jobStatuses(ctx context.Context, requests []JobRequest, skipMi
 		if job.Status == jobs.StatusOutputLimit {
 			summary = result.OutputLimitSummary(job.Session())
 		}
-		warning := job.MessagingWarning()
 		mailbox, err := jobs.MailboxSnapshot(ctx, jobs.NewStore(req.CWD), job.ID)
 		if err != nil {
 			return nil, fmt.Errorf("read job %s mailbox: %w", job.ID, err)
 		}
+		support, err := jobs.NewStore(req.CWD).MessagingSupport(job, mailbox)
+		if err != nil {
+			return nil, err
+		}
 		records = append(records, result.JobStatus{
 			MessageStats: mailbox.Stats(),
-			Version:      version.Version, Agent: job.Spec.Agent, MessagingEnabled: job.MessagingEnabled, MessagingWarning: warning,
+			Version:      version.Version, Agent: job.Spec.Agent, MessagingEnabled: support.Enabled, MessagingSource: support.Source, MessagingWarning: support.Warning,
 			KeepTerminalEnv: job.Spec.KeepTerminalEnv,
 			LastEventAt:     progress.At, LastMessage: progress.LastMessage, Summary: summary,
 			JobID: job.ID, CWD: req.CWD, Status: ResultStatusFromJob(string(job.Status)),

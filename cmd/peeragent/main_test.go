@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -482,25 +481,18 @@ func readStoredResult(t *testing.T, path string) result.Result {
 	return res
 }
 
-func captureStdout(fn func() error) error {
-	orig := os.Stdout
-	r, w, err := os.Pipe()
+// Tests discard captured output. A null device avoids blocking on a pipe whose
+// reader only starts after the command returns (notably with Windows help).
+func captureStdout(fn func() error) (err error) {
+	sink, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
 	if err != nil {
 		return err
 	}
-	os.Stdout = w
+	original := os.Stdout
+	os.Stdout = sink
 	defer func() {
-		os.Stdout = orig
+		os.Stdout = original
+		err = errors.Join(err, sink.Close())
 	}()
-	err = fn()
-	closeErr := w.Close()
-	_, _ = io.ReadAll(r)
-	readCloseErr := r.Close()
-	if err != nil {
-		return err
-	}
-	if closeErr != nil {
-		return closeErr
-	}
-	return readCloseErr
+	return fn()
 }

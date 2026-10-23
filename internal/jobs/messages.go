@@ -25,9 +25,11 @@ type Message struct {
 }
 
 type MessageStats struct {
-	InboxUnread   int        `json:"inbox_unread"`
-	OutboxSent    int        `json:"outbox_sent"`
-	LastMessageAt *time.Time `json:"last_message_at,omitempty"`
+	OldestUnreadAt  *time.Time `json:"oldest_unread_at,omitempty"`
+	OldestUnreadAge string     `json:"oldest_unread_age,omitempty"`
+	InboxUnread     int        `json:"inbox_unread"`
+	OutboxSent      int        `json:"outbox_sent"`
+	LastMessageAt   *time.Time `json:"last_message_at,omitempty"`
 }
 
 type Mailbox struct {
@@ -39,7 +41,30 @@ type Mailbox struct {
 }
 
 func (m Mailbox) Stats() MessageStats {
+	return m.StatsAt(time.Now().UTC())
+}
+
+func (m Mailbox) StatsAt(now time.Time) MessageStats {
 	stats := MessageStats{InboxUnread: m.UnreadCount()}
+	unknownTime := false
+	for _, index := range m.unread {
+		at := m.Inbox[index].Time
+		if at.IsZero() {
+			unknownTime = true
+			continue
+		}
+		if stats.OldestUnreadAt == nil || at.Before(*stats.OldestUnreadAt) {
+			stats.OldestUnreadAt = &at
+		}
+	}
+	if unknownTime {
+		stats.OldestUnreadAt = nil
+	}
+	if stats.OldestUnreadAt != nil {
+		stats.OldestUnreadAge = unreadAge(now.Sub(*stats.OldestUnreadAt))
+	} else if stats.InboxUnread > 0 {
+		stats.OldestUnreadAge = "unknown"
+	}
 	for _, entries := range [][]Message{m.Inbox, m.Outbox} {
 		for _, entry := range entries {
 			if entry.Status == "sent" {
@@ -200,4 +225,31 @@ func (s Store) ReadInboxContext(ctx context.Context, id string, deliver func([]M
 		m.state.advanceRead()
 		return s.writeInboxStateLocked(id, m.state)
 	})
+}
+
+const InboxReadContext = "the job reads its inbox between long steps"
+
+func unreadAge(age time.Duration) string {
+	if age < 0 {
+		age = 0
+	}
+	if age < time.Minute {
+		return age.Truncate(time.Second).String()
+	}
+	return strings.TrimSuffix(age.Truncate(time.Minute).String(), "0s")
+}
+
+func (s MessageStats) UnreadAge() string {
+	if s.OldestUnreadAge == "" {
+		return "unknown"
+	}
+	return s.OldestUnreadAge
+}
+
+func (s MessageStats) UnreadSummary() string {
+	text := fmt.Sprintf("unread %d", s.InboxUnread)
+	if s.InboxUnread > 0 {
+		text += fmt.Sprintf(", oldest %s", s.UnreadAge())
+	}
+	return text
 }

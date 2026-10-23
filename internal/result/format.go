@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/nklisch/peeragent/internal/jobs"
 	"github.com/nklisch/peeragent/internal/version"
 )
 
@@ -56,11 +57,21 @@ func FormatText(res Result) string {
 	}
 	b.WriteString("Metadata:\n")
 	fmt.Fprintf(&b, "- version: %s\n", version.Version)
+	if res.Metadata.MessagingSource != "" {
+		fmt.Fprintf(&b, "- messaging_enabled: %t (%s)\n", res.Metadata.MessagingEnabled, res.Metadata.MessagingSource)
+	}
 	if res.Metadata.MessagingWarning != "" {
 		fmt.Fprintf(&b, "- warning: %s\n", res.Metadata.MessagingWarning)
 	}
 	if stats := res.Metadata.MessageStats; stats != nil {
 		fmt.Fprintf(&b, "- inbox_unread: %d\n- outbox_sent: %d\n", stats.InboxUnread, stats.OutboxSent)
+		if stats.InboxUnread > 0 {
+			fmt.Fprintf(&b, "- oldest_unread_age: %s", stats.UnreadAge())
+			if res.Metadata.MessagingEnabled {
+				fmt.Fprintf(&b, "; %s", jobs.InboxReadContext)
+			}
+			b.WriteString("\n")
+		}
 		if stats.LastMessageAt != nil {
 			fmt.Fprintf(&b, "- last_message_at: %s\n", stats.LastMessageAt.UTC().Format(time.RFC3339Nano))
 		}

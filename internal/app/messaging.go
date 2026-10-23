@@ -53,10 +53,11 @@ func recordLauncher(job jobs.Job) error {
 }
 
 type TellReceipt struct {
-	JobID            string
-	Agent            string
-	Status           jobs.Status
-	Unread           int
+	JobID  string
+	Agent  string
+	Status jobs.Status
+	jobs.MessageStats
+	MessagingSource  string
 	MessagingEnabled bool
 	Warning          string
 }
@@ -90,11 +91,24 @@ func (s *Service) TellWithReceipt(ctx context.Context, raw JobRequest, from, tex
 		if err != nil {
 			return err
 		}
-		if err := store.AppendMessageLocked(job.ID, "inbox", jobs.Message{Time: time.Now().UTC(), From: from, Text: text}); err != nil {
+		support, err := store.MessagingSupport(job, mailbox)
+		if err != nil {
 			return err
 		}
-
-		receipt = TellReceipt{JobID: job.ID, Agent: job.Spec.Agent, Status: job.Status, Unread: mailbox.UnreadCount() + 1, MessagingEnabled: job.MessagingEnabled, Warning: job.MessagingWarning()}
+		now := time.Now().UTC()
+		if err := store.AppendMessageLocked(job.ID, "inbox", jobs.Message{Time: now, From: from, Text: text}); err != nil {
+			return err
+		}
+		stats := mailbox.StatsAt(now)
+		if stats.InboxUnread == 0 || (stats.OldestUnreadAt != nil && now.Before(*stats.OldestUnreadAt)) {
+			stats.OldestUnreadAt = &now
+			stats.OldestUnreadAge = "0s"
+		}
+		stats.InboxUnread++
+		if stats.LastMessageAt == nil || now.After(*stats.LastMessageAt) {
+			stats.LastMessageAt = &now
+		}
+		receipt = TellReceipt{JobID: job.ID, Agent: job.Spec.Agent, Status: job.Status, MessageStats: stats, MessagingEnabled: support.Enabled, MessagingSource: support.Source, Warning: support.Warning}
 		return nil
 	})
 	return receipt, err
@@ -332,8 +346,13 @@ func addMessaging(ctx context.Context, res *result.Result, job jobs.Job, convers
 	}
 	stats := m.Stats()
 	res.Metadata.MessageStats = &stats
-	res.Metadata.MessagingEnabled = job.MessagingEnabled
-	res.Metadata.MessagingWarning = job.MessagingWarning()
+	support, err := jobs.NewStore(job.CWD).MessagingSupport(job, m)
+	if err != nil {
+		return err
+	}
+	res.Metadata.MessagingEnabled = support.Enabled
+	res.Metadata.MessagingSource = support.Source
+	res.Metadata.MessagingWarning = support.Warning
 	if conversation {
 		res.Conversation = m.Conversation()
 	}

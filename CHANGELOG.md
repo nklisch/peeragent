@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.11.3
+
+### Fixes
+- Infer messaging support for jobs without a recorded flag from a saved messaging preamble or an outbound `say`;
+  report the source instead of incorrectly calling v0.11.0/v0.11.1 jobs pre-messaging. Preserve missing legacy flags
+  during lifecycle saves, and keep explicit recorded flags authoritative.
+- Avoid a Windows test deadlock by discarding captured stdout to the platform null device. The old helper wrote a
+  command's output before draining its pipe; v0.11.2's 4,105-byte help text could fill the Windows pipe. A bounded
+  large-output regression covers this independent of host pipe capacity.
+
+### Features
+- Status, job listings and delivery confirmations show the oldest unread reply's age, with context that jobs read
+  their inbox between long steps. JSON includes `oldest_unread_at` and `oldest_unread_age`; read entries and prompt
+  reservations are excluded. Delivery remains distinct from acknowledgement.
+
 ## v0.11.2
 
 ### Features

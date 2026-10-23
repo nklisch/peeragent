@@ -59,9 +59,16 @@ func TestTellReceiptAndLegacyStatus(t *testing.T) {
 	}{{modern, false}, {legacy, true}} {
 		for n := 1; n <= 2; n++ {
 			out, diagnostic, err := controlOutput(t, cwd, "tell", tc.job.ID, "answer")
-			want := fmt.Sprintf("delivered to job %s (codex, running); unread %d\n", tc.job.ID, n)
-			if err != nil || out != want || strings.Contains(diagnostic, jobs.LegacyMessagingWarning) != tc.warning {
-				t.Fatalf("receipt: %q %q %v", out, diagnostic, err)
+			contextNote := ""
+			if !tc.warning {
+				contextNote = "; " + jobs.InboxReadContext
+			}
+			prefix := fmt.Sprintf("delivered to job %s (codex, running); unread %d, oldest ", tc.job.ID, n)
+			suffix := contextNote + "\n"
+			age := strings.TrimSuffix(strings.TrimPrefix(out, prefix), suffix)
+			_, ageErr := time.ParseDuration(age)
+			if err != nil || !strings.HasPrefix(out, prefix) || !strings.HasSuffix(out, suffix) || ageErr != nil || strings.Contains(diagnostic, jobs.LegacyMessagingWarning) != tc.warning {
+				t.Fatalf("receipt: %q %q %v (age %v)", out, diagnostic, err, ageErr)
 			}
 		}
 		res := cliResult(t, cwd, "--status", tc.job.ID)

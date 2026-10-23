@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/nklisch/peeragent/internal/app"
 	"github.com/nklisch/peeragent/internal/input"
@@ -58,7 +59,15 @@ func runMessageCommand(ctx context.Context, req input.Request) error {
 		if err != nil {
 			return err
 		}
-		if _, err := fmt.Fprintf(os.Stdout, "delivered to job %s (%s, %s); unread %d\n", receipt.JobID, receipt.Agent, receipt.Status, receipt.Unread); err != nil {
+		contextNote := ""
+		if receipt.MessagingEnabled {
+			contextNote = "; " + jobs.InboxReadContext
+		}
+		sourceNote := ""
+		if strings.HasPrefix(receipt.MessagingSource, "inferred") {
+			sourceNote = "; messaging enabled (" + receipt.MessagingSource + ")"
+		}
+		if _, err := fmt.Fprintf(os.Stdout, "delivered to job %s (%s, %s); %s%s%s\n", receipt.JobID, receipt.Agent, receipt.Status, receipt.UnreadSummary(), contextNote, sourceNote); err != nil {
 			return err
 		}
 		if !receipt.MessagingEnabled {

@@ -35,6 +35,7 @@ type Verification struct {
 }
 
 type Metadata struct {
+	MessagingSource  string `json:"messaging_source,omitempty"`
 	MessagingWarning string `json:"messaging_warning,omitempty"`
 	Version          string `json:"version"`
 	MessagingEnabled bool   `json:"messaging_enabled"`

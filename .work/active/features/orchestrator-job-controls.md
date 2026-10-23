@@ -12,8 +12,8 @@ updated: 2026-10-23
 
 # Job controls for orchestrators running many peers
 
-Requested by Nathan through godot-41. Ready for owner review. Round 4 prepares
-v0.11.2 metadata; installed-plugin changes, committed binary refresh, tag and
+Requested by Nathan through godot-41. Ready for owner review. Round 5 prepares
+v0.11.3 metadata; installed-plugin changes, committed binary refresh, tag and
 push remain with the publishing owner.
 
 ## Implementation
@@ -544,3 +544,107 @@ Windows execution remain unverified on this Linux host; the publisher owns
 Windows CI. No push or tag was made. Generated archives/binaries and this
 round's temporary logs are removed before handback. No in-scope work is
 backlogged or deferred; owner review and publishing remain with godot-41.
+
+
+## Round 5: accurate messaging labels, unread age and Windows test capture
+
+Requested for v0.11.3 on 2026-10-23, based on `origin/main` at
+`b587e8ec144643b2a65c7614f5514a0101a090a5`, on `round-5` in the existing worktree.
+Implemented directly, with no delegated work.
+
+### Messaging evidence
+
+Absent `messaging_enabled` is now distinct from an explicit false flag. Controls
+infer missing flags from the saved messaging preamble (including CRLF line
+endings), or an outbox `say` entry, including pending/refused attempts. They
+report true with `messaging_source: inferred from prompt` or `inferred from
+outbox`. Explicit recorded flags remain authoritative. Only missing flags with
+neither evidence source get the legacy warning. A prompt read failure remains
+an infrastructure error when no alternate outbox evidence is available; missing
+prompt files are ordinary absent evidence.
+
+Inference shares the existing mailbox snapshot and does not acquire another
+lock. Lifecycle saves preserve absent legacy markers, so an unrelated progress
+update cannot convert an unknown legacy flag into a permanently recorded false.
+
+Coverage: `TestMessagingSupportUsesRecordedOrObservedEvidence` (recorded flags,
+legacy prompt/outbox/neither, CRLF, missing files and preamble mentions),
+`TestLegacyMessagingMarkerStaysAbsentAcrossLifecycleSaves`,
+`TestMessagingEvidenceReportsUnreadablePrompt`, and
+`TestLegacyMessagingEvidenceAcrossControls` (single/multiple status, jobs, text
+and tell, including source labels and warning behavior).
+
+### Oldest unread reply
+
+`--status`, `--jobs` and delivery confirmations show the oldest unread age.
+JSON adds `oldest_unread_at` and `oldest_unread_age`; the single-job shape keeps
+these in metadata. Empty inboxes omit both; unknown timestamps show `unknown`,
+future timestamps clamp to `0s`, seconds are truncated below one minute and
+longer ages use whole minutes. Read replies and replies reserved for a running
+prompt are excluded. Releasing a reservation makes the original timestamp
+visible again. No additional mailbox read or periodic reminder was introduced.
+
+Enabled jobs get the context “the job reads its inbox between long steps”.
+Jobs needing resume keep their specific warning, without contradictory context.
+`tell` calculates its post-delivery count/age under the delivery lock, using its
+existing snapshot and the new reply timestamp; it does not mark a reply read.
+
+Coverage: `TestOldestUnreadAgeUsesOnlyUnreadEntries`,
+`TestUnreadAgeFormatting` (seconds/minutes/hours/days, future/unknown timestamps
+and empty inboxes), `TestUnreadAgeFollowsReservationAndAcknowledgement`, and
+`TestUnreadAgeAcrossStatusJobsAndTell` (exact timestamp, text/JSON age and receipt,
+then clearing the age on acknowledgement). The existing delivery receipt test
+accepts elapsed age without depending on two commands finishing within a second.
+
+### Windows hang: cause and correction
+
+The shared test helper `captureStdout` replaced stdout with an anonymous pipe,
+called the command synchronously, then drained the pipe only after the command
+returned. A write larger than the pipe's buffer blocks the writer, so neither
+the return nor the drain can happen. The v0.11.2 help output is **4,105 bytes**;
+the in-process `--help` subtest in `TestCommandsSnapshotEachMailboxOnce` can
+therefore cross the Windows pipe capacity while fitting the Linux/macOS pipes.
+Go's Windows pipe implementation calls `CreatePipe` with the default buffer
+size. This path does not wait for a child process or hold a job lock while
+writing help. The lifecycle lock's own wait is separately bounded.
+
+The helper only discards output, so it now uses the cross-platform `os.DevNull`
+sink, restoring stdout and closing its own handle on every return. This removes
+both pipe capacity and EOF/handle-inheritance dependencies instead of increasing
+a timeout. Production process, lock and messaging transport code is unchanged
+by this test fix.
+
+`TestCaptureStdoutHandlesLargeOutput` writes 1 MiB through that helper in an
+owned subprocess, with a 30-second safety timeout and a diagnostic naming pipe
+capacity. It also checks restoration of stdout and propagation of the command's
+error. With the old helper temporarily restored, it failed as expected with
+“stdout capture blocked on output exceeding pipe capacity: context deadline
+exceeded”; with the corrected helper it passes. The original
+`TestCommandsSnapshotEachMailboxOnce` also passes. This reproduces the structural
+fault on Linux; native Windows confirmation remains with the publishing owner.
+
+### Round 5 qualification and release preparation
+
+All requested checks passed with `go version go1.26.4 linux/amd64`:
+
+- `go build ./...`, `go vet ./...`, `GOOS=windows go vet ./...`.
+- `go test -json ./...`: **292 top-level / 495 including subtests**, 13 tested
+  packages, zero failures/skips. Nine top-level tests and 27 total cases were
+  added over v0.11.2. The two test-support packages have no tests.
+- `./scripts/validate.sh`: package/plugin validation, its required suite replay,
+  runtime version, metadata/docs/shim checks and Linux/macOS amd64/arm64 release
+  builds. The existing optional missing-icon advisory remains nonblocking.
+- `git diff --check`; all six manifests, runtime version and skill copies agree.
+
+Release edits/staging follow `scripts/bump.sh`, including
+`internal/version/version.go`, the four source manifests/README and regenerated
+`plugin/` copies. The script's tag/push stages are not invoked. CHANGELOG and
+messaging/contract/spec/skill docs describe the final behavior. No installed
+binary/plugin or main checkout was touched, and no tag or push was made.
+
+Tests use fake agents and owned subprocesses; there were no model calls or
+performance measurements. Native macOS/Windows execution is unavailable here;
+macOS cross-builds and Windows vet passed, and godot-41 owns Windows CI and
+publication. Generated release/build files and this round's scratch are removed
+before handback; the pre-existing `dist` directory itself is retained. No
+in-scope work is backlogged or deferred beyond native Windows confirmation.

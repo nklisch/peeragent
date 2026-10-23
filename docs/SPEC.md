@@ -112,7 +112,9 @@ counts on stderr. Resumes carry unread replies into the resumed prompt.
 launcher's Herdr pane. It strips header brackets from the body, bounds text to
 2,000 characters and three messages per five minutes per job, and logs sent or
 refused attempts. Refusals name the handback alternative. Windows reports no
-launcher channel. Status exposes mailbox counts/time, and results include the
+launcher channel. Status exposes mailbox counts, oldest unread age, and messaging
+evidence source. Missing legacy flags are inferred from a saved preamble or
+`say` entry, rather than being treated as disabled. Results include the
 ordered conversation after the final message. See [Messaging](MESSAGING.md).
 
 ### Sandbox

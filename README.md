@@ -43,7 +43,7 @@ codex plugin add peeragent@peeragent
 Pi:
 
 ```sh
-pi install git:github.com/nklisch/peeragent@v0.11.2
+pi install git:github.com/nklisch/peeragent@v0.11.3
 ```
 
 The Pi package loads the `peer` skill from `plugin/skills`, so its wrapper
@@ -369,14 +369,26 @@ per five minutes per job. Without a recorded launcher pane, or if Herdr refuses,
 `say` exits nonzero and directs the job to its handback. Windows reports
 `no launcher channel on this platform`; its inbox/tell path works normally.
 
-`tell` confirms the persisted delivery on stdout:
-`delivered to job <id> (<agent>, <status>); unread N`. The count is taken under
-the same lock as delivery; the job may read the reply immediately afterward.
-Jobs started before v0.11 received no inbox preamble and see replies only on
-`--resume`. Jobs without a recorded `messaging_enabled` flag get a warning on
-`tell` (stderr) and single/multiple status (`messaging_warning` in JSON, a note
-in text). Delivery still succeeds. New jobs record `messaging_enabled` in
-`job.json`; `--no-preamble` jobs receive a specific missing-preamble warning.
+`tell` confirms persisted delivery, for example:
+`delivered to job <id> (<agent>, <status>); unread 3, oldest 2h14m; the job reads its inbox between long steps`.
+Delivery does not mean the job has read the reply. The count and oldest unread
+age come from the delivery lock; the job may read the reply immediately afterward.
+Status and job listings expose `oldest_unread_at` and `oldest_unread_age` alongside
+`inbox_unread` (in metadata for single-job results). Text includes the age and
+context when replies remain unread. Ages use whole seconds below a minute,
+then whole minutes; future timestamps display `0s`. Missing timestamps display
+`unknown`; an empty inbox has no oldest-unread fields. Entries reserved for a
+running prompt are excluded until their reservation is released.
+
+New jobs record `messaging_enabled` in `job.json`. For older jobs without that
+field, a saved messaging preamble or an outbound `say` entry proves messaging
+support. Controls report `messaging_enabled: true` and `messaging_source` as
+`inferred from prompt` or `inferred from outbox`, and show that source in text
+and delivery confirmations. Explicit recorded flags remain authoritative.
+Only jobs with neither evidence source get the pre-messaging warning; delivery
+still succeeds and replies are carried on `--resume`. `--no-preamble` jobs get
+a specific missing-preamble warning. Saving a legacy job's lifecycle preserves
+an absent marker so later controls can still infer support from evidence.
 
 Prompts instruct every target to check `peeragent inbox` after long steps and
 before handback. `--no-preamble` sends task text only. Each command inside a job
@@ -573,23 +585,23 @@ published as downloadable archives for manual install.
 Build release archives locally:
 
 ```sh
-make release VERSION=0.11.2
+make release VERSION=0.11.3
 ```
 
 That writes:
 
 ```text
-dist/release/peeragent_0.11.2_linux_amd64.tar.gz
-dist/release/peeragent_0.11.2_linux_arm64.tar.gz
-dist/release/peeragent_0.11.2_darwin_amd64.tar.gz
-dist/release/peeragent_0.11.2_darwin_arm64.tar.gz
+dist/release/peeragent_0.11.3_linux_amd64.tar.gz
+dist/release/peeragent_0.11.3_linux_arm64.tar.gz
+dist/release/peeragent_0.11.3_darwin_amd64.tar.gz
+dist/release/peeragent_0.11.3_darwin_arm64.tar.gz
 dist/release/checksums.txt
 ```
 
 Publish a GitHub release from a machine with `gh` authenticated:
 
 ```sh
-make publish-release VERSION=0.11.2
+make publish-release VERSION=0.11.3
 ```
 
 The GitHub Actions workflow in `.github/workflows/release.yml` also publishes

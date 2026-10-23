@@ -140,14 +140,26 @@ A dead worker's unresolved reservations are released on the next mailbox read;
 a terminal acceptance record instead commits them read. Directory aliases are
 deduplicated by job ID.
 
-`tell` confirms the persisted delivery on stdout:
-`delivered to job <id> (<agent>, <status>); unread N`. The count is taken under
-the same lock as delivery; the job may read the reply immediately afterward.
-Jobs started before v0.11 received no inbox preamble and see replies only on
-`--resume`. Jobs without a recorded `messaging_enabled` flag get a warning on
-`tell` (stderr) and single/multiple status (`messaging_warning` in JSON, a note
-in text). Delivery still succeeds. New jobs record `messaging_enabled` in
-`job.json`; `--no-preamble` jobs receive a specific missing-preamble warning.
+`tell` confirms persisted delivery, for example:
+`delivered to job <id> (<agent>, <status>); unread 3, oldest 2h14m; the job reads its inbox between long steps`.
+Delivery does not mean the job has read the reply. The count and oldest unread
+age come from the delivery lock; the job may read the reply immediately afterward.
+Status and job listings expose `oldest_unread_at` and `oldest_unread_age` alongside
+`inbox_unread` (in metadata for single-job results). Text includes the age and
+context when replies remain unread. Ages use whole seconds below a minute,
+then whole minutes; future timestamps display `0s`. Missing timestamps display
+`unknown`; an empty inbox has no oldest-unread fields. Entries reserved for a
+running prompt are excluded until their reservation is released.
+
+New jobs record `messaging_enabled` in `job.json`. For older jobs without that
+field, a saved messaging preamble or an outbound `say` entry proves messaging
+support. Controls report `messaging_enabled: true` and `messaging_source` as
+`inferred from prompt` or `inferred from outbox`, and show that source in text
+and delivery confirmations. Explicit recorded flags remain authoritative.
+Only jobs with neither evidence source get the pre-messaging warning; delivery
+still succeeds and replies are carried on `--resume`. `--no-preamble` jobs get
+a specific missing-preamble warning. Saving a legacy job's lifecycle preserves
+an absent marker so later controls can still infer support from evidence.
 
 Single-job status adds `metadata.inbox_unread`, `metadata.outbox_sent`, and
 optional `metadata.last_message_at`; multi-job records carry the same fields

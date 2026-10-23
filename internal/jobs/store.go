@@ -32,6 +32,7 @@ type InboxSource struct {
 }
 
 type Job struct {
+	messagingRecorded    bool
 	MessagingEnabled     bool          `json:"messaging_enabled"`
 	AgentSession         string        `json:"agent_session,omitempty"`
 	InboxSources         []InboxSource `json:"inbox_sources,omitempty"`
@@ -49,6 +50,14 @@ type Job struct {
 	LogPath              string        `json:"log_path"`
 	ResultPath           string        `json:"result_path"`
 	PromptPath           string        `json:"prompt_path"`
+}
+
+// A pointer distinguishes an absent legacy marker from an explicitly disabled
+// preamble. Preserve absence when older job metadata is saved for other reasons.
+type jobRecord Job
+type storedJob struct {
+	*jobRecord
+	MessagingEnabled *bool `json:"messaging_enabled,omitempty"`
 }
 
 type ExecSpec struct {
@@ -88,17 +97,18 @@ func (s Store) Create(cwd string, spec ExecSpec, prompt string) (Job, error) {
 		return Job{}, err
 	}
 	job := Job{
-		MessagingEnabled: !spec.NoPreamble,
-		AgentSession:     spec.Resume,
-		ID:               id,
-		Status:           StatusRunning,
-		CWD:              cwd,
-		Spec:             spec,
-		CreatedAt:        now,
-		UpdatedAt:        now,
-		LogPath:          filepath.Join(dir, "agent.log"),
-		ResultPath:       filepath.Join(dir, "result.json"),
-		PromptPath:       filepath.Join(dir, "prompt.txt"),
+		messagingRecorded: true,
+		MessagingEnabled:  !spec.NoPreamble,
+		AgentSession:      spec.Resume,
+		ID:                id,
+		Status:            StatusRunning,
+		CWD:               cwd,
+		Spec:              spec,
+		CreatedAt:         now,
+		UpdatedAt:         now,
+		LogPath:           filepath.Join(dir, "agent.log"),
+		ResultPath:        filepath.Join(dir, "result.json"),
+		PromptPath:        filepath.Join(dir, "prompt.txt"),
 	}
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return Job{}, err
@@ -122,8 +132,13 @@ func (s Store) Load(id string) (Job, error) {
 		return Job{}, err
 	}
 	var job Job
-	if err := json.Unmarshal(content, &job); err != nil {
+	record := storedJob{jobRecord: (*jobRecord)(&job)}
+	if err := json.Unmarshal(content, &record); err != nil {
 		return Job{}, err
+	}
+	job.messagingRecorded = record.MessagingEnabled != nil
+	if job.messagingRecorded {
+		job.MessagingEnabled = *record.MessagingEnabled
 	}
 	return job, nil
 }
@@ -134,7 +149,11 @@ func (s Store) Save(job Job) error {
 		return err
 	}
 	job.UpdatedAt = time.Now().UTC()
-	content, err := json.MarshalIndent(job, "", "  ")
+	record := storedJob{jobRecord: (*jobRecord)(&job)}
+	if job.messagingRecorded || job.MessagingEnabled {
+		record.MessagingEnabled = &job.MessagingEnabled
+	}
+	content, err := json.MarshalIndent(record, "", "  ")
 	if err != nil {
 		return err
 	}
