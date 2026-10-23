@@ -162,7 +162,8 @@ git add \
   .claude-plugin/plugin.json \
   .codex-plugin/plugin.json \
   package.json \
-  README.md
+  README.md \
+  internal/version/version.go
 git add plugin
 git commit -m "$MESSAGE"
 
