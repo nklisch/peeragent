@@ -159,12 +159,19 @@ func (s *Service) launchJob(ctx context.Context, delegation input.Delegation, st
 }
 
 func (s *Service) launch(delegation input.Delegation, start func(string, jobs.Job) error, previous []jobs.Job) (result.Result, error) {
+	delegation, warning, err := resumeOptions(delegation, previous)
+	if err != nil {
+		res := failedDelegationResult(delegation, err)
+		res.Metadata.ExitCode = 2
+		return res, err
+	}
 	store := jobs.NewStore(delegation.CWD)
 	job, err := store.Create(delegation.CWD, execSpecFromDelegation(delegation), delegation.TaskText)
 	if err != nil {
 		wrapped := fmt.Errorf("create async job: %w", err)
 		return failedDelegationResult(delegation, wrapped), wrapped
 	}
+	job.ResumeWarning = warning
 
 	for _, prior := range previous {
 		job.InboxSources = append(job.InboxSources, jobs.InboxSource{JobID: prior.ID, CWD: prior.CWD})
@@ -220,6 +227,7 @@ func runningJobResult(delegation input.Delegation, job jobs.Job) result.Result {
 		ChangedFiles: []string{},
 		Verification: []result.Verification{},
 		Metadata: result.Metadata{
+			ResumeWarning:    job.ResumeWarning,
 			MessagingEnabled: job.MessagingEnabled,
 			MessagingSource:  "recorded in job.json",
 			KeepTerminalEnv:  delegation.KeepTerminalEnv,
@@ -256,6 +264,7 @@ func failedDelegationResult(delegation input.Delegation, err error) result.Resul
 
 func failedJobResult(delegation input.Delegation, job jobs.Job, err error) result.Result {
 	res := failedDelegationResult(delegation, err)
+	res.Metadata.ResumeWarning = job.ResumeWarning
 	res.Metadata.JobID = job.ID
 	return res
 }

@@ -72,7 +72,8 @@ Flags:
                                   low|medium|high; zai default high, accepts medium+;
                                   claude default xhigh, accepts high|xhigh).
   --profile <name>                Codex profile override.
-  --resume <agent-session>        Resume in its recorded directory unless --cwd is set.
+  --resume <agent-session>        Resume with the last job's model/effort unless overridden;
+                                  use its recorded directory unless --cwd is set.
   --no-preamble                   Send task text without the standard execution/messaging preamble.
   --keep-terminal-env             Retain inherited terminal-control variables (default strips them).
   --allow-concurrent-session       Allow another job to write the same agent session.
@@ -690,6 +691,8 @@ func delegationFromRequest(req input.Request) input.Delegation {
 		Profile:                req.Profile,
 		Effort:                 req.Effort,
 		Model:                  req.Model,
+		InheritEffort:          req.InheritEffort,
+		InheritModel:           req.InheritModel,
 		Resume:                 req.Resume,
 	}
 }

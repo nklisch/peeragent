@@ -95,7 +95,12 @@ Options:
   resumed launches; the override also bypasses an interrupted launcher's lock.
 - `--resume <agent-session>`: Resume a prior target-agent session when the
   target supports it. Use this for continuity inside one review loop; omit it
-  for an independent second opinion.
+  for an independent second opinion. Omitted `--model` and `--effort` inherit
+  independently from the session's most recent peeragent job; explicit flags win.
+  Missing job records keep current defaults for omitted options and add
+  `metadata.resume_warning`, without refusing the launch. Launch and result
+  metadata contain the resolved model and effort. An absent model for Codex or
+  Claude means its native CLI default, including when inherited.
 - `--cwd <path>`: Set the repository root, overriding the indexed job or session
   directory. Paths resolve to absolute paths before target invocation.
 - `--prompt-file <path>`: Read task text from a file.

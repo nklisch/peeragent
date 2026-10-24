@@ -8,6 +8,36 @@ import (
 	"github.com/nklisch/peeragent/internal/result"
 )
 
+// resumeOptions reuses session discovery from the launch guard. Creation time
+// orders turns; progress updates on an older turn must not make it the latest.
+func resumeOptions(delegation input.Delegation, previous []jobs.Job) (input.Delegation, string, error) {
+	if delegation.Resume == "" || !delegation.InheritEffort && !delegation.InheritModel {
+		return delegation, "", nil
+	}
+	if len(previous) == 0 {
+		return delegation, "previous session job not found; omitted --model/--effort use current defaults", nil
+	}
+	latest := previous[0]
+	for _, job := range previous[1:] {
+		if job.CreatedAt.After(latest.CreatedAt) || job.CreatedAt.Equal(latest.CreatedAt) && job.ID > latest.ID {
+			latest = job
+		}
+	}
+	if delegation.InheritEffort {
+		delegation.Effort = latest.Spec.Effort
+	}
+	if delegation.InheritModel {
+		delegation.Model = latest.Spec.Model
+	}
+	model, effort, err := input.NormalizeModelAndEffort(delegation.Agent, delegation.Model, delegation.Effort)
+	if err != nil {
+		return delegation, "", fmt.Errorf("resolve resumed model and effort: %w", err)
+	}
+	delegation.Effort, delegation.Model = effort, model
+	delegation.InheritEffort, delegation.InheritModel = false, false
+	return delegation, "", nil
+}
+
 // protectSession prevents lost/interleaved work from two agents writing the
 // same session. A terminal job or a recorded process that has exited is harmless.
 // --allow-concurrent-session is the explicit escape hatch.

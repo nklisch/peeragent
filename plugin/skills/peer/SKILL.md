@@ -376,6 +376,12 @@ Use advanced modes only when the request calls for them:
 - `--resume <agent-session>` — continue a prior target-agent session when
   the previous result included `metadata.agent_session`. Use it for continuity
   inside one multi-pass workflow; omit it for an independent second opinion.
+  Omitted `--model` and `--effort` keep the session's most recent peeragent job's
+  settings; explicit flags override each option independently. If that job
+  record is unavailable, omitted options use current defaults and
+  `metadata.resume_warning` explains the fallback. Launch/result metadata shows
+  the resolved settings; an absent Codex/Claude model means the native CLI
+  default. The indexed session directory is reused unless `--cwd` overrides it.
 - `--cwd <path>` — override the indexed job/session or default task directory.
 - `--prompt-file <path>` — read large prompts from a file.
 - `--async` — preferred for substantive work; starts a background job and

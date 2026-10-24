@@ -43,6 +43,8 @@ type Request struct {
 	Profile                string
 	Effort                 string
 	Model                  string
+	InheritEffort          bool
+	InheritModel           bool
 	Resume                 string
 	Async                  bool
 	JobRunID               string
@@ -174,6 +176,8 @@ func Parse(args []string, stdin io.Reader, getwd func() (string, error)) (Reques
 		Profile:                delegation.Profile,
 		Effort:                 delegation.Effort,
 		Model:                  delegation.Model,
+		InheritEffort:          delegation.InheritEffort,
+		InheritModel:           delegation.InheritModel,
 		Resume:                 delegation.Resume,
 		Async:                  parsed.async,
 		JobRunID:               parsed.jobRunID,

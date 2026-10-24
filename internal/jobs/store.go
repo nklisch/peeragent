@@ -37,6 +37,7 @@ type Job struct {
 	messagingRecorded    bool
 	MessagingEnabled     bool          `json:"messaging_enabled"`
 	AgentSession         string        `json:"agent_session,omitempty"`
+	ResumeWarning        string        `json:"resume_warning,omitempty"`
 	InboxSources         []InboxSource `json:"inbox_sources,omitempty"`
 	Branch               string        `json:"branch,omitempty"`
 	MessagePath          string        `json:"message_path,omitempty"`

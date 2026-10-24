@@ -252,6 +252,13 @@ remain available.
 
 ## Models, Effort, Profiles, And Access
 
+`--resume <agent-session>` keeps the model and effort from that session's most
+recent peeragent job. `--model` and `--effort` each override only their own value.
+The session's indexed directory is reused unless `--cwd` overrides it. If the
+previous job record is unavailable, omitted options use today's defaults and
+`metadata.resume_warning` explains the fallback. Launch and result metadata show
+the resolved options; an absent Codex/Claude model keeps the native CLI default.
+
 Codex, Gemini, Claude, and Z.AI GLM 5.2 support `--effort`. Codex defaults to
 `high` and accepts `low`, `medium`, `high`, and `xhigh`. Gemini defaults to
 `high` and accepts `low`, `medium`, and `high`. Z.AI defaults to `high` and

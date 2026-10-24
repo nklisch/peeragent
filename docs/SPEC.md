@@ -100,6 +100,16 @@ per line, using the multi-job status fields: job id, agent, model, status,
 that version in `metadata.version` for one job and `version` in each multi-job
 or listing row, even when the job was started by an older binary.
 
+### Resume
+
+`--resume <agent-session>` continues a target session in its indexed directory
+unless `--cwd` overrides it. Each omitted model or effort inherits from the
+session's most recent peeragent job; an explicit flag overrides that option.
+If the previous job record is unavailable, omitted options keep current defaults
+and launch/result metadata carries `resume_warning`. Resolved model and effort
+are saved with the job and exposed in launch/result metadata. No model override
+for Codex or Claude means the native CLI default.
+
 ### Job messaging
 
 Jobs receive `PEERAGENT_JOB_ID` and `PEERAGENT_JOB_DIR` and a standard messaging

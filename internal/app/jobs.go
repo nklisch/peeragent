@@ -182,6 +182,9 @@ func jobStatusResult(req JobRequest, job jobs.Job) result.Result {
 		Verification: []result.Verification{},
 		Metadata: result.Metadata{
 			Version:          version.Version,
+			Model:            job.Spec.Model,
+			Effort:           job.Spec.Effort,
+			ResumeWarning:    job.ResumeWarning,
 			MessagingEnabled: job.MessagingEnabled,
 			KeepTerminalEnv:  job.Spec.KeepTerminalEnv,
 			AgentSession:     job.Session(),
@@ -214,6 +217,9 @@ func runningJobResultForRequest(req JobRequest, job jobs.Job) result.Result {
 		Verification: []result.Verification{},
 		Metadata: result.Metadata{
 			Version:          version.Version,
+			Model:            job.Spec.Model,
+			Effort:           job.Spec.Effort,
+			ResumeWarning:    job.ResumeWarning,
 			MessagingEnabled: job.MessagingEnabled,
 			KeepTerminalEnv:  job.Spec.KeepTerminalEnv,
 			AgentSession:     job.Session(),
@@ -323,6 +329,7 @@ func FinishJob(store jobs.Store, job jobs.Job, res result.Result) error {
 			_, err := store.SaveGuarded(current)
 			return err
 		}
+		res.Metadata.ResumeWarning = current.ResumeWarning
 		if err := WriteJobResult(current.ResultPath, res); err != nil {
 			return err
 		}

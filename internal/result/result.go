@@ -56,6 +56,7 @@ type Metadata struct {
 	MessagePath     string     `json:"message_path,omitempty"`
 	FinalReceived   bool       `json:"final_received,omitempty"`
 	IndexWarning    string     `json:"index_warning,omitempty"`
+	ResumeWarning   string     `json:"resume_warning,omitempty"`
 	CapacityRetries int        `json:"capacity_retries,omitempty"`
 	CWD             string     `json:"cwd,omitempty"`
 	Agent           string     `json:"agent,omitempty"`

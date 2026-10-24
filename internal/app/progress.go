@@ -60,6 +60,7 @@ func RecordJobProgress(store jobs.Store, id string, progress executil.Progress) 
 }
 
 func enrichJobResult(res *result.Result, job jobs.Job) error {
+	res.Metadata.ResumeWarning = job.ResumeWarning
 	res.Metadata.KeepTerminalEnv = job.Spec.KeepTerminalEnv
 	res.Metadata.MessagingEnabled = job.MessagingEnabled
 	res.Metadata.Version = version.Version

@@ -153,10 +153,17 @@ or ambiguous launchers, legacy pane-only records and failed transports retain
 messages in the existing outbox as queued, with explicit receipts and no
 automatic retries. There is no pane-input fallback or additional background owner.
 
-Session discovery is shared by the concurrent-resume check and unread-inbox
-carryover, avoiding two worktree scans. Jobs are deduplicated by recorded job
-ID across directory aliases. The job persists mailbox references, and the worker
-reserves unread replies for each attempt. Reserved entries are excluded from
+Session discovery is shared by the concurrent-resume check, option inheritance
+and unread-inbox carryover, avoiding repeated worktree scans. Jobs are
+deduplicated by recorded job ID across directory aliases. Input normalization
+preserves which model and effort were omitted. Under the session launch lock,
+the newest job by creation time supplies those options (job ID breaks ties);
+progress on older jobs does not change precedence. The resolved pair is
+validated and saved in the new execution spec before the worker starts, so
+retries retain it. Missing job records keep the input defaults and record
+`resume_warning` on the job and in result metadata. The concurrency override
+also bypasses the lock for this lookup. The job persists mailbox references,
+and the worker reserves unread replies for each attempt. Reserved entries are excluded from
 inbox output and unread counts; sparse read state lets later arrivals be read
 independently. Only a target that emitted output and did not refuse for capacity
 accepts its reservation. Startup failure, cancellation and capacity refusal
