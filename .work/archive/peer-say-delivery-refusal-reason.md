@@ -1,10 +1,11 @@
 ---
 id: peer-say-delivery-refusal-reason
 kind: story
+stage: done
 tags: [infra]
 parent: null
 depends_on: []
-release_binding: null
+release_binding: v0.13.0
 created: 2026-10-24
 updated: 2026-10-24
 ---
@@ -40,3 +41,7 @@ from that running job, read its inbox and send one bounded question with
 `peeragent say`. No prompt text, parent task details, credentials, or clipboard
 contents are retained in this report. No implementation change is authorized
 by this observation.
+
+## Closure (2026-10-24)
+
+Resolved by v0.13.0, released before this report was filed from a job still on 0.12.2: `say` no longer uses Herdr terminal input. It delivers to the launching Claude session's native inbox or the launching job's mailbox, and otherwise queues the question with a receipt naming the reason. Jobs launched from a session started before its restart keep the old behaviour until that session restarts.
