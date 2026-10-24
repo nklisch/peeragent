@@ -29,6 +29,15 @@ native inbox delivery. Transport failures now retain the question as queued and 
 write error in its receipt and result conversation. This provides a supported recovery; the original Herdr refusal's
 cause remains unconfirmed.
 
+A later coordination question on 2026-10-24 from the same assigned Voxlar worktree returned exit 1 and the same exact refusal. `peeragent inbox` still exited successfully immediately afterward. The message body is omitted; the implementation handback carries the overlap instead. No alternate delivery route was attempted.
+
+Another assigned Voxlar implementation job reproduced the same non-delivery on 2026-10-24 while asking how to
+dispose of focused-test failures outside its mechanical lint correction. The operation was `peeragent say
+<verification-scope clarification>`; the prompt body is omitted. The wrapper printed the same exact refusal above,
+and an immediately following `peeragent inbox` succeeded without an answer. The installed wrapper was peeragent
+0.12.2. This is another observed non-delivery, with no isolated transport reproduction or established cause. The
+job retained the unresolved question for its committed handback and used no alternate delivery route.
+
 ## Closure (2026-10-24)
 
 Released in v0.13.0 with the inbox delivery above: a launcher without a native inbox now queues the clarification
