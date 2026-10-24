@@ -1,11 +1,11 @@
 ---
 id: filter-messaging-active-install
 kind: story
-stage: review
+stage: done
 tags: [infra, tests, docs]
 parent: null
 depends_on: []
-release_binding: null
+release_binding: v0.15.0
 created: 2026-10-24
 updated: 2026-10-24
 ---
@@ -80,3 +80,7 @@ and release artifact generation were not run. The full release validator
 creates release artifacts, so the requested Go and shell checks ran directly.
 No additional work was backlogged. Release and cache patch application belong
 to the launching owner.
+
+## Closure (2026-10-24)
+
+Released in v0.15.0 after owner review: provider safety-filter stops are named in the result with a resume warning; tell and say accept --prompt-file and concatenate with text like launch; a Claude cache wrapper from an older install follows the active install once. Native Windows/macOS runs unverified.
