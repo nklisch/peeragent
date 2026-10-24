@@ -272,7 +272,10 @@ Archives expire after 30 days; every archive write prunes older snapshots.
 Prompt files and raw log files are not copied, and repository job folders keep
 their existing lifetime. Existing jobs without a snapshot need their original
 files. Corrupt or unreadable local state is still an error; the archive never
-masks it. An explicit `--cwd` must match the archived result's directory.
+masks it. An explicit `--cwd` must match the archived result's directory, comparing
+case-insensitively on Windows and default macOS filesystems, and exactly on
+Linux. A successful status lookup reports exit code zero regardless of the
+archived target exit code; an absent job still reports lookup exit code four.
 The target operates in that same checkout. The wrapper does not create a worktree,
 clone, or sandbox copy unless explicitly requested.
 

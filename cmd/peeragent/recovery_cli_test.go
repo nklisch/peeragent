@@ -1,13 +1,16 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
 
+	"github.com/nklisch/peeragent/internal/app"
 	"github.com/nklisch/peeragent/internal/jobs"
 	"github.com/nklisch/peeragent/internal/result"
 )
@@ -81,5 +84,30 @@ func TestRecoveryCLIAndRemovedWorktreeResult(t *testing.T) {
 				t.Fatalf("lookup recreated deleted job: %v", err)
 			}
 		})
+	}
+}
+
+func TestArchivedStatusSeparatesTargetExitCodeFromLookup(t *testing.T) {
+	cwd := t.TempDir()
+	t.Setenv("PEERAGENT_TEST_HELPER_MAIN", "1")
+	const id = "20260712T123456Z-deadbeef"
+	if err := app.WriteJobResult(filepath.Join(cwd, "result.json"), result.Result{Status: result.StatusFailed, Summary: "target exited with four", Metadata: result.Metadata{JobID: id, CWD: cwd, ExitCode: 4}}); err != nil {
+		t.Fatal(err)
+	}
+	// No repository job metadata exists, so both controls use the snapshot.
+	status := cliResult(t, cwd, "--status", id)
+	if status.Status != result.StatusFailed || status.Metadata.ExitCode != 0 {
+		t.Fatalf("status treated target exit as lookup failure: %#v", status)
+	}
+	res, err := app.NewService(app.Options{}).JobResult(context.Background(), app.JobRequest{CWD: cwd, JobID: id})
+	if err != nil || res.Metadata.ExitCode != 4 {
+		t.Fatalf("target exit lost: %#v %v", res, err)
+	}
+	cmd := exec.Command(os.Args[0], "--status", "20260712T123456Z-00000000")
+	cmd.Dir = cwd
+	output, err := cmd.CombinedOutput()
+	exit, ok := err.(*exec.ExitError)
+	if !ok || exit.ExitCode() != 4 || decodeResult(t, output).Metadata.ExitCode != 4 {
+		t.Fatalf("missing lookup exit: %v %s", err, output)
 	}
 }

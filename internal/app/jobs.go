@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/nklisch/peeragent/internal/heavy"
@@ -36,12 +37,17 @@ func (s *Service) JobStatus(ctx context.Context, raw JobRequest) (result.Result,
 	job, err := jobs.NewStore(req.CWD).Load(req.JobID)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
-			res, archiveErr := archivedJobResult(req, err)
-			res.Details, res.FinalMessage, res.Conversation = "", nil, nil
-			if archiveErr == nil && res.Metadata.ExitCode != 4 {
-				res.Metadata.ExitCode = 0
+			res, found, archiveErr := readArchivedJobResult(req)
+			if archiveErr != nil {
+				return result.Result{}, archiveErr
 			}
-			return res, archiveErr
+			if !found {
+				return JobLookupFailureResult(req, err), nil
+			}
+			res.Details, res.FinalMessage, res.Conversation = "", nil, nil
+			// Status reports whether lookup succeeded, not the target's exit code.
+			res.Metadata.ExitCode = 0
+			return res, nil
 		}
 		return result.Result{}, fmt.Errorf("load async job %q: %w", req.JobID, err)
 	}
@@ -411,19 +417,40 @@ func terminalJobResult(req JobRequest, job jobs.Job) (result.Result, error) {
 // Fall back only for absent repository state. Corrupt or unreadable local state
 // still reports its own error, and an explicit directory keeps its precedence.
 func archivedJobResult(req JobRequest, missing error) (result.Result, error) {
-	content, err := jobs.ReadArchivedResult(req.JobID)
+	res, found, err := readArchivedJobResult(req)
 	if err != nil {
-		return result.Result{}, fmt.Errorf("read archived job %q result: %w", req.JobID, err)
+		return result.Result{}, err
 	}
-	if len(content) == 0 {
-		return JobLookupFailureResult(req, missing), nil
-	}
-	var res result.Result
-	if err := json.Unmarshal(content, &res); err != nil {
-		return result.Result{}, fmt.Errorf("decode archived job %q result: %w", req.JobID, err)
-	}
-	if !isTerminalResultStatus(res.Status) || res.Metadata.JobID != req.JobID || filepath.Clean(res.Metadata.CWD) != filepath.Clean(req.CWD) {
+	if !found {
 		return JobLookupFailureResult(req, missing), nil
 	}
 	return res, nil
+}
+
+func readArchivedJobResult(req JobRequest) (result.Result, bool, error) {
+	content, err := jobs.ReadArchivedResult(req.JobID)
+	if err != nil {
+		return result.Result{}, false, fmt.Errorf("read archived job %q result: %w", req.JobID, err)
+	}
+	if len(content) == 0 {
+		return result.Result{}, false, nil
+	}
+	var res result.Result
+	if err := json.Unmarshal(content, &res); err != nil {
+		return result.Result{}, false, fmt.Errorf("decode archived job %q result: %w", req.JobID, err)
+	}
+	if !isTerminalResultStatus(res.Status) || res.Metadata.JobID != req.JobID || !sameJobDirectory(res.Metadata.CWD, req.CWD) {
+		return result.Result{}, false, nil
+	}
+	return res, true, nil
+}
+
+func sameJobDirectory(a, b string) bool {
+	a, b = filepath.Clean(a), filepath.Clean(b)
+	// Windows and the default macOS filesystem ignore path case. Linux keeps
+	// differently cased directory names distinct.
+	if runtime.GOOS == "windows" || runtime.GOOS == "darwin" {
+		return strings.EqualFold(a, b)
+	}
+	return a == b
 }

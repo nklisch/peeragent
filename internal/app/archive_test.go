@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -107,5 +108,34 @@ func TestArchiveDoesNotMaskCorruptLocalJob(t *testing.T) {
 	_, err = NewService(Options{}).JobResult(context.Background(), JobRequest{CWD: cwd, JobID: job.ID})
 	if err == nil || !strings.Contains(err.Error(), "load async job") {
 		t.Fatalf("corrupt local state masked: %v", err)
+	}
+}
+
+func TestArchivedDirectoryLookupUsesPlatformCaseRules(t *testing.T) {
+	root := t.TempDir()
+	cwd := filepath.Join(root, "Project")
+	const id = "20260712T123456Z-deadbeef"
+	if err := WriteJobResult(filepath.Join(root, "result.json"), result.Result{Status: result.StatusSuccess, Summary: "done", Metadata: result.Metadata{JobID: id, CWD: cwd}}); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		dir   string
+		found bool
+	}{
+		{filepath.Join(root, "Project", "nested", ".."), true},
+		{filepath.Join(root, "project"), runtime.GOOS == "windows" || runtime.GOOS == "darwin"},
+		{filepath.Join(root, "different"), false},
+	} {
+		got, err := NewService(Options{}).JobResult(context.Background(), JobRequest{JobID: id, CWD: tc.dir})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if tc.found {
+			if got.Status != result.StatusSuccess || got.Metadata.CWD != cwd {
+				t.Fatalf("directory %q did not match: %#v", tc.dir, got)
+			}
+		} else if got.Metadata.ExitCode != 4 {
+			t.Fatalf("directory %q incorrectly matched: %#v", tc.dir, got)
+		}
 	}
 }
