@@ -188,7 +188,7 @@ an absent marker so later controls can still infer support from evidence.
 Prefer `--async` for normal implementation, research, and review passes so a
 long-running peer does not consume or exceed the launch tool call. For async
 Codex work, add `--retry-capacity N` to opt into recovery from capacity and
-output-limit stops. It is disabled by default and resumes the same session.
+output-limit and login stops. It is disabled by default and resumes the same session.
 Capacity retries wait `10m` unless `--capacity-backoff` overrides it. Retry options require
 `--async --agent codex` even with `--resume`; add `--async` to a resumed call.
 For example:
@@ -206,7 +206,7 @@ session immediately with a short continuation asking for a concise handback;
 automatic output-limit continuation, even if budget remains. Without a session,
 with N=0, after that continuation, or after the shared budget is spent, the stop
 is terminal. `metadata.capacity_retries` retains its existing name and counts
-all additional attempts, including the output-limit continuation. Other failures
+all additional attempts, including output-limit and login continuations. Other failures
 are never retried.
 
 Every launch carries a job id in JSON and text, including resumed calls. A
@@ -327,16 +327,32 @@ starts with a dash. Validate session variables before constructing a resume call
   N additional attempts with a default ten-minute backoff (override with
   `--capacity-backoff <duration>`). Retries resume that session under one job id;
   they stop without a session id or when the budget is spent. Other failures
-  are never retried except the single output-limit continuation.
+  are never retried except the single output-limit and login continuations.
   `metadata.capacity_retries` counts all additional attempts.
 - `status: output_limit` — Codex stopped at `max_output_tokens`. Keep the session
   and resume command. The shared async retry budget permits one immediate
   continuation; a repeated limit is terminal.
+- `status: auth_required` — Codex stopped because its login was revoked or
+  invalidated. Keep `metadata.agent_session`. The shared async retry budget
+  permits one immediate resume using the current login. If it still stops,
+  refresh the login and resume manually; peeragent never changes credentials.
+- `status: interrupted` — Codex could not record rollout items and had no
+  structured terminal outcome. Keep the session for manual resumption; there
+  is no automatic retry. A structured terminal outcome wins over stderr.
+- `status: failed` with `failure: policy_refusal` — the summary contains Codex's
+  refusal reason. Do not retry it automatically; return it to the host so it
+  can choose how to handle the work.
 - `status: running` — keep monitoring the async job; report only an interim
   update if useful, then retrieve its terminal result before concluding.
 - `status: cancelled` — only after `--cancel`; report cleanly.
 
 Do not claim success unless the wrapper reports `success`.
+
+Terminal result JSON is also retained in the per-user index for 30 days, so
+`--result`, `--wait`, and single-job `--status` work after a worktree is removed.
+New archives prune expired snapshots. Prompts and raw log files are not copied;
+repository job folders keep their existing lifetime. Older jobs without an
+archive still need their original files.
 
 ## Options
 
@@ -359,7 +375,7 @@ Use advanced modes only when the request calls for them:
 - `--async` — preferred for substantive work; starts a background job and
   returns a `job_id` immediately with `status: running`; add opt-in
   `--retry-capacity N` for Codex capacity recovery.
-- `--retry-capacity <N>` — opt into at most N shared capacity/output-limit retries (async Codex only).
+- `--retry-capacity <N>` — opt into at most N shared capacity/output-limit/login retries (async Codex only).
 - `--capacity-backoff <duration>` — positive retry delay (default `10m`).
 - `--jobs [--cwd DIR] [--all]` — list local jobs, or all indexed directories;
   JSONL by default, `--text` for a table.

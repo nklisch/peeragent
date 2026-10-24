@@ -13,6 +13,7 @@ import (
 // JobStatus is the compact multi-job status contract; single-job status keeps
 // using Result for compatibility with existing hosts.
 type JobStatus struct {
+	Failure          string `json:"failure,omitempty"`
 	Version          string `json:"version"`
 	Agent            string `json:"agent"`
 	MessagingEnabled bool   `json:"messaging_enabled"`

@@ -106,13 +106,28 @@ func ResultFromExecution(delegation input.Delegation, execResult executil.Result
 			execResult.ExitCode = 1
 		}
 	}
-	// A capacity or output-limit stop leaves an interim message, not a handback.
+	if execResult.AuthRequired || execResult.Interrupted {
+		status = result.StatusInterrupted
+		if execResult.AuthRequired {
+			status = result.StatusAuthRequired
+		}
+		summary = result.RecoverySummary(status, agentSession(delegation, execResult))
+		if execResult.ExitCode == 0 {
+			execResult.ExitCode = 1
+		}
+	}
+	if execResult.Failure != "" {
+		status = result.StatusFailed
+		summary = execResult.FailureMessage
+	}
+	// A resumable stop leaves an interim message, not a handback.
 	var finalMessage *string
-	if execResult.FinalMessage != "" && status != result.StatusCapacity && status != result.StatusOutputLimit {
+	if execResult.FinalMessage != "" && status != result.StatusCapacity && status != result.StatusOutputLimit && status != result.StatusAuthRequired && status != result.StatusInterrupted {
 		finalMessage = &execResult.FinalMessage
 	}
 	return result.Result{
 		Status:       status,
+		Failure:      execResult.Failure,
 		Summary:      summary,
 		FinalMessage: finalMessage,
 		ChangedFiles: []string{},

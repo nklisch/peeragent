@@ -71,7 +71,7 @@ func TestWorkerExitHelper(t *testing.T) {
 }
 
 func TestWorkerExitPreservesTerminalWinner(t *testing.T) {
-	for _, status := range []result.Status{result.StatusSuccess, result.StatusFailed, result.StatusCapacity, result.StatusOutputLimit, result.StatusCancelled} {
+	for _, status := range []result.Status{result.StatusSuccess, result.StatusFailed, result.StatusCapacity, result.StatusOutputLimit, result.StatusAuthRequired, result.StatusInterrupted, result.StatusCancelled} {
 		t.Run(string(status), func(t *testing.T) {
 			cwd := t.TempDir()
 			store := jobs.NewStore(cwd)
@@ -85,6 +85,9 @@ func TestWorkerExitPreservesTerminalWinner(t *testing.T) {
 			}
 			if status == result.StatusOutputLimit {
 				want.Summary = result.OutputLimitSummary("same")
+			}
+			if status == result.StatusAuthRequired || status == result.StatusInterrupted {
+				want.Summary = result.RecoverySummary(status, "same")
 			}
 			if err := FinishJob(store, job, want); err != nil {
 				t.Fatal(err)

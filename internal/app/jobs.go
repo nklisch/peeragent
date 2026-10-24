@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/nklisch/peeragent/internal/heavy"
@@ -35,12 +36,26 @@ func (s *Service) JobStatus(ctx context.Context, raw JobRequest) (result.Result,
 	job, err := jobs.NewStore(req.CWD).Load(req.JobID)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
-			return JobLookupFailureResult(req, err), nil
+			res, archiveErr := archivedJobResult(req, err)
+			res.Details, res.FinalMessage, res.Conversation = "", nil, nil
+			if archiveErr == nil && res.Metadata.ExitCode != 4 {
+				res.Metadata.ExitCode = 0
+			}
+			return res, archiveErr
 		}
 		return result.Result{}, fmt.Errorf("load async job %q: %w", req.JobID, err)
 	}
 
 	res := jobStatusResult(req, job)
+	if job.Status == jobs.StatusFailed {
+		stored, exists, err := readStoredResult(job.ResultPath)
+		if err != nil {
+			return result.Result{}, err
+		}
+		if exists && stored.Failure != "" {
+			res.Failure, res.Summary = stored.Failure, stored.Summary
+		}
+	}
 	if err := addMessaging(ctx, &res, job, false); err != nil {
 		return result.Result{}, err
 	}
@@ -74,7 +89,7 @@ func (s *Service) jobResult(ctx context.Context, raw JobRequest, includeRunningM
 	job, err := store.Load(req.JobID)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
-			return JobLookupFailureResult(req, err), nil
+			return archivedJobResult(req, err)
 		}
 		return result.Result{}, fmt.Errorf("load async job %q: %w", req.JobID, err)
 	}
@@ -179,6 +194,9 @@ func jobStatusResult(req JobRequest, job jobs.Job) result.Result {
 	if job.Status == jobs.StatusOutputLimit {
 		res.Summary = result.OutputLimitSummary(job.Session())
 	}
+	if job.Status == jobs.StatusAuthRequired || job.Status == jobs.StatusInterrupted {
+		res.Summary = result.RecoverySummary(res.Status, job.Session())
+	}
 	return res
 }
 
@@ -222,6 +240,10 @@ func ResultStatusFromJob(status string) result.Status {
 	switch jobs.Status(status) {
 	case jobs.StatusComplete:
 		return result.StatusSuccess
+	case jobs.StatusAuthRequired:
+		return result.StatusAuthRequired
+	case jobs.StatusInterrupted:
+		return result.StatusInterrupted
 	case jobs.StatusOutputLimit:
 		return result.StatusOutputLimit
 	case jobs.StatusCapacity:
@@ -245,6 +267,10 @@ func IsTerminalJobStatus(status string) bool {
 // job lifecycle value used by job.json.
 func JobStatusFromResult(status result.Status) jobs.Status {
 	switch status {
+	case result.StatusAuthRequired:
+		return jobs.StatusAuthRequired
+	case result.StatusInterrupted:
+		return jobs.StatusInterrupted
 	case result.StatusOutputLimit:
 		return jobs.StatusOutputLimit
 	case result.StatusCapacity:
@@ -262,6 +288,11 @@ func JobStatusFromResult(status result.Status) jobs.Status {
 // conflict rules as cancellation. It remains an application operation even
 // though the child-run CLI is the adapter that invokes it.
 func FinishJob(store jobs.Store, job jobs.Job, res result.Result) error {
+	res.Metadata.JobID = job.ID
+	if res.Metadata.CWD == "" {
+		res.Metadata.CWD = job.CWD
+	}
+
 	pid, _ := store.ReadPID(job.ID)
 	session := res.Metadata.AgentSession
 	if session == "" {
@@ -312,7 +343,26 @@ func WriteJobResult(path string, res result.Result) error {
 	if err != nil {
 		return err
 	}
-	return jobs.AtomicWriteFile(path, append(encoded, '\n'), 0o644)
+	if err := jobs.AtomicWriteFile(path, append(encoded, '\n'), 0o644); err != nil {
+		return err
+	}
+	if res.Metadata.JobID != "" && isTerminalResultStatus(res.Status) {
+		if err := jobs.ArchiveResult(res.Metadata.JobID, append(encoded, '\n')); err != nil {
+			// Index storage is optional: preserve completion and expose the limitation
+			// in the repository result instead of turning completed work into failure.
+			warning := "archive terminal result: " + err.Error()
+			if res.Metadata.IndexWarning != "" {
+				warning = res.Metadata.IndexWarning + "; " + warning
+			}
+			res.Metadata.IndexWarning = warning
+			encoded, err := result.FormatJSON(res)
+			if err != nil {
+				return err
+			}
+			return jobs.AtomicWriteFile(path, append(encoded, '\n'), 0o644)
+		}
+	}
+	return nil
 }
 
 func readStoredResult(path string) (result.Result, bool, error) {
@@ -334,6 +384,8 @@ func isTerminalResultStatus(status result.Status) bool {
 	for _, persisted := range []jobs.Status{
 		jobs.StatusCapacity,
 		jobs.StatusOutputLimit,
+		jobs.StatusAuthRequired,
+		jobs.StatusInterrupted,
 		jobs.StatusComplete,
 		jobs.StatusFailed,
 		jobs.StatusCancelled,
@@ -354,4 +406,24 @@ func terminalJobResult(req JobRequest, job jobs.Job) (result.Result, error) {
 		return stored, nil
 	}
 	return jobStatusResult(req, job), nil
+}
+
+// Fall back only for absent repository state. Corrupt or unreadable local state
+// still reports its own error, and an explicit directory keeps its precedence.
+func archivedJobResult(req JobRequest, missing error) (result.Result, error) {
+	content, err := jobs.ReadArchivedResult(req.JobID)
+	if err != nil {
+		return result.Result{}, fmt.Errorf("read archived job %q result: %w", req.JobID, err)
+	}
+	if len(content) == 0 {
+		return JobLookupFailureResult(req, missing), nil
+	}
+	var res result.Result
+	if err := json.Unmarshal(content, &res); err != nil {
+		return result.Result{}, fmt.Errorf("decode archived job %q result: %w", req.JobID, err)
+	}
+	if !isTerminalResultStatus(res.Status) || res.Metadata.JobID != req.JobID || filepath.Clean(res.Metadata.CWD) != filepath.Clean(req.CWD) {
+		return JobLookupFailureResult(req, missing), nil
+	}
+	return res, nil
 }

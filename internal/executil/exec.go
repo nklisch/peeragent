@@ -11,6 +11,10 @@ import (
 )
 
 type Result struct {
+	AuthRequired      bool
+	Interrupted       bool
+	Failure           string
+	FailureMessage    string
 	TurnStarted       bool
 	OutputLimit       bool
 	CapacityExhausted bool

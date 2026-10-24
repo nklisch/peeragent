@@ -44,7 +44,7 @@ func (s *Service) CancelJob(ctx context.Context, raw JobRequest) (result.Result,
 	job, err := store.Load(req.JobID)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
-			return JobLookupFailureResult(req, err), nil
+			return archivedJobResult(req, err)
 		}
 		return result.Result{}, fmt.Errorf("load async job %q: %w", req.JobID, err)
 	}

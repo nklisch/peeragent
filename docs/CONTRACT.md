@@ -57,11 +57,11 @@ Options:
 - `--agent <codex|gemini|claude|zai>`: Select the target agent. Defaults to
   `codex`. The `zai` target is fixed to Z.AI GLM 5.2 through Pi.
 - `--async`: Start the target in the background and return a job id.
-- `--retry-capacity <N>`: For async Codex delegation, resume capacity/output-limit stops up
-  to N additional times (non-negative integer; default zero). A captured or
-  supplied session id is required; otherwise the capacity result is terminal.
+- `--retry-capacity <N>`: For async Codex delegation, resume capacity, output-limit
+  and authentication stops up to N additional times (non-negative integer; default zero). A captured or
+  supplied session id is required; otherwise the stop is terminal.
   Requires `--async --agent codex`, including with `--resume`. Output-limit
-  recovery is immediate and limited to one continuation within this shared budget.
+  and login recovery each allow one immediate continuation within this shared budget.
 - `--capacity-backoff <duration>`: Positive delay between capacity retries,
   default `10m`. Requires `--async --agent codex`, including with `--resume`.
 - `--sandbox`: Use the default target mode. For Gemini this enables terminal
@@ -140,7 +140,7 @@ execution/messaging preamble. Resumed prompts include unread entries from prior
 jobs for that agent/session; capacity continuations include their own unread
 inbox. These entries are reserved by their attempt and hidden from inbox output,
 unread notices and status counts while the target runs. Target output and a
-non-capacity outcome mark them read; startup failure, cancellation and capacity
+non-capacity outcome mark them read; startup failure, cancellation, interruption and capacity/login
 refusal release them to unread. Later arrivals remain independently readable.
 A dead worker's unresolved reservations are released on the next mailbox read;
 a terminal acceptance record instead commits them read. Directory aliases are
@@ -231,7 +231,19 @@ Text results include `job_id`; blocking text calls print it to stderr before wai
 - `output_limit`: Codex stopped at `max_output_tokens`; terminal unless the shared
   retry budget permits its one immediate continuation. Session and resume command
   are reported as described below.
+- `auth_required`: Codex reported a revoked or invalidated login. Terminal
+  unless the shared async retry budget permits its one immediate continuation
+  using the current login. The conversation remains resumable when known.
+- `interrupted`: Codex could not record rollout items because its thread was
+  not found, with no structured terminal outcome. Preserve the session and
+  resume manually; this status is never retried automatically.
 - `cancelled`: Async job was cancelled.
+
+A structured Codex cybersecurity refusal remains `failed`. Its reason is the
+summary and its machine-readable `failure` field is `policy_refusal`; this field
+is omitted for other outcomes. Single-job status and job listings also expose
+this classification. An explicit structured terminal outcome takes precedence
+over stderr diagnostics, including rollout-recording errors.
 
 ## Text Result
 
@@ -253,8 +265,15 @@ last result, including blocking and failed results. Missing entries fall back
 to the current directory, preserving access to older repository-local jobs.
 Index read errors explain the `--cwd` override; index write errors report
 `metadata.index_warning` and allow execution to continue. An explicit `--cwd`
-always wins. The
-target operates in that same checkout. The wrapper does not create a worktree,
+always wins. Final result JSON is also archived under `index/results/` for
+30 days. `--result`, `--wait`, single-job `--status`, and `--cancel` use this copy
+when repository job metadata is absent, including after the worktree is removed.
+Archives expire after 30 days; every archive write prunes older snapshots.
+Prompt files and raw log files are not copied, and repository job folders keep
+their existing lifetime. Existing jobs without a snapshot need their original
+files. Corrupt or unreadable local state is still an error; the archive never
+masks it. An explicit `--cwd` must match the archived result's directory.
+The target operates in that same checkout. The wrapper does not create a worktree,
 clone, or sandbox copy unless explicitly requested.
 
 ## Target Invocation
@@ -361,7 +380,7 @@ session immediately with a short continuation asking for a concise handback;
 automatic output-limit continuation, even if budget remains. Without a session,
 with N=0, after that continuation, or after the shared budget is spent, the stop
 is terminal. `metadata.capacity_retries` retains its existing name and counts
-all additional attempts, including the output-limit continuation. Other failures
+all additional attempts, including output-limit and login continuations. Other failures
 are never retried.
 
 `--status <job-id>...` with multiple ids emits one compact JSON object per line,
@@ -430,7 +449,10 @@ without one shared read/modify/write file. The index can be deleted; explicit
 `--cwd` remains usable. Job entries are written before launch and session
 entries when the target returns a session. Short per-session launch locks live
 in `index/session-launch-locks/` and hold a launcher PID for diagnostics. The
-lookup index is a locator, not job truth.
+directory index is a locator. Terminal result snapshots in `index/results/`
+are a fallback when repository metadata is removed, with the retention described
+above. Archive failures warn through `metadata.index_warning` and leave the
+repository completion intact.
 On Windows, transient sharing or access-denied errors during index replacement
 are retried up to ten attempts with at most 450ms of delay. Other errors return
 immediately; persistent write failures still warn without blocking delegation.
@@ -439,10 +461,13 @@ immediately; persistent write failures still warn without blocking delegation.
 `spec.resume` before retrying. During backoff the job stays running. A retry
 uses a continuation prompt and the same session, model, access, effort and job
 id. Every attempt gets a separate raw log; the final result points to its own
-attempt's log. Only explicit Codex capacity diagnostics trigger retries, never
-ordinary failures or a final agent message discussing capacity. The last structured
+attempt's log. Only explicit Codex capacity, output-limit, and revoked-login diagnostics
+trigger the corresponding retries, never ordinary failures or a final agent
+message discussing them. Login stops consume at most one immediate continuation
+within the same N-attempt budget, using the current login without changing
+credentials. A repeated auth stop is terminal even if budget remains. The last structured
 `turn.failed` or `turn.completed` event determines the outcome, overriding earlier
-capacity history. Stderr capacity diagnostics are considered only when no structured
+diagnostic history. Stderr recovery diagnostics are considered only when no structured
 terminal event exists; historical or quoted mentions do not qualify. The known
 “Error running remote compact task:” diagnostic prefix is unwrapped before
 checking for capacity, including on `turn.failed`. The existing
@@ -459,7 +484,8 @@ The wrapper:
 - Preserves arbitrary task text as data.
 - Does not run full access unless explicitly requested.
 - Does not silently switch target agents.
-- Does not retry failures unless async Codex capacity retries are explicitly enabled.
+- Does not retry failures except the documented capacity, output-limit and login
+  continuations when async Codex retries are explicitly enabled.
 - Reports the target exit status when available.
 - Stores raw target stdout/stderr at `metadata.log_path` when output exists.
 - Reports compact stdout/stderr details, preferring the final peer message when

@@ -91,6 +91,21 @@ func fakeCodexMain() {
 		fmt.Println(`{"type":"turn.completed"}`)
 		return
 	}
+	if mode == "auth-recovery" || mode == "auth-persistent" || mode == "rollout-lost" || mode == "refusal-rollout" {
+		if mode == "rollout-lost" || mode == "refusal-rollout" {
+			if mode == "refusal-rollout" {
+				fmt.Println(`{"type":"turn.failed","error":{"message":"This content was flagged for possible cybersecurity risk."}}`)
+			}
+			fmt.Fprintln(os.Stderr, "2026-10-24T03:41:03.708607Z ERROR codex_core::session: failed to record rollout items: thread fake-session not found")
+			os.Exit(1)
+		}
+		if len(calls) == 1 || mode == "auth-persistent" {
+			fmt.Println(`{"type":"turn.failed","error":{"message":"Your access token could not be refreshed because you have since logged out or signed in to another account. Please sign in again."}}`)
+			os.Exit(1)
+		}
+		fmt.Println(`{"type":"task_complete","last_agent_message":"resumed using current login"}`)
+		return
+	}
 	if mode == "continuing-turn" {
 		fmt.Println(`{"type":"turn.completed"}`)
 		fmt.Println(`{"type":"turn.started"}`)

@@ -8,7 +8,8 @@ import (
 	"strings"
 )
 
-// The index contains only working directories, never prompts or credentials.
+// Directory entries contain only working directories; terminal result snapshots
+// are stored separately and never copy prompt files or raw logs.
 // Separate files avoid lost updates between simultaneous launches.
 
 func indexPath(kind, key string) (string, error) {
@@ -33,6 +34,10 @@ func writeIndex(kind, key, cwd string) error {
 	if err != nil {
 		return err
 	}
+	return writeIndexFile(path, []byte(cwd))
+}
+
+func writeIndexFile(path string, content []byte) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return err
 	}
@@ -41,7 +46,7 @@ func writeIndex(kind, key, cwd string) error {
 		return err
 	}
 	defer os.Remove(file.Name())
-	if _, err := file.WriteString(cwd); err != nil {
+	if _, err := file.Write(content); err != nil {
 		file.Close()
 		return err
 	}

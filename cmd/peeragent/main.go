@@ -84,8 +84,8 @@ Flags:
   --prompt-file <path>            Read task text from a file.
   --async                         Start a background job and return its id.
                                   Add --retry-capacity N for opt-in Codex recovery.
-  --retry-capacity <N>            Retry capacity/output-limit stops up to N times; requires --async --agent codex,
-                                  including with --resume. Output limits resume once immediately, sharing N.
+  --retry-capacity <N>            Retry capacity/output-limit/auth stops up to N times; requires --async --agent codex,
+                                  including with --resume. Output and auth stops each resume once immediately, sharing N.
   --capacity-backoff <duration>   Delay between capacity retries (default 10m); requires
                                   --async --agent codex, including with --resume.
   --jobs                         List jobs in the selected directory; --all includes indexed directories.
@@ -451,6 +451,7 @@ func runAsyncJob(req input.Request) error {
 	})
 
 	outputLimitRetried := false
+	authRetried := false
 	for attempt := 0; ; attempt++ {
 		current, err := store.Load(job.ID)
 		if err != nil {
@@ -480,7 +481,8 @@ func runAsyncJob(req input.Request) error {
 		}
 		attachExecutionLog(jobReq, &res, execResult, logPath)
 		outputLimit := res.Status == result.StatusOutputLimit
-		if (res.Status != result.StatusCapacity && !outputLimit) || (outputLimit && outputLimitRetried) || attempt >= job.Spec.RetryCapacity || res.Metadata.AgentSession == "" {
+		authRequired := res.Status == result.StatusAuthRequired
+		if (res.Status != result.StatusCapacity && !outputLimit && !authRequired) || (outputLimit && outputLimitRetried) || (authRequired && authRetried) || attempt >= job.Spec.RetryCapacity || res.Metadata.AgentSession == "" {
 			return finishAsyncJob(store, job, res)
 		}
 		// Never start a fresh conversation on retry. Preserve all execution options,
@@ -491,11 +493,15 @@ func runAsyncJob(req input.Request) error {
 			outputLimitRetried = true
 			jobReq.TaskText = "Continue from where you stopped at the output limit. Finish your handback concisely."
 		}
+		if authRequired {
+			authRetried = true
+			jobReq.TaskText = "Continue the task from where authentication stopped you, using the current login."
+		}
 		backoff := job.Spec.CapacityBackoff
 		if backoff <= 0 {
 			backoff = 10 * time.Minute
 		}
-		if outputLimit {
+		if outputLimit || authRequired {
 			backoff = 0
 		}
 		proceed := false

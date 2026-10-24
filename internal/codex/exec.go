@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/nklisch/peeragent/internal/executil"
 )
@@ -161,6 +162,8 @@ type streamState struct {
 	session, message, preview   string
 	capacity, terminal, success bool
 	outputLimit                 bool
+	authRequired                bool
+	failure, failureMessage     string
 	turnComplete                bool
 	observation                 executil.CompletionObservation
 }
@@ -171,6 +174,9 @@ func (s *streamState) consume(line string) (executil.Progress, bool) {
 	if err := json.Unmarshal([]byte(line), &event); err != nil {
 		if !s.terminal && isCapacityDiagnostic(line) {
 			s.capacity = true
+		}
+		if !s.terminal && isAuthDiagnostic(line) {
+			s.authRequired = true
 		}
 		if !s.terminal && isOutputLimitDiagnostic(line) {
 			s.outputLimit = true
@@ -188,7 +194,8 @@ func (s *streamState) consume(line string) (executil.Progress, bool) {
 	oldMessage := s.message
 	if s.turnComplete && isActivityEvent(event.Type) {
 		s.turnComplete, s.terminal = false, false
-		s.outputLimit = false
+		s.outputLimit, s.authRequired = false, false
+		s.failure, s.failureMessage = "", ""
 		s.observation = executil.CompletionActive
 	}
 	switch event.Type {
@@ -219,7 +226,8 @@ func (s *streamState) consume(line string) (executil.Progress, bool) {
 			}
 			if item.Phase == "final" || item.Phase == "final_answer" {
 				s.terminal, s.success, s.capacity = true, true, false
-				s.outputLimit = false
+				s.outputLimit, s.authRequired = false, false
+				s.failure, s.failureMessage = "", ""
 				s.turnComplete = false
 				s.observation = executil.CompletionPending
 			}
@@ -229,6 +237,12 @@ func (s *streamState) consume(line string) (executil.Progress, bool) {
 			s.message = event.Message
 		}
 	case "error":
+		if !s.terminal {
+			s.authRequired = s.authRequired || isAuthDiagnostic(event.Message) || isAuthDiagnostic(event.Error.Message)
+			if message := policyRefusalMessage(event); message != "" {
+				s.failure, s.failureMessage = "policy_refusal", message
+			}
+		}
 		if !s.terminal && outputLimitEvent(event) {
 			s.outputLimit = true
 		}
@@ -236,6 +250,11 @@ func (s *streamState) consume(line string) (executil.Progress, bool) {
 			s.capacity = true
 		}
 	case "turn.failed":
+		s.authRequired = isAuthDiagnostic(event.Message) || isAuthDiagnostic(event.Error.Message)
+		s.failure, s.failureMessage = "", policyRefusalMessage(event)
+		if s.failureMessage != "" {
+			s.failure = "policy_refusal"
+		}
 		s.outputLimit = outputLimitEvent(event)
 		s.capacity = isCapacityDiagnostic(event.Message) || isCapacityDiagnostic(event.Error.Message)
 		s.terminal, s.success = true, false
@@ -252,7 +271,8 @@ func (s *streamState) consume(line string) (executil.Progress, bool) {
 			s.message = event.LastAgentMessage
 		}
 		s.capacity, s.terminal, s.success = false, true, true
-		s.outputLimit = false
+		s.outputLimit, s.authRequired = false, false
+		s.failure, s.failureMessage = "", ""
 	}
 	if oldMessage != s.message {
 		s.preview = executil.MessagePreview(s.message)
@@ -296,6 +316,8 @@ func normalizeStreamResult(result *Result, state streamState) {
 	}
 	result.CapacityExhausted = capacity
 	result.OutputLimit = state.outputLimit
+	result.AuthRequired = state.authRequired
+	result.Failure, result.FailureMessage = state.failure, state.failureMessage
 	if result.RawStderr == "" {
 		result.RawStderr = result.Stderr
 	}
@@ -305,6 +327,12 @@ func normalizeStreamResult(result *Result, state streamState) {
 		// A structured terminal outcome is authoritative over stderr history.
 		if !terminal && !result.CapacityExhausted && isCapacityDiagnostic(line) {
 			result.CapacityExhausted = true
+		}
+		if !terminal && isAuthDiagnostic(line) {
+			result.AuthRequired = true
+		}
+		if !terminal && isRolloutInterruption(line) {
+			result.Interrupted = true
 		}
 		if !terminal && !result.OutputLimit && isOutputLimitDiagnostic(line) {
 			result.OutputLimit = true
@@ -353,4 +381,49 @@ func isOutputLimitDiagnostic(text string) bool {
 	}
 	suffix := strings.TrimPrefix(text, diagnostic)
 	return suffix == "" || strings.ContainsRune(" \t.,:;!?", rune(suffix[0]))
+}
+
+// Match target diagnostics only, never an assistant message or tool output.
+func isAuthDiagnostic(text string) bool {
+	text = strings.TrimSpace(text)
+	lower := strings.TrimSpace(strings.TrimPrefix(strings.ToLower(text), "error:"))
+	if strings.HasPrefix(lower, "your access token could not be refreshed because you have since logged out or signed in to another account.") {
+		return true
+	}
+	if strings.HasPrefix(lower, "401 token_revoked") {
+		suffix := strings.TrimPrefix(lower, "401 token_revoked")
+		return suffix == "" || strings.ContainsRune(" \t.,:;!?", rune(suffix[0]))
+	}
+	diagnostic := codexLogDiagnostic(text)
+	return strings.Contains(diagnostic, "auth error code: token_revoked")
+}
+
+// A valid timestamp/logger prefix distinguishes Codex stderr from quoted prose.
+func codexLogDiagnostic(text string) string {
+	text = strings.TrimSpace(text)
+	if stamp, rest, ok := strings.Cut(text, " "); ok {
+		if _, err := time.Parse(time.RFC3339Nano, stamp); err == nil {
+			text = rest
+		}
+	}
+	if !strings.HasPrefix(text, "ERROR codex_") {
+		return ""
+	}
+	return text
+}
+
+func isRolloutInterruption(text string) bool {
+	diagnostic := codexLogDiagnostic(text)
+	const prefix = "ERROR codex_core::session: failed to record rollout items: thread "
+	return strings.HasPrefix(diagnostic, prefix) && strings.HasSuffix(diagnostic, " not found") &&
+		strings.TrimSuffix(strings.TrimPrefix(diagnostic, prefix), " not found") != ""
+}
+
+func policyRefusalMessage(event codexEvent) string {
+	for _, text := range []string{event.Error.Message, event.Message} {
+		if strings.HasPrefix(text, "This content was flagged for possible cybersecurity risk.") {
+			return text
+		}
+	}
+	return ""
 }

@@ -64,12 +64,24 @@ func (s *Service) jobStatuses(ctx context.Context, requests []JobRequest, skipMi
 		if err != nil {
 			return nil, fmt.Errorf("read job %s progress: %w", job.ID, err)
 		}
-		summary := ""
+		summary, failure := "", ""
+		if job.Status == jobs.StatusFailed {
+			stored, exists, err := readStoredResult(job.ResultPath)
+			if err != nil {
+				return nil, err
+			}
+			if exists && stored.Failure != "" {
+				failure, summary = stored.Failure, stored.Summary
+			}
+		}
 		if job.Status == jobs.StatusCapacity {
 			summary = result.CapacitySummary(job.Session())
 		}
 		if job.Status == jobs.StatusOutputLimit {
 			summary = result.OutputLimitSummary(job.Session())
+		}
+		if job.Status == jobs.StatusAuthRequired || job.Status == jobs.StatusInterrupted {
+			summary = result.RecoverySummary(ResultStatusFromJob(string(job.Status)), job.Session())
 		}
 		mailbox, err := jobs.MailboxSnapshot(ctx, jobs.NewStore(req.CWD), job.ID)
 		if err != nil {
@@ -81,6 +93,7 @@ func (s *Service) jobStatuses(ctx context.Context, requests []JobRequest, skipMi
 		}
 		records = append(records, result.JobStatus{
 			MessageStats: mailbox.Stats(),
+			Failure:      failure,
 			Version:      version.Version, Agent: job.Spec.Agent, MessagingEnabled: support.Enabled, MessagingSource: support.Source, MessagingWarning: support.Warning,
 			KeepTerminalEnv: job.Spec.KeepTerminalEnv,
 			LastEventAt:     progress.At, LastMessage: progress.LastMessage, Summary: summary,

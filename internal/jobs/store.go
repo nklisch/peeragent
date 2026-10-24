@@ -18,12 +18,14 @@ import (
 type Status string
 
 const (
-	StatusRunning     Status = "running"
-	StatusComplete    Status = "complete"
-	StatusFailed      Status = "failed"
-	StatusCancelled   Status = "cancelled"
-	StatusCapacity    Status = "capacity_exhausted"
-	StatusOutputLimit Status = "output_limit"
+	StatusRunning      Status = "running"
+	StatusComplete     Status = "complete"
+	StatusFailed       Status = "failed"
+	StatusCancelled    Status = "cancelled"
+	StatusAuthRequired Status = "auth_required"
+	StatusInterrupted  Status = "interrupted"
+	StatusCapacity     Status = "capacity_exhausted"
+	StatusOutputLimit  Status = "output_limit"
 )
 
 type InboxSource struct {
@@ -307,7 +309,7 @@ func AtomicWriteFile(path string, content []byte, perm os.FileMode) error {
 // cannot be accidentally overwritten by an older process.
 func IsTerminalStatus(status Status) bool {
 	switch status {
-	case StatusComplete, StatusFailed, StatusCancelled, StatusCapacity, StatusOutputLimit:
+	case StatusComplete, StatusFailed, StatusCancelled, StatusCapacity, StatusOutputLimit, StatusAuthRequired, StatusInterrupted:
 		return true
 	default:
 		return false

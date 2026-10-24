@@ -15,3 +15,19 @@ func OutputLimitSummary(session string) string {
 	}
 	return summary
 }
+
+// RecoverySummary keeps resumable non-capacity stops consistent across result,
+// single-job status and multi-job status responses.
+func RecoverySummary(status Status, session string) string {
+	summary := "stopped: " + string(status)
+	if status == StatusAuthRequired {
+		summary += "; Codex login needs refreshing; sign in again if needed"
+	}
+	if status == StatusInterrupted {
+		summary += "; Codex could not record its rollout"
+	}
+	if session != "" {
+		summary += "; resumable with --resume " + session
+	}
+	return summary
+}

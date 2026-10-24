@@ -327,7 +327,7 @@ func (c TurnInbox) Acknowledge(execution executil.Result, executionErr error) er
 	if c.attempt.ID == "" {
 		return nil
 	}
-	accepted := executionErr == nil && execution.TurnStarted && !execution.CapacityExhausted
+	accepted := executionErr == nil && execution.TurnStarted && !execution.CapacityExhausted && !execution.AuthRequired && !execution.Interrupted
 	var ownerErr error
 	if accepted {
 		var owner jobs.Job

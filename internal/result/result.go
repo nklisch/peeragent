@@ -10,20 +10,22 @@ import (
 type Status string
 
 const (
-	StatusCapacity    Status = "capacity_exhausted"
-	StatusOutputLimit Status = "output_limit"
-	StatusSuccess     Status = "success"
-	StatusFailed      Status = "failed"
-	StatusBlocked     Status = "blocked"
-	StatusCancelled   Status = "cancelled"
-	StatusRunning     Status = "running"
+	StatusAuthRequired Status = "auth_required"
+	StatusInterrupted  Status = "interrupted"
+	StatusCapacity     Status = "capacity_exhausted"
+	StatusOutputLimit  Status = "output_limit"
+	StatusSuccess      Status = "success"
+	StatusFailed       Status = "failed"
+	StatusBlocked      Status = "blocked"
+	StatusCancelled    Status = "cancelled"
+	StatusRunning      Status = "running"
 )
 
 // Result is the public result contract. FinalMessage is the job's complete
-// final agent message, or null while none is known: still running, a capacity
-// or output-limit stop, or a target that produced none. Summary and Details
-// keep their established shapes.
+// final agent message, or null while running, after a resumable stop, or when
+// the target produced no message. Summary and Details keep their established shapes.
 type Result struct {
+	Failure           string         `json:"failure,omitempty"`
 	PendingHeavySteps []heavy.Step   `json:"pending_heavy_steps,omitempty"`
 	Status            Status         `json:"status"`
 	Summary           string         `json:"summary"`

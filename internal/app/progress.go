@@ -74,6 +74,9 @@ func enrichJobResult(res *result.Result, job jobs.Job) error {
 	if res.Status == result.StatusOutputLimit {
 		res.Summary = result.OutputLimitSummary(res.Metadata.AgentSession)
 	}
+	if res.Status == result.StatusAuthRequired || res.Status == result.StatusInterrupted {
+		res.Summary = result.RecoverySummary(res.Status, res.Metadata.AgentSession)
+	}
 	// A running job's message file holds its final message once the target
 	// reported completion; terminal results carry their own final message.
 	needFinal := res.Status == result.StatusRunning && res.FinalMessage == nil && job.FinalReceived

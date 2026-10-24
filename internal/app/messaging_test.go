@@ -63,6 +63,8 @@ func TestResumeAcknowledgesOnlyAcceptedTargetTurn(t *testing.T) {
 		{"cancelled before execution", executil.Result{}, context.Canceled},
 		{"no event", executil.Result{}, nil},
 		{"capacity after event", executil.Result{TurnStarted: true, CapacityExhausted: true}, nil},
+		{"authentication after event", executil.Result{TurnStarted: true, AuthRequired: true}, nil},
+		{"interrupted after event", executil.Result{TurnStarted: true, Interrupted: true}, nil},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			carry, err := PrepareTurnInbox(context.Background(), launched)

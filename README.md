@@ -408,8 +408,8 @@ until it arrives, and keep doing independent work meanwhile.
 `--no-preamble` sends task text only. Each command inside a job announces unread
 replies on stderr. Resumes include unread messages in the new
 prompt and reserve them, hiding them from the running target's inbox and unread
-count. Target output and a non-capacity outcome mark them read; failure or
-capacity refusal releases them. A dead worker's unresolved reservation recovers
+count. Target output and an accepted turn mark them read; startup failure,
+capacity/login refusal or interruption releases them. A dead worker's unresolved reservation recovers
 on the next mailbox read. Later replies remain independently readable. Status shows `inbox_unread`,
 `outbox_sent`, and `last_message_at`; results include the ordered `conversation`
 after the agent message. See [messaging details](docs/MESSAGING.md).
@@ -544,6 +544,15 @@ it does not remove jobs, but requires `--cwd` for lookup again. An index write
 failure is reported in `metadata.index_warning`; the job still runs and can be
 controlled with `--cwd`.
 
+A terminal result is also copied to `index/results/` so `--result`, `--wait`,
+`--status`, and `--cancel` can return it by id after its worktree is removed.
+These snapshots contain only result JSON; prompt files and raw log files are
+not copied. Snapshots expire after 30 days, and archiving a new result removes
+expired snapshots. Repository job folders keep their existing lifetime.
+Snapshots are a fallback for missing repository state; corrupt or unreadable
+local state still reports its error. Clearing the index also clears these copies.
+Jobs completed before this feature need their repository-local result files.
+
 Resuming a session with a live running job exits `2` before launch, naming that
 job and its `--wait` and `--cancel` commands. This prevents two agents from
 interleaving edits and session history. Terminal jobs and jobs whose recorded
@@ -574,8 +583,23 @@ session immediately with a short continuation asking for a concise handback;
 automatic output-limit continuation, even if budget remains. Without a session,
 with N=0, after that continuation, or after the shared budget is spent, the stop
 is terminal. `metadata.capacity_retries` retains its existing name and counts
-all additional attempts, including the output-limit continuation. Other failures
-are never retried.
+all additional attempts, including output-limit and login continuations. Other
+failures are never retried.
+
+A revoked or invalidated Codex login returns `auth_required`, preserving
+`metadata.agent_session` and a resume hint. With the shared async retry budget,
+peeragent resumes once immediately using the current login; it does not change
+credentials. If that attempt still needs authentication, sign in and resume
+manually. This continuation shares the N-attempt budget and is counted in
+`metadata.capacity_retries`.
+
+Codex's “failed to record rollout items: thread ... not found” diagnostic returns
+`interrupted` only when no structured terminal outcome exists. The session is
+preserved for manual resumption; interruptions are not retried automatically.
+An explicit structured outcome always wins over stderr history. A Codex
+cybersecurity policy refusal remains `failed`, with `failure: "policy_refusal"`
+and the actual refusal reason in the summary, including status and job listings.
+Such refusals are never retried automatically.
 
 `--capacity-backoff <duration>` changes the delay, for example `--capacity-backoff
 5m`. Retry options require `--async --agent codex`, including when using
@@ -585,7 +609,7 @@ session with a continuation prompt and preserves execution settings and the
 job id; it never starts a replacement conversation. Without a session id, or
 after the retry budget is spent, the capacity result is terminal. Jobs remain
 `running` during the delay. `metadata.capacity_retries` records retries made.
-Non-capacity failures are never retried. Each attempt keeps a raw log (`target.log`,
+Other failures are never retried. Each attempt keeps a raw log (`target.log`,
 then `target-retry-N.log`); noisy Codex “Orphan custom tool call” lines are
 omitted only from the visible stderr summary, remaining in the raw log.
 
@@ -681,8 +705,10 @@ from source (requires Go 1.25 or newer): `go install github.com/nklisch/peeragen
 then set `PEERAGENT_BIN` to the installed binary. For source checkouts,
 `make build` also produces a local `dist/peeragent` binary.
 
-If an async lookup fails, make sure the job id came from the same repository and
-that `.peeragent/jobs/<job-id>/job.json` still exists.
+Job ids from indexed launches work from any directory. If lookup fails, check
+whether the per-user index was cleared; use `--cwd` for an unindexed job whose
+repository state remains. Removed worktrees require an archived result from the
+last 30 days; older jobs without a snapshot still need their original files.
 
 ### Gemini permissions and autonomy
 
