@@ -46,6 +46,9 @@ is unavailable here. The owner reviews and releases this unit.
 
 ## Verification log
 
+Tested implementation: `5fc3b4a85b9b3219bedaed3e29d781ef499645dc`.
+The subsequent evidence commit changes only this story.
+
 Verified on Linux with `go version go1.26.4 linux/amd64`. Counts below are
 measured from Go's JSON test events; top-level counts exclude subtests.
 
