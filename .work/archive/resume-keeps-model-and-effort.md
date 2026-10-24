@@ -1,11 +1,11 @@
 ---
 id: resume-keeps-model-and-effort
 kind: story
-stage: review
+stage: done
 tags: [infra, tests, docs]
 parent: null
 depends_on: []
-release_binding: null
+release_binding: v0.14.0
 created: 2026-10-24
 updated: 2026-10-24
 ---
@@ -87,3 +87,7 @@ release, push, installed-plugin update, host deploy or committed binary refresh
 was performed; distribution belongs to the release owner. Nothing was backlogged
 or deferred. This story is the consolidated result log; disposable test events
 and the Windows build artifact were removed after recording their results.
+
+## Closure (2026-10-24)
+
+Released in v0.14.0 after owner review: a resume without --model/--effort inherits the session's latest job; explicit flags win; a missing record keeps defaults with resume_warning. Native Windows/macOS runs unverified.
