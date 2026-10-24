@@ -123,3 +123,43 @@ after their original files are deleted. Snapshot copies expire after 30 days;
 raw logs still need their original directory. Removed jobs are not added to
 `--jobs --all` or multi-job status/wait-any listings. No host deployment is
 needed beyond releasing/updating the plugin. No additional work was backlogged.
+
+## Review fix round
+
+Source: `fbae004610b4319f0e65b4e3f10ed970c8ab7be4`.
+
+The launching session relayed updated direction from Nathan: retain complete
+archived results and the existing live summaries. The review's proposed payload
+projection and no-message-summary change were dropped before verification and
+commit. Archive contents and retention remain as implemented above.
+
+The two retained findings are fixed:
+
+- Archived-directory lookup cleans paths, then compares them case-insensitively
+  on Windows and default macOS filesystems, and exactly on Linux.
+  `TestArchivedDirectoryLookupUsesPlatformCaseRules` checks exact, differently
+  cased and unrelated directory names against the current platform's rule.
+- Archive loading reports a separate found flag. A successful `--status` lookup
+  sets its command exit metadata to zero even when the target exited with four;
+  genuinely missing jobs still exit four, and result reads retain the target
+  exit code. `TestArchivedStatusSeparatesTargetExitCodeFromLookup` exercises
+  both CLI exits and checks that result retrieval preserves the target code.
+
+Verification ran once on this source:
+
+```sh
+go test ./internal/app ./cmd/peeragent -count=1 -json
+# PASS: internal/app 56 and cmd/peeragent 73 top-level tests, 129 passed total.
+# Includes both new regressions and all existing tests in the touched packages.
+
+go vet ./internal/app ./cmd/peeragent
+# PASS, no diagnostics.
+
+git diff --check
+git diff --name-only -- '*.go' | xargs gofmt -l
+# PASS, no whitespace or formatting findings.
+```
+
+This Linux run did not exercise native Windows/macOS filesystem behavior.
+No full repository suite, release, push, host deployment, scratch folder or
+persistent build output was needed for this fix round. No blockers remain.
