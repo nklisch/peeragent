@@ -1,11 +1,11 @@
 ---
 id: codex-recovery-and-result-retention
 kind: story
-stage: review
+stage: done
 tags: [infra, tests, docs]
 parent: null
 depends_on: []
-release_binding: null
+release_binding: v0.12.3
 created: 2026-10-24
 updated: 2026-10-24
 ---
@@ -163,3 +163,10 @@ git diff --name-only -- '*.go' | xargs gofmt -l
 This Linux run did not exercise native Windows/macOS filesystem behavior.
 No full repository suite, release, push, host deployment, scratch folder or
 persistent build output was needed for this fix round. No blockers remain.
+
+## Closure (2026-10-24)
+
+Released in v0.12.3. Sol xhigh review findings: archive payload projection declined by the owner (credential or
+prompt exposure in our own tools' archives is never an issue); Windows path case and archived status exit fixed in
+fbae004. Deferred, rare configuration: archived-path matching also ignores case on case-sensitive macOS volumes,
+which can break explicit-directory precedence there.
