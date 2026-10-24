@@ -134,22 +134,24 @@ rigid schema on the delegated task request.
 Job mailboxes use the lifecycle lock for appends, snapshots and read cursors.
 Inbox delivery holds the lock through stdout writes and acknowledgement, so a
 failed write leaves replies unread. Outbound delivery reserves a pending outbox
-entry under the lock, invokes Herdr outside it, then appends sent/refused status
+entry under the lock, writes a native inbox outside it, then appends sent/queued/refused status
 with the same message ID. Readers fold that journal into one entry per message;
 completion never rescans mailbox history. Command-scoped snapshots share each
 job's single history read with its unread notice, status and result output.
 This enforces the per-job rate limit across concurrent senders without holding
-the lifecycle lock during a subprocess call. A crashed sender's pending entry
+the lifecycle lock during a socket operation. A crashed sender's pending entry
 reserves its slot until the five-minute window expires.
 
-The launcher captures its Herdr address and binary path in a separate mode-0600
-file before starting the tracked worker. Public results never include these
-addresses. A shared execution context supplies the job id/directory at the target
-process boundary, alongside terminal environment filtering; adapters do not own
-mailbox state. Herdr receives a mandatory generated origin/reply header through
-its documented `agent prompt <pane> <text>` command, with sanitized body brackets.
-The transport is bounded by a ten-second subprocess timeout. Windows uses the
-same messaging service and records an explicit unsupported-channel refusal.
+The launcher captures its native Claude inbox address, child token and session
+in a separate mode-0600 file before starting the worker. Public results never
+include that state. A shared execution context supplies job identity at the
+target process boundary, alongside terminal environment filtering; adapters do
+not own mailbox state. The inbox receives auth and user JSON lines with the
+mandatory origin/reply header. Native queueing is separate from terminal input.
+Delivery has a ten-second bound and no acceptance acknowledgement. Unsupported
+or ambiguous launchers, legacy pane-only records and failed transports retain
+messages in the existing outbox as queued, with explicit receipts and no
+automatic retries. There is no pane-input fallback or additional background owner.
 
 Session discovery is shared by the concurrent-resume check and unread-inbox
 carryover, avoiding two worktree scans. Jobs are deduplicated by recorded job

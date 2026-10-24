@@ -90,7 +90,16 @@ func runMessageCommand(ctx context.Context, req input.Request) error {
 		if err != nil {
 			return err
 		}
-		return applicationService.Say(ctx, app.JobRequest{CWD: job.CWD, JobID: id}, req.TaskText)
+		receipt, err := applicationService.Say(ctx, app.JobRequest{CWD: job.CWD, JobID: id}, req.TaskText)
+		if err != nil {
+			return err
+		}
+		if receipt.Status == "queued" {
+			_, err = fmt.Fprintf(os.Stdout, "queued for launcher review via --result %s (conversation): %s; no automatic retry; continue independent work and include the question in your handback\n", id, receipt.Reason)
+		} else {
+			_, err = fmt.Fprintln(os.Stdout, receipt.Reason)
+		}
+		return err
 	}
 	return store.ReadInboxContext(ctx, id, func(entries []jobs.Message) error {
 		encoder := json.NewEncoder(os.Stdout)

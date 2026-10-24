@@ -126,7 +126,12 @@ Messages use literal argv, never shell evaluation. Use `--` before literal text
 beginning with a dash. Commands inside a job first announce unread entries on
 stderr, preserving machine-readable stdout. `inbox` emits unread `{time, from,
 text}` entries as JSONL and marks them read under the same lock as `tell`.
-Finished jobs reject `tell` and suggest `--resume`.
+Finished jobs reject `tell` and suggest `--resume`. `say` uses a captured Claude
+Code native inbox or a parent peer job's mailbox, preserving its fixed origin
+label. It never submits terminal input. Unsupported or ambiguous launchers and
+failed transports retain the question as `queued` in the job's result
+conversation, with an explicit receipt and no automatic retry. Native socket
+submission has no acceptance/read acknowledgement.
 
 The standard prompt includes these instructions for checking and sending messages:
 
@@ -181,6 +186,7 @@ The default result is JSON:
 
 ```json
 {
+  "job_id": "job-id",
   "status": "success",
   "summary": "Claude implementation completed",
   "final_message": "Claude implementation completed",
@@ -196,7 +202,7 @@ The default result is JSON:
     "model": "sonnet",
     "agent_session": "session-id",
     "exit_code": 0,
-    "job_id": "",
+    "job_id": "job-id",
     "log_path": "/repo/.peeragent/runs/..."
   }
 }
@@ -215,7 +221,10 @@ details, so it adds no separate section.
 
 When available, `metadata.agent_session` contains the target-agent session id
 that can be passed back with `--resume`. Every CLI launch, including blocking
-and resumed calls, carries `metadata.job_id` and persists tracked job state.
+and resumed calls, carries top-level `job_id` and matching `metadata.job_id`, and persists tracked job state.
+Single-job status and results mirror the same ID, including older stored results.
+`--wait` JSON stdout contains exactly one document: the terminal result. It never
+prints intermediate status; diagnostics and unread-message notices use stderr.
 Text results include `job_id`; blocking text calls print it to stderr before waiting.
 
 `status` values:
@@ -431,7 +440,7 @@ Windows retains the worker's native handle until its wait completes.
 .peeragent/jobs/<job-id>/
   job.json       lifecycle + ExecSpec + mailbox references + live observations
   prompt.txt     resolved task text, parent-written, child-read
-  launcher.json  optional private Herdr address/binary, mode 0600
+  launcher.json  optional private native launcher channel (legacy Herdr fields readable), mode 0600
   inbox.jsonl    launcher replies {time, from, text}, mode 0600
   inbox-state.json  read prefix + independently read/reserved entries, mode 0600
   inbox-attempts/   per-attempt worker PID and running/accepted/released outcome, private

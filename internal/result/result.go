@@ -25,6 +25,7 @@ const (
 // final agent message, or null while running, after a resumable stop, or when
 // the target produced no message. Summary and Details keep their established shapes.
 type Result struct {
+	JobID             string         `json:"job_id,omitempty"`
 	Failure           string         `json:"failure,omitempty"`
 	PendingHeavySteps []heavy.Step   `json:"pending_heavy_steps,omitempty"`
 	Status            Status         `json:"status"`

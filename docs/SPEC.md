@@ -114,10 +114,13 @@ After asking a question, watch your inbox for the answer: run `peeragent inbox` 
 until it arrives, and keep doing independent work meanwhile.
 
 `peeragent say "<text>"` sends a mandatory labelled message through the recorded
-launcher's Herdr pane. It strips header brackets from the body, bounds text to
-2,000 characters and three messages per five minutes per job, and logs sent or
-refused attempts. Refusals name the handback alternative. Windows reports no
-launcher channel. Status exposes mailbox counts, oldest unread age, and messaging
+launcher's Claude Code native inbox or a parent peer job's mailbox, separate
+from typed input. It strips header brackets from the body, bounds text to
+2,000 characters and three delivery attempts per five minutes per job, and logs
+sent, queued or refused attempts. Refusals name the handback alternative. Without
+a safe native channel, or on a transport failure, it queues the message in the
+existing outbox and reports that receipt; there is no automatic retry or
+terminal-input fallback. Status exposes mailbox counts, oldest unread age, and messaging
 evidence source. Missing legacy flags are inferred from a saved preamble or
 `say` entry, rather than being treated as disabled. Results include the
 ordered conversation after the final message. See [Messaging](MESSAGING.md).

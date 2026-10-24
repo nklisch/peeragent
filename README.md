@@ -357,7 +357,7 @@ question without receiving terminal-control addresses:
 ```sh
 peeragent tell <job-id> [--cwd DIR] "<text>"  # launcher → job mailbox
 peeragent inbox                            # job → print unread replies and mark read
-peeragent say "<text>"                      # job → labelled message to launching Herdr pane
+peeragent say "<text>"                      # job → native launcher inbox, or queued for review
 ```
 
 Outbound messages always begin with:
@@ -367,9 +367,12 @@ Outbound messages always begin with:
 ```
 
 Body header brackets are replaced. Limits are 2,000 characters and three messages
-per five minutes per job. Without a recorded launcher pane, or if Herdr refuses,
-`say` exits nonzero and directs the job to its handback. Windows reports
-`no launcher channel on this platform`; its inbox/tell path works normally.
+per five minutes per job. Without a safe native launcher inbox,
+`say` retains the question as `queued` in the job's `--result` conversation and
+prints an explicit queued receipt. It never writes to terminal input. Claude
+Code launchers use their recorded local socket; nested jobs use the parent job's
+mailbox. Herdr-only and unsupported launchers queue. Transport failures also queue, without automatic retries.
+Native submission does not acknowledge acceptance or reading.
 
 `tell` confirms persisted delivery, for example:
 `delivered to job <id> (<agent>, <status>); unread 3, oldest 2h14m; the job reads its inbox between long steps`.
@@ -612,6 +615,12 @@ after the retry budget is spent, the capacity result is terminal. Jobs remain
 Other failures are never retried. Each attempt keeps a raw log (`target.log`,
 then `target-retry-N.log`); noisy Codex “Orphan custom tool call” lines are
 omitted only from the visible stderr summary, remaining in the raw log.
+
+Single-job JSON output mirrors `metadata.job_id` as top-level `job_id` for launch,
+status and results. The repository directory remains `metadata.cwd`. `--wait`
+writes exactly one JSON document to stdout, its terminal result; diagnostics and
+unread-message notices use stderr. Multi-job status and job listings use JSONL.
+
 
 ## Repository Shape
 

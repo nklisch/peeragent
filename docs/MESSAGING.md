@@ -81,9 +81,9 @@ reservation prevents duplicate delivery within the running attempt.
 
 ## Outbound messages
 
-Inside a job, `peeragent say "<text>"` invokes the recorded Herdr executable with
-literal arguments `agent prompt <recorded-pane> <labelled-text>`. It always puts
-this header before the body:
+Inside a job, `peeragent say "<text>"` submits to the recorded Claude Code native
+inbox, or the existing mailbox when its launcher is itself a peer job. It never writes terminal input, so it cannot splice text into an unsent
+draft. It always puts this header before the body:
 
 ```text
 ⟦peer · <agent> job <job-id> · <worktree basename>@<branch> · reply: peeragent tell <job-id> "…"⟧ <text>
@@ -101,32 +101,47 @@ with a dash.
 
 A message may contain at most 2,000 Unicode characters before sanitization. A
 job can attempt delivery at most three times in a rolling five-minute window.
-A Herdr failure still uses a slot because delivery may have occurred before the
-error. Concurrent senders reserve their slots before delivery; a sender
-interrupted during delivery leaves a `pending` entry that counts until that window expires. Herdr execution
-has a ten-second timeout. No recorded pane/binary or a Herdr delivery failure
-produces a one-line nonzero refusal naming the handback alternative. Sent and
-refused attempts are timestamped in `outbox.jsonl`; refusals include a reason.
-Pending reservations and their delivery outcomes share a message ID in this
-append-only journal. Readers fold outcomes into one message per ID, keeping
-concurrent sends intact without a second mailbox snapshot during delivery.
+A native socket failure still uses a slot because delivery may have occurred before
+the error. Concurrent senders reserve their slots before delivery; an interrupted
+sender leaves a `pending` entry until that window expires. Delivery has a
+ten-second bound. Validation failures still return a nonzero refusal.
 
-At launch, the launcher records present `HERDR_PANE_ID`, `HERDR_SOCKET_PATH`,
-`HERDR_WORKSPACE_ID` values and the Herdr binary path (`HERDR_BIN_PATH`, falling back to PATH lookup) in `launcher.json`
-(mode 0600). No file is created without a pane. The file is separate from public
-job metadata and results. Targets still start without terminal-control variables
-unless the launcher deliberately uses `--keep-terminal-env`.
+Without a safe native channel, or when transport fails, the message is retained
+as `queued` in `outbox.jsonl`. The successful command's receipt explicitly says
+queued and names `--result <job-id>` as the recovery path: its conversation
+contains the question and reason. There is no automatic retry, since a failed
+write can have reached the inbox. Continue independent work and carry unanswered
+questions in the handback. Successful transport records `sent` and prints
+“submitted”; the native protocol does not acknowledge acceptance or reading.
+Sent, queued and refused entries are timestamped. Pending reservations and their
+outcomes share an ID; readers fold that journal without rescanning after delivery.
 
-The labels and environment strip help well-meaning agents avoid accidental
-unlabelled input. A deliberately misbehaving job runs as the same user and can
-read the private launcher file, invoke Herdr directly without labels, or change
-its own state. The preamble and `say` define the supported path, not an
-adversarial boundary. Private files protect against other users; they do not
-restrict the account owner.
+At launch, an identifiable Claude Code launcher records
+`CLAUDE_CODE_MESSAGING_SOCKET`, `CLAUDE_CODE_MESSAGING_TOKEN` and
+`CLAUDE_CODE_SESSION_ID` as private `claude_socket`, `claude_token` and
+`claude_session` fields in `launcher.json` (mode 0600). Delivery sends one JSON
+auth line and one JSON user line; optional `session_id` binds the latter to the
+captured conversation. The runtime enqueues it separately from its terminal
+editor. A launcher that is itself a peer job instead records its job id and directory
+under `peer_job` and receives the labelled message through its existing `inbox`.
+It reads the question between long steps; if messaging was disabled, the receipt
+states that it is queued for that launcher's next `--resume`. Finished or missing
+parent jobs leave the question queued locally. Native addresses inherited by a
+peer job are never used. A standalone Codex marker excludes an inherited Claude
+address; such a launcher queues. No recipient is guessed from a pane or worktree name.
 
-Windows supports the mailbox and shared status/result path. `say` records a
-refusal and reports `no launcher channel on this platform; use your handback
-instead`. Linux and macOS use the Herdr transport when a launcher is recorded.
+Legacy Herdr fields are ignored when decoding older files; new launches do not
+record terminal addresses. Herdr has a
+visual notification channel; it does not feed the agent's inbox. Neither activity
+status nor a terminal snapshot provides an atomic empty-draft submission, so
+there is no terminal-input fallback. Existing jobs with only Herdr records queue.
+Windows and any other platform without this Unix socket transport queue when
+there is no parent peer mailbox;
+`tell`, `inbox` and result conversations continue to work.
+
+The preamble and labels define the supported path, not an adversarial boundary.
+Jobs run as the same user and can read the private launcher file or contact local
+sockets directly. Private files protect against other users, not the account owner.
 
 ## Visibility
 

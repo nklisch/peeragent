@@ -380,6 +380,7 @@ func waitForJobResult(ctx context.Context, req input.Request) error {
 		if err != nil {
 			return err
 		}
+		// Keep JSON stdout to one document: only the terminal result.
 		if res.Status != result.StatusRunning {
 			return writeJobControlResult(ctx, req, res)
 		}

@@ -12,7 +12,7 @@ import (
 func RunWithPrivateState(run func() int) int {
 	// Tests launched by a real job must not inspect or announce that job's inbox.
 	// Intentional fake CLI/target subprocesses enter their helpers before here.
-	for _, key := range []string{"PEERAGENT_JOB_ID", "PEERAGENT_JOB_DIR"} {
+	for _, key := range []string{"PEERAGENT_JOB_ID", "PEERAGENT_JOB_DIR", "CLAUDE_CODE_MESSAGING_SOCKET", "CLAUDE_CODE_MESSAGING_TOKEN", "CLAUDE_CODE_SESSION_ID"} {
 		if err := os.Unsetenv(key); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			return 1

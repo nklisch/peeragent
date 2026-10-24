@@ -7,7 +7,7 @@ import (
 )
 
 func TestFormatJSON(t *testing.T) {
-	encoded, err := FormatJSON(Result{Status: StatusSuccess, Summary: "done"})
+	encoded, err := FormatJSON(Result{Status: StatusSuccess, Summary: "done", Metadata: Metadata{JobID: "job-id"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -17,6 +17,9 @@ func TestFormatJSON(t *testing.T) {
 	}
 	if decoded["status"] != "success" {
 		t.Fatalf("status = %v", decoded["status"])
+	}
+	if decoded["job_id"] != "job-id" || decoded["metadata"].(map[string]any)["job_id"] != "job-id" {
+		t.Fatalf("job id aliases differ: %s", encoded)
 	}
 }
 

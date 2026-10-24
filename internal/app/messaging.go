@@ -6,9 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -21,29 +19,33 @@ import (
 )
 
 // LauncherChannel is kept out of public job/result metadata. File mode 0600
-// protects the terminal address from other users, not from the trusted owner.
+// protects the inbox address and token from other users, not from the trusted owner.
 type LauncherChannel struct {
-	Pane      string `json:"pane,omitempty"`
-	Socket    string `json:"socket,omitempty"`
-	Workspace string `json:"workspace,omitempty"`
-	Binary    string `json:"binary,omitempty"`
+	ClaudeSocket  string            `json:"claude_socket,omitempty"`
+	ClaudeToken   string            `json:"claude_token,omitempty"`
+	ClaudeSession string            `json:"claude_session,omitempty"`
+	PeerJob       *jobs.InboxSource `json:"peer_job,omitempty"`
 }
 
 func recordLauncher(job jobs.Job) error {
-	channel := LauncherChannel{Pane: os.Getenv("HERDR_PANE_ID"), Socket: os.Getenv("HERDR_SOCKET_PATH"), Workspace: os.Getenv("HERDR_WORKSPACE_ID")}
-	if channel.Pane == "" {
-		return nil
-	}
-	channel.Binary = os.Getenv("HERDR_BIN_PATH")
-	if channel.Binary == "" {
-		channel.Binary, _ = exec.LookPath("herdr")
-	}
-	if channel.Binary != "" {
-		var err error
-		channel.Binary, err = filepath.Abs(channel.Binary)
-		if err != nil {
-			return err
+	var channel LauncherChannel
+	// A launcher that is itself a peer job already has an unambiguous inbox.
+	// Do not use Claude addresses it might have inherited from an ancestor.
+	parentID, dir := os.Getenv("PEERAGENT_JOB_ID"), os.Getenv("PEERAGENT_JOB_DIR")
+	if parentID != "" && filepath.IsAbs(dir) && filepath.Base(dir) == parentID {
+		parent, err := (jobs.Store{Root: filepath.Dir(dir)}).Load(parentID)
+		if err == nil {
+			channel.PeerJob = &jobs.InboxSource{JobID: parent.ID, CWD: parent.CWD}
 		}
+	}
+	claude := parentID == "" && dir == "" && os.Getenv("CLAUDECODE") == "1" && os.Getenv("CODEX_THREAD_ID") == "" && os.Getenv("CODEX_SESSION_ID") == ""
+	if claude {
+		channel.ClaudeSocket = os.Getenv("CLAUDE_CODE_MESSAGING_SOCKET")
+		channel.ClaudeToken = os.Getenv("CLAUDE_CODE_MESSAGING_TOKEN")
+		channel.ClaudeSession = os.Getenv("CLAUDE_CODE_SESSION_ID")
+	}
+	if channel.ClaudeSocket == "" && channel.PeerJob == nil {
+		return nil
 	}
 	data, err := json.Marshal(channel)
 	if err != nil {
@@ -171,18 +173,23 @@ func messageBody(text string) string {
 	}, text)
 }
 
-// Say records a pending reservation before calling Herdr outside the lock.
+type SayReceipt struct {
+	Status string
+	Reason string
+}
+
+// Say records a pending reservation before writing to a native inbox outside the lock.
 // Pending counts against the bound too: a killed sender may have delivered.
-func (s *Service) Say(ctx context.Context, raw JobRequest, text string) error {
+func (s *Service) Say(ctx context.Context, raw JobRequest, text string) (receipt SayReceipt, err error) {
 	req, err := s.normalizeJobRequest(ctx, raw)
 	if err != nil {
-		return err
+		return receipt, err
 	}
 	store := jobs.NewStore(req.CWD)
 	var job jobs.Job
 	var channel LauncherChannel
 	entry := jobs.Message{Time: time.Now().UTC(), Text: messageBody(text), Status: "pending"}
-	refusal := ""
+	refusal, queued := "", ""
 	err = store.WithJobLock(req.JobID, func() error {
 		var err error
 		job, err = store.Load(req.JobID)
@@ -196,8 +203,6 @@ func (s *Service) Say(ctx context.Context, raw JobRequest, text string) error {
 		}
 		entry.ID = fmt.Sprintf("%s-%d", job.ID, len(mailbox.Outbox)+1)
 		switch {
-		case runtime.GOOS == "windows":
-			refusal = "no launcher channel on this platform"
 		case strings.TrimSpace(text) == "":
 			refusal = "say requires message text"
 		case utf8.RuneCountInString(text) > 2000:
@@ -215,54 +220,63 @@ func (s *Service) Say(ctx context.Context, raw JobRequest, text string) error {
 			}
 			data, err := os.ReadFile(filepath.Join(filepath.Dir(job.LogPath), "launcher.json"))
 			if os.IsNotExist(err) {
-				refusal = "no recorded launcher pane"
+				queued = "no recorded native launcher inbox"
 				break
 			}
 			if err != nil {
-				refusal = "cannot read launcher channel"
-				break
+				return fmt.Errorf("read launcher channel: %w", err)
 			}
 			if err := json.Unmarshal(data, &channel); err != nil {
-				refusal = "cannot decode launcher channel"
-				break
+				return fmt.Errorf("decode launcher channel: %w", err)
 			}
-			if channel.Pane == "" || channel.Binary == "" {
-				refusal = "no recorded launcher pane or Herdr binary"
+			if channel.PeerJob == nil && (channel.ClaudeSocket == "" || channel.ClaudeToken == "") {
+				queued = "launcher has no safe native inbox; terminal input delivery is disabled"
 			}
 		}
 		if refusal != "" {
 			entry.Status = "refused"
 			entry.Reason = refusal
+		} else if queued != "" {
+			entry.Status, entry.Reason = "queued", queued
 		} else {
 			entry.DeliveryAttempted = true
 		}
 		return store.AppendMessageLocked(job.ID, "outbox", entry)
 	})
 	if err != nil {
-		return fmt.Errorf("say: %w; use your handback instead", err)
+		return receipt, fmt.Errorf("say: %w; use your handback instead", err)
 	}
 	if refusal != "" {
-		return fmt.Errorf("say: %s; use your handback instead", refusal)
+		return receipt, fmt.Errorf("say: %s; use your handback instead", refusal)
+	}
+	if queued != "" {
+		return SayReceipt{Status: "queued", Reason: queued}, nil
 	}
 	deliveryCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(deliveryCtx, channel.Binary, "agent", "prompt", channel.Pane, messageHeader(job)+entry.Text)
-	// Only this explicit, labelled transport receives the recorded address.
-	cmd.Env = append(os.Environ(), "HERDR_PANE_ID="+channel.Pane, "HERDR_SOCKET_PATH="+channel.Socket, "HERDR_WORKSPACE_ID="+channel.Workspace)
-	if err := cmd.Run(); err != nil {
-		entry.Status = "refused"
-		entry.Reason = "Herdr refused or could not deliver the message"
+	if channel.PeerJob != nil {
+		parent := channel.PeerJob
+		reply, err := s.TellWithReceipt(deliveryCtx, JobRequest{CWD: parent.CWD, JobID: parent.JobID}, job.ID, messageHeader(job)+entry.Text)
+		switch {
+		case err != nil:
+			entry.Status, entry.Reason = "queued", "launcher job inbox unavailable: "+err.Error()
+		case !reply.MessagingEnabled:
+			entry.Status, entry.Reason = "queued", "retained in launcher job inbox for its next --resume"
+		default:
+			entry.Status, entry.Reason = "sent", "submitted to launcher job inbox; it reads replies between long steps"
+		}
+	} else if err := deliverClaudeInbox(deliveryCtx, channel, messageHeader(job)+entry.Text); err != nil {
+		entry.Status = "queued"
+		entry.Reason = "native inbox delivery unconfirmed: " + err.Error()
 	} else {
 		entry.Status = "sent"
+		entry.Reason = "submitted to Claude Code's inbox; the protocol does not acknowledge acceptance"
 	}
 	err = store.WithJobLock(job.ID, func() error { return store.AppendMessageLocked(job.ID, "outbox", entry) })
 	if err != nil {
-		return fmt.Errorf("record say outcome: %w; use your handback instead", err)
+		return receipt, fmt.Errorf("record say outcome: %w; use your handback instead", err)
 	}
-	if entry.Status == "refused" {
-		return fmt.Errorf("say: %s; use your handback instead", entry.Reason)
-	}
-	return nil
+	return SayReceipt{Status: entry.Status, Reason: entry.Reason}, nil
 }
 
 // TurnInbox reserves replies for one attempt so prompt delivery and an inbox

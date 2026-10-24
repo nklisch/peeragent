@@ -12,6 +12,7 @@ import (
 
 func FormatJSON(res Result) ([]byte, error) {
 	res.Metadata.Version = version.Version
+	res.JobID = res.Metadata.JobID
 	return json.Marshal(res)
 }
 

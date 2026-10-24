@@ -56,7 +56,8 @@ substantive work:
 ```
 
 `--agent` defaults to `codex` if omitted. Read the launch JSON, retain its
-`job_id` and repository `cwd`, and follow the asynchronous lifecycle below.
+top-level `job_id` (also retained as `metadata.job_id`) and repository
+`metadata.cwd`, and follow the asynchronous lifecycle below.
 Use a blocking call only for a genuinely short pass or when the host cannot
 reliably complete the async lifecycle.
 
@@ -135,8 +136,9 @@ For a running job, send a reply with `<resolved-peeragent-bin> tell <job-id>
 the job reads them with `peeragent inbox` after long steps and before handback.
 Every command inside a job announces unread replies on stderr.
 
-A job can use `peeragent say "<text>"` to reach its recorded launching Herdr
-pane with a mandatory origin and reply header.
+A job can use `peeragent say "<text>"` to submit a message to its recorded
+Claude Code native inbox, or its parent peer job's existing mailbox, with a
+mandatory origin and reply header. This channel is separate from typed input; peeragent never submits text through a terminal pane.
 
 Use `peeragent say` only to ask a question you can't settle yourself, never for status or progress updates.
 Your final handback carries the final status, so don't repeat it in a message.
@@ -146,14 +148,18 @@ until it arrives, and keep doing independent work meanwhile.
 Never use raw terminal, desktop or keyboard input to contact the launcher.
 Outbound messages have a 2,000-character
 limit and a three-per-five-minutes job limit; refusal directs the job to its
-handback. Windows has no outbound launcher channel. `--status` shows mailbox
+handback. Without a safe native channel, including Herdr-only or unsupported
+launchers, the message is retained as `queued` in the job's `--result` conversation.
+The receipt says queued; there is no automatic retry. Continue independent work
+and include the unanswered question in the handback. A native submission has no
+acceptance/read acknowledgement. `--status` shows mailbox
 counts/time; `--result` includes the ordered conversation after the agent message.
 Resumes carry unread replies into their prompt. `--no-preamble` suppresses the
 standard execution/messaging instructions and sends task text only.
 
 Labels and the environment strip help well-meaning agents avoid accidental
 unlabelled input. A deliberately misbehaving job runs as the same user and can
-read the launcher state and invoke Herdr directly without labels. The preamble
+read the launcher state or contact local sockets directly. The preamble
 and `say` are the supported path, not an adversarial boundary.
 
 Replies carried in a prompt are reserved by that attempt and hidden from its
@@ -384,6 +390,7 @@ Use advanced modes only when the request calls for them:
   for several.
 - `--result <job-id>` — fetch an async job's current or final result.
 - `--wait <job-id>` — stay attached until an async job has a terminal result;
+  JSON stdout contains exactly one document, the terminal result;
   run this through native harness monitors when available.
 - `--wait-any <job-id>...` — wait for the first terminal job, validating all ids
   first. Accepts `job-id@directory` references, as does multi-job status.

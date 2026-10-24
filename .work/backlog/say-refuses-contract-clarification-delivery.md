@@ -21,3 +21,8 @@ Expected: deliver the clarification, or distinguish an unavailable launcher from
 The active wrapper resolved to the installed peeragent 0.12.2 plugin on Linux, with a Codex implementation job and a Herdr launcher. Reproduction is not yet established beyond this occurrence. A launcher state change or transport issue remains possible; this is not a confirmed product defect. No terminal or desktop delivery was attempted.
 
 Workaround: continue independent authorized work, retain the unresolved clarification, and report it in the final handback. Prompt text and private launcher identifiers are intentionally omitted.
+
+The [safe launcher delivery change](say-splices-into-a-half-typed-launcher-message.md) replaces Herdr prompt input with
+native inbox delivery. Transport failures now retain the question as queued and expose the underlying connection or
+write error in its receipt and result conversation. This provides a supported recovery; the original Herdr refusal's
+cause remains unconfirmed.
