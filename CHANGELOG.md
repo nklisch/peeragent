@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+### Fixes
+- Name OpenAI safety-filter stops in the result summary, preserve the provider's
+  diagnostic in `metadata.stop_message` with `stop_reason: provider_safety_filter`,
+  and warn that resuming the same session is likely to repeat the stop. Existing
+  `failed` / `failure: policy_refusal` classification is preserved.
+- Accept `--prompt-file <path>` for `tell` and `say`, combining positional text
+  and file content in the same order and with the same blank-line separator as launch.
+- Claude Code cache wrappers forward once to the active installed wrapper named
+  by its installed-plugins record, so older PATH entries can pick up updates.
+  Explicit binary and developer source paths retain precedence; missing records
+  or JSON readers fall back to the current install. Codex has no equivalent record.
+
 ## v0.12.2
 
 ### Features

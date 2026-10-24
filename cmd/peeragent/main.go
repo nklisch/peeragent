@@ -52,8 +52,8 @@ Usage:
   peeragent --prompt-file <path> [flags]
   peeragent --jobs [--cwd DIR] [--all] [--json | --text]
   peeragent --version
-  peeragent say "<text>"
-  peeragent tell <job-id> [--cwd DIR] "<text>"
+  peeragent say ["<text>"] [--prompt-file <path>]
+  peeragent tell <job-id> [--cwd DIR] ["<text>"] [--prompt-file <path>]
   peeragent inbox
   peeragent --result|--wait|--cancel <job-id> [flags]
   peeragent --status|--wait-any <job-id>... [flags]
@@ -82,7 +82,7 @@ Flags:
   --full-access                   Run the target CLI without sandboxing.
   --worktree                      Reserved; returns a clear failure today.
   --cwd <path>                    Override the target or indexed job/session directory.
-  --prompt-file <path>            Read task text from a file.
+  --prompt-file <path>            Read task or tell/say message text from a file.
   --async                         Start a background job and return its id.
                                   Add --retry-capacity N for opt-in Codex recovery.
   --retry-capacity <N>            Retry capacity/output-limit/auth stops up to N times; requires --async --agent codex,
@@ -102,7 +102,9 @@ Flags:
   --                              Treat all following arguments as task text.
 
 Job ids work from any directory through the per-user index. Unknown options and
-empty/missing option values are usage errors (exit 2). Capacity stops report
+empty/missing option values are usage errors (exit 2). Text and --prompt-file
+combine as positional text, a blank line, then file content (launch, tell, say).
+Capacity stops report
 capacity_exhausted with agent_session; retries resume that session under one job id.
 Multi-job controls accept job-id@directory for unindexed jobs (quote paths with spaces).
 A per-job directory wins over --cwd; otherwise --cwd overrides the index.

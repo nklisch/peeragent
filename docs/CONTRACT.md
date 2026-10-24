@@ -42,6 +42,13 @@ is present; this avoids accidentally blocking on host-provided stdin when the
 task is already explicit. In-memory stdin readers used by tests or embedders
 are always read when present.
 
+`tell` and `say` also accept `--prompt-file <path>`. Like launch, they trim
+positional text and file content, omit empty parts, and combine positional text
+first, then file content, with a blank line between them. They accept either
+source alone or both together; messaging commands do not read stdin. File paths
+are relative to the calling process, independently of `tell --cwd`. `inbox`
+takes no message source.
+
 Unknown option-shaped arguments are usage errors (exit `2`) naming the valid
 options; `--` makes every following argument literal task text. Every valued
 option requires a non-empty value and cannot consume the next option as its
@@ -119,8 +126,8 @@ Options:
 ## Job Messages
 
 ```text
-peeragent say "<text>"
-peeragent tell <job-id> [--cwd DIR] "<text>"
+peeragent say ["<text>"] [--prompt-file <path>]
+peeragent tell <job-id> [--cwd DIR] ["<text>"] [--prompt-file <path>]
 peeragent inbox
 ```
 
@@ -253,9 +260,12 @@ Text results include `job_id`; blocking text calls print it to stderr before wai
   resume manually; this status is never retried automatically.
 - `cancelled`: Async job was cancelled.
 
-A structured Codex cybersecurity refusal remains `failed`. Its reason is the
-summary and its machine-readable `failure` field is `policy_refusal`; this field
-is omitted for other outcomes. Single-job status and job listings also expose
+A structured Codex cybersecurity refusal remains `failed`, with
+`failure: policy_refusal`. Its summary explicitly names OpenAI's safety filter
+and warns that resuming this session is likely to fail the same way; use a fresh
+session for unrelated steps. `metadata.stop_reason` is the stable value
+`provider_safety_filter`, and `metadata.stop_message` preserves the exact provider
+message. These optional metadata fields are omitted for other outcomes. Single-job status and job listings also expose
 this classification. An explicit structured terminal outcome takes precedence
 over stderr diagnostics, including rollout-recording errors.
 
@@ -561,3 +571,21 @@ a trailing newline is observed when its stdout stream reaches EOF.
 
 `job.json` also records `capacity_backoff_until` and the count of retries started.
 The job remains `running` during backoff; compact multi-job status exposes it.
+
+
+## Active installed wrapper
+
+The POSIX wrapper keeps `PEERAGENT_BIN`, a local `dist/peeragent`, and a Go source
+checkout ahead of installed binaries. A Claude Code cache wrapper reads
+`${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/installed_plugins.json` for its
+marketplace's active peeragent install and execs that install's wrapper when it
+differs. An internal `PEERAGENT_ACTIVE_INSTALL` marker allows only one forwarding
+step and is removed before running a binary, so child commands can resolve
+updates independently. Existing sessions with an older cache directory on PATH
+pick up active updates after that older wrapper contains this forwarding logic.
+
+The wrapper parses the record with Python 3, or jq when Python 3 is unavailable.
+Absent or unreadable records, unavailable JSON readers, and missing active
+wrappers leave the current install usable. Codex has no equivalent install-path
+record; its wrappers keep their existing selection. Separate harness caches
+never redirect through each other's records.

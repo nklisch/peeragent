@@ -36,6 +36,12 @@ the first call and use that path for every invocation:
 - Use bare `peeragent` only if the bundled path cannot be found and
   `command -v peeragent` succeeds.
 
+Claude Code cache wrappers follow the active install in its installed-plugins
+record, including when an existing session keeps an older cache path on PATH.
+The wrapper needs Python 3 or jq to read the record and otherwise keeps its
+current install. Explicit binary and source checkout paths retain precedence.
+Codex has no equivalent install-path record, so its wrapper selection is unchanged.
+
 If a bare `peeragent` call fails with `command not found`, retry once with
 the bundled plugin path before reporting failure.
 
@@ -135,6 +141,12 @@ For a running job, send a reply with `<resolved-peeragent-bin> tell <job-id>
 [--cwd DIR] "<text>"`. Finished jobs require `--resume`. Replies are a mailbox:
 the job reads them with `peeragent inbox` after long steps and before handback.
 Every command inside a job announces unread replies on stderr.
+
+Both `tell` and `say` accept `--prompt-file <path>`. Use a file for long or
+multiline messages. Like launch, positional text plus file input is accepted:
+trim each source and join positional text first, then file content, separated
+by a blank line. The file path is relative to the caller, independently of
+`tell --cwd`; messaging does not read stdin.
 
 A job can use `peeragent say "<text>"` to submit a message to its recorded
 Claude Code native inbox, or its parent peer job's existing mailbox, with a
@@ -345,9 +357,12 @@ starts with a dash. Validate session variables before constructing a resume call
 - `status: interrupted` — Codex could not record rollout items and had no
   structured terminal outcome. Keep the session for manual resumption; there
   is no automatic retry. A structured terminal outcome wins over stderr.
-- `status: failed` with `failure: policy_refusal` — the summary contains Codex's
-  refusal reason. Do not retry it automatically; return it to the host so it
-  can choose how to handle the work.
+- `status: failed` with `failure: policy_refusal` — OpenAI's safety filter
+  stopped the turn. `metadata.stop_reason: provider_safety_filter` is the stable
+  stop identifier; `metadata.stop_message` contains the exact provider message.
+  Resuming this session is likely to fail the same way because its history
+  remains. Start a fresh session for unrelated steps. Do not retry the filtered
+  work automatically; return the reason to the host.
 - `status: running` — keep monitoring the async job; report only an interim
   update if useful, then retrieve its terminal result before concluding.
 - `status: cancelled` — only after `--cancel`; report cleanly.
@@ -383,7 +398,7 @@ Use advanced modes only when the request calls for them:
   the resolved settings; an absent Codex/Claude model means the native CLI
   default. The indexed session directory is reused unless `--cwd` overrides it.
 - `--cwd <path>` — override the indexed job/session or default task directory.
-- `--prompt-file <path>` — read large prompts from a file.
+- `--prompt-file <path>` — read task or `tell`/`say` message text from a file.
 - `--async` — preferred for substantive work; starts a background job and
   returns a `job_id` immediately with `status: running`; add opt-in
   `--retry-capacity N` for Codex capacity recovery.

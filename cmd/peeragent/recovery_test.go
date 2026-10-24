@@ -72,7 +72,7 @@ func TestAuthRecoveryUsesOneResumeWithinSharedBudget(t *testing.T) {
 					t.Fatalf("recovery: %#v", res)
 				}
 			}
-			if tc.want == result.StatusFailed && (res.Failure != "policy_refusal" || !strings.HasPrefix(res.Summary, "This content was flagged")) {
+			if tc.want == result.StatusFailed && (res.Failure != "policy_refusal" || !strings.HasPrefix(res.Summary, "Stopped by OpenAI's safety filter.")) {
 				t.Fatalf("refusal hidden: %#v", res)
 			}
 			status, err := applicationService.JobStatus(context.Background(), app.JobRequest{CWD: cwd, JobID: job.ID})

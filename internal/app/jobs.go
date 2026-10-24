@@ -60,6 +60,8 @@ func (s *Service) JobStatus(ctx context.Context, raw JobRequest) (result.Result,
 		}
 		if exists && stored.Failure != "" {
 			res.Failure, res.Summary = stored.Failure, stored.Summary
+			res.Metadata.StopReason = stored.Metadata.StopReason
+			res.Metadata.StopMessage = stored.Metadata.StopMessage
 		}
 	}
 	if err := addMessaging(ctx, &res, job, false); err != nil {

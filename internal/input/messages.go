@@ -2,6 +2,7 @@ package input
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -22,17 +23,23 @@ func parseMessage(args []string, getwd func() (string, error)) (Request, error) 
 		}
 	}
 	var text []string
+	promptFile := ""
 	for i := 0; i < len(args); i++ {
 		if args[i] == "--" {
 			text = append(text, args[i+1:]...)
 			break
 		}
-		if req.MessageCommand == "tell" && args[i] == "--cwd" {
+		if (req.MessageCommand == "tell" && args[i] == "--cwd") || (req.MessageCommand != "inbox" && args[i] == "--prompt-file") {
+			option := args[i]
 			if i+1 >= len(args) || strings.TrimSpace(args[i+1]) == "" || strings.HasPrefix(args[i+1], "-") {
-				return req, fmt.Errorf("--cwd requires a non-empty value")
+				return req, fmt.Errorf("%s requires a non-empty value", option)
 			}
 			i++
-			req.CWD = args[i]
+			if option == "--cwd" {
+				req.CWD = args[i]
+			} else {
+				promptFile = args[i]
+			}
 			continue
 		}
 		if strings.HasPrefix(args[i], "-") {
@@ -41,6 +48,19 @@ func parseMessage(args []string, getwd func() (string, error)) (Request, error) 
 		text = append(text, args[i])
 	}
 	req.TaskText = strings.Join(text, " ")
+	if promptFile != "" {
+		content, err := os.ReadFile(promptFile)
+		if err != nil {
+			return req, fmt.Errorf("read prompt file: %w", err)
+		}
+		parts := []string{}
+		for _, part := range []string{req.TaskText, string(content)} {
+			if trimmed := strings.TrimSpace(part); trimmed != "" {
+				parts = append(parts, trimmed)
+			}
+		}
+		req.TaskText = strings.Join(parts, "\n\n")
+	}
 	if req.MessageCommand == "inbox" {
 		if len(text) != 0 {
 			return req, fmt.Errorf("inbox takes no arguments")

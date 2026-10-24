@@ -4,6 +4,9 @@ set -eu
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 PLUGIN_ROOT=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)
 RELEASES_URL="https://github.com/nklisch/peeragent/releases"
+# The marker covers this wrapper chain only, never commands run by a peer.
+_peeragent_forwarded=${PEERAGENT_ACTIVE_INSTALL:-}
+unset PEERAGENT_ACTIVE_INSTALL
 
 # 1. Explicit override.
 if [ -n "${PEERAGENT_BIN:-}" ] && [ -x "$PEERAGENT_BIN" ]; then
@@ -48,7 +51,47 @@ if [ -d "$PLUGIN_ROOT/cmd/peeragent" ] && command -v go >/dev/null 2>&1; then
   exit "$_peeragent_source_code"
 fi
 
-# 4. Committed platform binary (marketplace / no-Go install).
+# 4. A running harness may retain an older cache directory on PATH. Follow
+# Claude Code's active install record, once, without changing developer paths.
+# Codex currently has no equivalent install-path record; do not guess from
+# cached versions or forward a Codex install through Claude's registry.
+if [ "$_peeragent_forwarded" != "$$" ]; then
+  _peeragent_claude_dir=${CLAUDE_CONFIG_DIR:-${HOME:-}/.claude}
+  case "$PLUGIN_ROOT" in
+    "$_peeragent_claude_dir"/plugins/cache/*/peeragent/*)
+      _peeragent_marketplace=${PLUGIN_ROOT#"$_peeragent_claude_dir/plugins/cache/"}
+      _peeragent_marketplace=${_peeragent_marketplace%%/*}
+      _peeragent_record="$_peeragent_claude_dir/plugins/installed_plugins.json"
+      _peeragent_key="peeragent@$_peeragent_marketplace"
+      _peeragent_active=""
+      if command -v python3 >/dev/null 2>&1; then
+        _peeragent_active=$(python3 -c '
+import json, sys
+with open(sys.argv[1], encoding="utf-8") as f:
+    entries = json.load(f)["plugins"][sys.argv[2]]
+for entry in entries:
+    if entry.get("scope") == "user" and isinstance(entry.get("installPath"), str):
+        print(entry["installPath"])
+        break
+' "$_peeragent_record" "$_peeragent_key" 2>/dev/null) || _peeragent_active=""
+      elif command -v jq >/dev/null 2>&1; then
+        _peeragent_active=$(jq -r --arg key "$_peeragent_key" '
+          [.plugins[$key][] | select(.scope == "user") | .installPath | strings][0] // empty
+        ' "$_peeragent_record" 2>/dev/null) || _peeragent_active=""
+      fi
+      if [ -n "$_peeragent_active" ] && [ -x "$_peeragent_active/bin/peeragent" ]; then
+        _peeragent_active=$(CDPATH= cd -- "$_peeragent_active" 2>/dev/null && pwd) || _peeragent_active=""
+        if [ -n "$_peeragent_active" ] && [ "$_peeragent_active" != "$PLUGIN_ROOT" ]; then
+          PEERAGENT_ACTIVE_INSTALL=$$
+          export PEERAGENT_ACTIVE_INSTALL
+          exec "$_peeragent_active/bin/peeragent" "$@"
+        fi
+      fi
+      ;;
+  esac
+fi
+
+# 5. Committed platform binary (marketplace / no-Go install).
 detect_target() {
   # PEERAGENT_TARGET_OVERRIDE lets a user point at a present binary on a
   # misdetected platform. Accept it only as a safe <goos>-<goarch> token
@@ -79,7 +122,7 @@ if [ -x "$CANDIDATE" ]; then
   exec "$CANDIDATE" "$@"
 fi
 
-# 5. No prebuilt binary for this platform — fail per the result contract (exit 3).
+# 6. No prebuilt binary for this platform — fail per the result contract (exit 3).
 # Prebuilt binaries cover linux/darwin on amd64/arm64 only; other platforms install
 # from source. The JSON (stdout) embeds only the sanitized TARGET — no filesystem
 # path — so it is always valid regardless of PLUGIN_ROOT. --text (stderr) carries

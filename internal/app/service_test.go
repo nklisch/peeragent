@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"reflect"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/nklisch/peeragent/internal/executil"
@@ -43,6 +44,38 @@ func TestDelegateTargetFailureIsStructuredResult(t *testing.T) {
 	}
 	if got.Status != result.StatusFailed || got.Metadata.ExitCode != 23 {
 		t.Fatalf("result = %#v", got)
+	}
+}
+
+func TestProviderFilterResultExplainsStopAndPreservesDiagnostic(t *testing.T) {
+	const diagnostic = "This content was flagged for possible cybersecurity risk. If this seems wrong, try rephrasing your request."
+	for _, failure := range []string{"policy_refusal", "", "other_failure"} {
+		execution := executil.Result{ExitCode: 1, Stdout: "Checks are continuing.", FinalMessage: "Checks are continuing.", Failure: failure, FailureMessage: diagnostic}
+		got := ResultFromExecution(input.Delegation{Agent: "codex", Resume: "filtered-session"}, execution, nil)
+		if got.Status != result.StatusFailed || got.Failure != failure || got.Metadata.AgentSession != "filtered-session" || got.FinalMessage == nil || *got.FinalMessage != execution.FinalMessage {
+			t.Fatalf("result: %#v", got)
+		}
+		if failure == "policy_refusal" {
+			if got.Metadata.StopReason != "provider_safety_filter" || got.Metadata.StopMessage != diagnostic {
+				t.Fatalf("missing diagnostic: %#v", got)
+			}
+			for _, want := range []string{"Stopped by OpenAI's safety filter.", "Resuming this session is likely to fail the same way", "fresh session for unrelated steps"} {
+				if !strings.Contains(got.Summary, want) || !strings.Contains(result.FormatText(got), want) {
+					t.Fatalf("missing %q: %#v", want, got)
+				}
+			}
+			if !strings.Contains(result.FormatText(got), "stop_reason: provider_safety_filter") {
+				t.Fatal("text output lost stop metadata")
+			}
+		} else {
+			want := execution.Stdout
+			if failure != "" {
+				want = diagnostic
+			}
+			if got.Summary != want || got.Metadata.StopReason != "" || got.Metadata.StopMessage != "" {
+				t.Fatalf("ordinary failure changed: %#v", got)
+			}
+		}
 	}
 }
 

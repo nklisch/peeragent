@@ -120,6 +120,12 @@ func ResultFromExecution(delegation input.Delegation, execResult executil.Result
 		status = result.StatusFailed
 		summary = execResult.FailureMessage
 	}
+	stopReason, stopMessage := "", ""
+	if execResult.Failure == "policy_refusal" {
+		stopReason, stopMessage = "provider_safety_filter", execResult.FailureMessage
+		summary = "Stopped by OpenAI's safety filter. " + stopMessage +
+			" Resuming this session is likely to fail the same way; start a fresh session for unrelated steps."
+	}
 	// A resumable stop leaves an interim message, not a handback.
 	var finalMessage *string
 	if execResult.FinalMessage != "" && status != result.StatusCapacity && status != result.StatusOutputLimit && status != result.StatusAuthRequired && status != result.StatusInterrupted {
@@ -134,6 +140,8 @@ func ResultFromExecution(delegation input.Delegation, execResult executil.Result
 		Verification: []result.Verification{},
 		Details:      executionDetails(execResult.Stdout, execResult.Stderr),
 		Metadata: result.Metadata{
+			StopReason:      stopReason,
+			StopMessage:     stopMessage,
 			KeepTerminalEnv: delegation.KeepTerminalEnv,
 			CWD:             delegation.CWD,
 			Agent:           delegation.Agent,

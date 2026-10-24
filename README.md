@@ -76,6 +76,14 @@ input) bypass Windows command-line limits. Other targets still pass prompts as
 arguments: a quoted argument exceeding cmd.exe's 8191-character limit is
 rejected before launch; use a native agent executable for those tasks.
 
+Claude Code's POSIX cache wrapper follows the active install named in
+`plugins/installed_plugins.json`, so a session's older PATH entry can pick up an
+updated plugin without restarting. This requires the older wrapper to contain
+the forwarding logic, and Python 3 or jq to read the record. Missing records or
+readers keep the current install running. `PEERAGENT_BIN` and source checkout
+builds retain precedence. Codex currently has no equivalent install-path record;
+its wrapper keeps the existing selection.
+
 ## Using It
 
 The plugin exposes one skill in Claude Code, Codex, and Pi:
@@ -363,8 +371,10 @@ question without receiving terminal-control addresses:
 
 ```sh
 peeragent tell <job-id> [--cwd DIR] "<text>"  # launcher → job mailbox
+peeragent tell <job-id> --prompt-file reply.md # read a longer reply from a file
 peeragent inbox                            # job → print unread replies and mark read
 peeragent say "<text>"                      # job → native launcher inbox, or queued for review
+peeragent say --prompt-file question.md       # file input also works for say
 ```
 
 Outbound messages always begin with:
@@ -380,6 +390,10 @@ prints an explicit queued receipt. It never writes to terminal input. Claude
 Code launchers use their recorded local socket; nested jobs use the parent job's
 mailbox. Herdr-only and unsupported launchers queue. Transport failures also queue, without automatic retries.
 Native submission does not acknowledge acceptance or reading.
+
+Both `tell` and `say` accept `--prompt-file <path>` alone or with positional text.
+As with launch, positional text comes first, followed by trimmed file content,
+separated by a blank line. Paths are relative to the calling process.
 
 `tell` confirms persisted delivery, for example:
 `delivered to job <id> (<agent>, <status>); unread 3, oldest 2h14m; the job reads its inbox between long steps`.
@@ -608,8 +622,11 @@ Codex's “failed to record rollout items: thread ... not found” diagnostic re
 preserved for manual resumption; interruptions are not retried automatically.
 An explicit structured outcome always wins over stderr history. A Codex
 cybersecurity policy refusal remains `failed`, with `failure: "policy_refusal"`
-and the actual refusal reason in the summary, including status and job listings.
-Such refusals are never retried automatically.
+and a summary naming OpenAI's safety filter, including status and job listings.
+`metadata.stop_reason: "provider_safety_filter"` identifies the stop, and
+`metadata.stop_message` carries the exact provider diagnostic. The summary warns
+that resuming the same history is likely to fail again; start a fresh session
+for unrelated steps. Such refusals are never retried automatically.
 
 `--capacity-backoff <duration>` changes the delay, for example `--capacity-backoff
 5m`. Retry options require `--async --agent codex`, including when using

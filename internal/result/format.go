@@ -65,6 +65,9 @@ func FormatText(res Result) string {
 	}
 	b.WriteString("Metadata:\n")
 	fmt.Fprintf(&b, "- version: %s\n", version.Version)
+	if res.Metadata.StopReason != "" {
+		fmt.Fprintf(&b, "- stop_reason: %s\n- stop_message: %s\n", res.Metadata.StopReason, res.Metadata.StopMessage)
+	}
 	if res.Metadata.MessagingSource != "" {
 		fmt.Fprintf(&b, "- messaging_enabled: %t (%s)\n", res.Metadata.MessagingEnabled, res.Metadata.MessagingSource)
 	}

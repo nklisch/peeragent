@@ -1,6 +1,11 @@
 # Job messaging
 
 The launcher sends a reply with `peeragent tell <job-id> [--cwd DIR] "<text>"`.
+`tell` and `say` also accept `--prompt-file <path>` for long or multiline input.
+Positional text and file input may be combined: trimmed positional text comes
+first, then trimmed file content, with a blank line between nonempty parts,
+as with launch. Files are relative to the caller, independently of `--cwd`.
+Messaging does not read stdin.
 The usual job index resolves the directory unless `--cwd` overrides it. A reply
 appends `{time, from, text}` to `inbox.jsonl`. `from` uses the caller's Herdr pane,
 its peeragent job identity, or `launcher`. A finished job refuses replies and

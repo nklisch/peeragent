@@ -67,8 +67,15 @@ func TestRecoveryCLIAndRemovedWorktreeResult(t *testing.T) {
 				t.Fatalf("fresh session on retry: %#v", calls)
 			}
 			status := cliResult(t, cwd, "--status", launched.Metadata.JobID)
-			if tc.mode == "refusal-rollout" && (terminal.Failure != "policy_refusal" || status.Failure != "policy_refusal" || !strings.HasPrefix(status.Summary, "This content was flagged")) {
+			if tc.mode == "refusal-rollout" && (terminal.Failure != "policy_refusal" || status.Failure != "policy_refusal" || !strings.HasPrefix(status.Summary, "Stopped by OpenAI's safety filter.")) {
 				t.Fatalf("refusal hidden: %#v %#v", terminal, status)
+			}
+			if tc.mode == "refusal-rollout" {
+				for _, res := range []result.Result{terminal, status} {
+					if res.Metadata.StopReason != "provider_safety_filter" || res.Metadata.StopMessage != "This content was flagged for possible cybersecurity risk." || !strings.Contains(res.Summary, "fresh session for unrelated steps") {
+						t.Fatalf("filter diagnostic lost: %#v", res)
+					}
+				}
 			}
 			// The nested test has waited for the owned worker to exit. Remove only
 			// the completed job metadata we created. Leaving cwd and the
@@ -77,7 +84,7 @@ func TestRecoveryCLIAndRemovedWorktreeResult(t *testing.T) {
 				t.Fatal(err)
 			}
 			archived := cliResult(t, cwd, "--result", launched.Metadata.JobID)
-			if archived.Status != tc.want || archived.Metadata.AgentSession != "fake-session" || archived.Details != terminal.Details || archived.Failure != terminal.Failure {
+			if archived.Status != tc.want || archived.Metadata.AgentSession != "fake-session" || archived.Details != terminal.Details || archived.Failure != terminal.Failure || archived.Metadata.StopReason != terminal.Metadata.StopReason || archived.Metadata.StopMessage != terminal.Metadata.StopMessage {
 				t.Fatalf("archive: %#v terminal %#v", archived, terminal)
 			}
 			if _, err := os.Stat(filepath.Join(jobs.NewStore(repo).Root, launched.Metadata.JobID)); !os.IsNotExist(err) {
