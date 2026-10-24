@@ -1,9 +1,11 @@
 ---
 id: say-refuses-contract-clarification-delivery
 kind: story
+stage: done
 tags: [infra]
 parent: null
 depends_on: []
+release_binding: v0.13.0
 created: 2026-10-24
 updated: 2026-10-24
 ---
@@ -26,3 +28,8 @@ The [safe launcher delivery change](say-splices-into-a-half-typed-launcher-messa
 native inbox delivery. Transport failures now retain the question as queued and expose the underlying connection or
 write error in its receipt and result conversation. This provides a supported recovery; the original Herdr refusal's
 cause remains unconfirmed.
+
+## Closure (2026-10-24)
+
+Released in v0.13.0 with the inbox delivery above: a launcher without a native inbox now queues the clarification
+with a receipt instead of refusing it.

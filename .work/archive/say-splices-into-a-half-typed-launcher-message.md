@@ -1,9 +1,11 @@
 ---
 id: say-splices-into-a-half-typed-launcher-message
 kind: story
+stage: done
 tags: [reliability]
 parent: null
 depends_on: []
+release_binding: v0.13.0
 created: 2026-10-24
 updated: 2026-10-24
 ---
@@ -123,3 +125,10 @@ Review, landing, full release validation, version bump, packaged binary refresh 
 No host deploy is needed beyond updating the installed peeragent release. Older pane-only jobs queue with the new
 binary; start new jobs to capture native launcher channels. Immediate delivery for unsupported standalone harnesses
 and the unreproduced original extra-document report remain explicit limits, rather than speculative fixes.
+
+## Closure (2026-10-24)
+
+Released in v0.13.0. `say` no longer types into the launcher's terminal. A Claude Code launcher gets the question
+through its native session inbox; a launcher that is itself a peer job gets it in that job's mailbox; anything else
+queues the question with a receipt. The owner confirmed the Claude inbox frame shape against a live session before
+release. Real-session delivery from a job, and Windows and macOS runtime behaviour, were not exercised.
