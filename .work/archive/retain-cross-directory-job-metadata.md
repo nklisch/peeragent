@@ -1,11 +1,11 @@
 ---
 id: retain-cross-directory-job-metadata
 kind: story
-stage: review
+stage: done
 tags: [infra, tests, docs]
 parent: null
 depends_on: []
-release_binding: null
+release_binding: v0.15.1
 created: 2026-10-24
 updated: 2026-10-24
 ---
@@ -83,3 +83,7 @@ execution and release artifact generation were not run. A legacy job with
 neither original files nor a retained archive cannot be recovered. No additional
 work was backlogged. No merge, push, tag, release, deployment or cache mutation
 was performed; landing and plugin release/update remain with the owner.
+
+## Closure (2026-10-25)
+
+Released in v0.15.1 after owner review: indexed job metadata (including agent_session) survives worktree removal for 30 days, up to 10,000 jobs; the tell example uses single quotes and explains backtick expansion.
