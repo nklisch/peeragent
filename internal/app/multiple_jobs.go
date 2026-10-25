@@ -34,10 +34,10 @@ func (s *Service) ResolveJobs(ctx context.Context, requests []JobRequest) ([]Job
 // JobStatuses loads each job once and reads HEAD once per distinct directory.
 // Missing git or a non-repository directory simply omits the optional commit.
 func (s *Service) JobStatuses(ctx context.Context, requests []JobRequest) ([]result.JobStatus, error) {
-	return s.jobStatuses(ctx, requests, false)
+	return s.jobStatuses(ctx, requests, false, nil)
 }
 
-func (s *Service) jobStatuses(ctx context.Context, requests []JobRequest, skipMissing bool) ([]result.JobStatus, error) {
+func (s *Service) jobStatuses(ctx context.Context, requests []JobRequest, skipMissing bool, indexed map[string]jobs.IndexedJob) ([]result.JobStatus, error) {
 	records := make([]result.JobStatus, 0, len(requests))
 	heads := map[string]string{}
 	for _, raw := range requests {
@@ -47,8 +47,22 @@ func (s *Service) jobStatuses(ctx context.Context, requests []JobRequest, skipMi
 		}
 		job, err := jobs.NewStore(req.CWD).Load(req.JobID)
 		if err != nil {
-			if skipMissing && errors.Is(err, fs.ErrNotExist) {
-				continue
+			if errors.Is(err, fs.ErrNotExist) {
+				entry, found := indexed[req.JobID]
+				if indexed == nil {
+					var indexErr error
+					entry, found, indexErr = jobs.ReadIndexedJob(req.JobID)
+					if indexErr != nil {
+						return nil, indexErr
+					}
+				}
+				if found && sameJobDirectory(entry.CWD, req.CWD) {
+					records = append(records, indexedJobStatus(entry))
+					continue
+				}
+				if skipMissing {
+					continue
+				}
 			}
 			return nil, fmt.Errorf("load async job %q: %w", req.JobID, err)
 		}
@@ -65,13 +79,18 @@ func (s *Service) jobStatuses(ctx context.Context, requests []JobRequest, skipMi
 			return nil, fmt.Errorf("read job %s progress: %w", job.ID, err)
 		}
 		summary, failure := "", ""
-		if job.Status == jobs.StatusFailed {
+		var finishedAt *time.Time
+		if jobs.IsTerminalStatus(job.Status) {
+			finishedAt = &job.UpdatedAt
 			stored, exists, err := readStoredResult(job.ResultPath)
 			if err != nil {
 				return nil, err
 			}
-			if exists && stored.Failure != "" {
+			if exists {
 				failure, summary = stored.Failure, stored.Summary
+				if stored.Metadata.FinishedAt != nil {
+					finishedAt = stored.Metadata.FinishedAt
+				}
 			}
 		}
 		if job.Status == jobs.StatusCapacity {
@@ -92,6 +111,8 @@ func (s *Service) jobStatuses(ctx context.Context, requests []JobRequest, skipMi
 			return nil, err
 		}
 		records = append(records, result.JobStatus{
+			FinishedAt:   finishedAt,
+			IndexWarning: job.IndexWarning,
 			MessageStats: mailbox.Stats(),
 			Failure:      failure,
 			Version:      version.Version, Agent: job.Spec.Agent, MessagingEnabled: support.Enabled, MessagingSource: support.Source, MessagingWarning: support.Warning,

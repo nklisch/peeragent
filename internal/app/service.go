@@ -159,6 +159,16 @@ func (s *Service) launchJob(ctx context.Context, delegation input.Delegation, st
 }
 
 func (s *Service) launch(delegation input.Delegation, start func(string, jobs.Job) error, previous []jobs.Job) (result.Result, error) {
+	for _, prior := range previous {
+		if prior.IndexedOnly && sameJobDirectory(prior.CWD, delegation.CWD) {
+			if _, err := os.Stat(delegation.CWD); os.IsNotExist(err) {
+				// A resumed conversation needs the replacement worktree, not a
+				// silently recreated empty directory where the old source lived.
+				err := fmt.Errorf("previous job directory %q was removed; use --cwd <existing replacement worktree> to resume without recreating an empty directory", delegation.CWD)
+				return failedDelegationResult(delegation, err), err
+			}
+		}
+	}
 	delegation, warning, err := resumeOptions(delegation, previous)
 	if err != nil {
 		res := failedDelegationResult(delegation, err)
@@ -174,6 +184,9 @@ func (s *Service) launch(delegation input.Delegation, start func(string, jobs.Jo
 	job.ResumeWarning = warning
 
 	for _, prior := range previous {
+		if prior.IndexedOnly {
+			continue
+		}
 		job.InboxSources = append(job.InboxSources, jobs.InboxSource{JobID: prior.ID, CWD: prior.CWD})
 	}
 	if branch, err := exec.Command("git", "-C", job.CWD, "rev-parse", "--abbrev-ref", "HEAD").Output(); err == nil {
@@ -185,7 +198,10 @@ func (s *Service) launch(delegation input.Delegation, start func(string, jobs.Jo
 	if err := recordLauncher(job); err != nil {
 		return failedJobResult(delegation, job, err), err
 	}
-	indexErr := jobs.IndexJob(job.ID, job.CWD)
+	_, indexErr := jobs.WriteIndexedJob(jobs.JobIndexEntry(job))
+	if indexErr == nil {
+		indexErr = jobs.PruneJobIndex()
+	}
 	executable, err := s.executable()
 	if err != nil {
 		wrapped := fmt.Errorf("resolve peeragent executable: %w", err)

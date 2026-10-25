@@ -46,7 +46,7 @@ func protectSession(delegation input.Delegation, launch func([]jobs.Job) (result
 		return launch(nil)
 	}
 	if delegation.AllowConcurrentSession {
-		matches, err := jobs.SessionJobs(delegation.Agent, delegation.Resume, delegation.CWD)
+		matches, err := previousSessionJobs(delegation.Agent, delegation.Resume, delegation.CWD)
 		if err != nil {
 			return failedDelegationResult(delegation, err), err
 		}
@@ -55,7 +55,7 @@ func protectSession(delegation input.Delegation, launch func([]jobs.Job) (result
 	var res result.Result
 	conflict := false
 	err := jobs.WithSessionLaunchLock(delegation.Agent, delegation.Resume, func() error {
-		matches, err := jobs.SessionJobs(delegation.Agent, delegation.Resume, delegation.CWD)
+		matches, err := previousSessionJobs(delegation.Agent, delegation.Resume, delegation.CWD)
 		if err != nil {
 			return err
 		}

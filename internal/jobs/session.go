@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 // WithSessionLaunchLock serializes check/start, not the lifetime of an agent.
@@ -21,8 +20,8 @@ func WithSessionLaunchLock(agent, session string, fn func() error) error {
 }
 
 // RunningSessionJob checks known worktrees, including older jobs that predate
-// live session indexing. Index entries contain directories only; each directory
-// is scanned once per resume, never as part of status polling.
+// live session indexing. Each known directory is scanned once per resume;
+// metadata-only entries can restore options but cannot prove a live process.
 func RunningSessionJob(agent, session, cwd string) (Job, bool, error) {
 	matches, err := SessionJobs(agent, session, cwd)
 	if err != nil {
@@ -33,6 +32,9 @@ func RunningSessionJob(agent, session, cwd string) (Job, bool, error) {
 
 func LiveSessionJob(matches []Job) (Job, bool, error) {
 	for _, job := range matches {
+		if job.IndexedOnly {
+			continue
+		}
 		if IsTerminalStatus(job.Status) {
 			continue
 		}
@@ -52,36 +54,26 @@ func LiveSessionJob(matches []Job) (Job, bool, error) {
 
 // SessionJobs locates previous jobs for both resume protection and inbox carryover.
 func SessionJobs(agent, session, cwd string) ([]Job, error) {
+	entries, err := IndexedJobs()
+	if err != nil {
+		return nil, err
+	}
+	return SessionJobsFromIndex(agent, session, cwd, entries)
+}
+
+// SessionJobsFromIndex lets the application reuse entries already read while
+// promoting legacy archives. Local files still win over the supplied snapshots.
+func SessionJobsFromIndex(agent, session, cwd string, entries []IndexedJob) ([]Job, error) {
 	dirs := map[string]bool{cwd: true}
-	indexed, err := LookupSession(agent, session)
+	indexed, err := readIndex("sessions", agent+"\x00"+session)
 	if err != nil {
 		return nil, fmt.Errorf("lookup session directory: %w", err)
 	}
 	if indexed != "" {
 		dirs[indexed] = true
 	}
-	path, err := indexPath("jobs", "")
-	if err != nil {
-		return nil, err
-	}
-	entries, err := os.ReadDir(filepath.Dir(path))
-	if err != nil && !os.IsNotExist(err) {
-		return nil, fmt.Errorf("read job index: %w", err)
-	}
 	for _, entry := range entries {
-		if entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
-			continue
-		}
-		data, err := os.ReadFile(filepath.Join(filepath.Dir(path), entry.Name()))
-		if os.IsNotExist(err) {
-			continue
-		}
-		if err != nil {
-			return nil, fmt.Errorf("read job index entry: %w", err)
-		}
-		if len(data) > 0 {
-			dirs[string(data)] = true
-		}
+		dirs[entry.CWD] = true
 	}
 	var matches []Job
 	seen := map[string]bool{}
@@ -105,10 +97,17 @@ func SessionJobs(agent, session, cwd string) ([]Job, error) {
 			if err != nil {
 				return nil, fmt.Errorf("load job %s: %w", entry.Name(), err)
 			}
-			if job.Spec.Agent == agent && job.Spec.Resume == session && !seen[job.ID] {
-				seen[job.ID] = true
+			if job.Spec.Agent == agent && job.Session() == session && !seen[job.ID] {
 				matches = append(matches, job)
 			}
+			seen[job.ID] = true
+		}
+	}
+	for _, entry := range entries {
+		if entry.ID != "" && !seen[entry.ID] && entry.Agent == agent && entry.AgentSession == session {
+			matches = append(matches, Job{ID: entry.ID, IndexedOnly: true, CWD: entry.CWD,
+				Status: entry.Status, CreatedAt: entry.StartedAt, AgentSession: entry.AgentSession,
+				Spec: ExecSpec{Agent: entry.Agent, Model: entry.Model, Effort: entry.Effort, Resume: entry.AgentSession}})
 		}
 	}
 	return matches, nil

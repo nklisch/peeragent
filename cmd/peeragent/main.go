@@ -53,7 +53,7 @@ Usage:
   peeragent --jobs [--cwd DIR] [--all] [--json | --text]
   peeragent --version
   peeragent say ["<text>"] [--prompt-file <path>]
-  peeragent tell <job-id> [--cwd DIR] ["<text>"] [--prompt-file <path>]
+  peeragent tell <job-id> [--cwd DIR] ['<text>'] [--prompt-file <path>]
   peeragent inbox
   peeragent --result|--wait|--cancel <job-id> [flags]
   peeragent --status|--wait-any <job-id>... [flags]
@@ -90,10 +90,10 @@ Flags:
   --capacity-backoff <duration>   Delay between capacity retries (default 10m); requires
                                   --async --agent codex, including with --resume.
   --jobs                         List jobs in the selected directory; --all includes indexed directories.
-  --all                          With --jobs, include every indexed directory.
+  --all                          With --jobs, include retained metadata for removed directories.
   --version                      Print the running version.
   --status <job-id>...            One job: existing result; several: JSONL or --text table.
-  --result <job-id>               Print a background job's current/final result.
+  --result <job-id>               Print a job result, or its retained indexed summary.
   --wait <job-id>                 Wait for and print a job's terminal result.
   --wait-any <job-id>...          Print the first terminal job; validate all ids first.
   --cancel <job-id>               Best-effort cancel a background job.
@@ -110,6 +110,10 @@ Multi-job controls accept job-id@directory for unindexed jobs (quote paths with 
 A per-job directory wins over --cwd; otherwise --cwd overrides the index.
 Wait-any ties use argument order and keep --wait exits (terminal outcomes exit 0).
 PEERAGENT_STATE_DIR overrides the user cache directory used for the lookup index.
+Job metadata survives removed worktrees for 30 days (at most 10,000 entries).
+Indexed-only output is marked; --resume can reuse its model/effort with --cwd
+pointing at an existing replacement worktree. Single-quote tell messages to
+prevent the shell from executing backticks; use --prompt-file for longer text.
 `
 
 func run(args []string) error { return runCommand(context.Background(), args) }
@@ -384,7 +388,8 @@ func waitForJobResult(ctx context.Context, req input.Request) error {
 			return err
 		}
 		// Keep JSON stdout to one document: only the terminal result.
-		if res.Status != result.StatusRunning {
+		// Indexed history cannot prove that an absent worker is still running.
+		if res.Status != result.StatusRunning || res.Metadata.IndexedOnly {
 			return writeJobControlResult(ctx, req, res)
 		}
 		<-ticker.C

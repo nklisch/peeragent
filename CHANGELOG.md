@@ -3,6 +3,14 @@
 ## Unreleased
 
 ### Fixes
+- Keep compact job metadata in the cross-directory index after worktree removal,
+  including the session, model/effort, final summary and finish time. `--jobs --all`
+  discovers retained jobs; status/result reads fall back to an explicitly marked
+  indexed summary, and resume still inherits settings in a replacement worktree.
+  Retain at most 10,000 metadata entries updated within 30 days and cap summaries
+  at 600 Unicode characters. Promote older retained result archives when needed.
+- Use single quotes or `--prompt-file` in the peer skill's reply example so
+  shell backticks do not execute before `tell` receives the message.
 - Name OpenAI safety-filter stops in the result summary, preserve the provider's
   diagnostic in `metadata.stop_message` with `stop_reason: provider_safety_filter`,
   and warn that resuming the same session is likely to repeat the stop. Existing

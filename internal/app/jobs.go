@@ -208,6 +208,7 @@ func jobStatusResult(req JobRequest, job jobs.Job) result.Result {
 	if job.Status == jobs.StatusAuthRequired || job.Status == jobs.StatusInterrupted {
 		res.Summary = result.RecoverySummary(res.Status, job.Session())
 	}
+	setResultJobMetadata(&res, job)
 	return res
 }
 
@@ -219,6 +220,9 @@ func runningJobResultForRequest(req JobRequest, job jobs.Job) result.Result {
 		Verification: []result.Verification{},
 		Metadata: result.Metadata{
 			Version:          version.Version,
+			Agent:            job.Spec.Agent,
+			IndexWarning:     job.IndexWarning,
+			StartedAt:        &job.CreatedAt,
 			Model:            job.Spec.Model,
 			Effort:           job.Spec.Effort,
 			ResumeWarning:    job.ResumeWarning,
@@ -332,6 +336,7 @@ func FinishJob(store jobs.Store, job jobs.Job, res result.Result) error {
 			return err
 		}
 		res.Metadata.ResumeWarning = current.ResumeWarning
+		setResultJobMetadata(&res, current)
 		if err := WriteJobResult(current.ResultPath, res); err != nil {
 			return err
 		}
@@ -362,10 +367,19 @@ func WriteJobResult(path string, res result.Result) error {
 		return err
 	}
 	if res.Metadata.JobID != "" && isTerminalResultStatus(res.Status) {
+		var warnings []string
+		if _, err := jobs.WriteIndexedJob(indexedEntryFromResult(res)); err != nil {
+			warnings = append(warnings, "index terminal metadata: "+err.Error())
+		} else if err := jobs.PruneJobIndex(); err != nil {
+			warnings = append(warnings, "prune job index: "+err.Error())
+		}
 		if err := jobs.ArchiveResult(res.Metadata.JobID, append(encoded, '\n')); err != nil {
+			warnings = append(warnings, "archive terminal result: "+err.Error())
+		}
+		if len(warnings) > 0 {
 			// Index storage is optional: preserve completion and expose the limitation
 			// in the repository result instead of turning completed work into failure.
-			warning := "archive terminal result: " + err.Error()
+			warning := strings.Join(warnings, "; ")
 			if res.Metadata.IndexWarning != "" {
 				warning = res.Metadata.IndexWarning + "; " + warning
 			}
@@ -442,7 +456,7 @@ func readArchivedJobResult(req JobRequest) (result.Result, bool, error) {
 		return result.Result{}, false, fmt.Errorf("read archived job %q result: %w", req.JobID, err)
 	}
 	if len(content) == 0 {
-		return result.Result{}, false, nil
+		return readIndexedJobResult(req)
 	}
 	var res result.Result
 	if err := json.Unmarshal(content, &res); err != nil {

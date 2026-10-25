@@ -127,7 +127,7 @@ Options:
 
 ```text
 peeragent say ["<text>"] [--prompt-file <path>]
-peeragent tell <job-id> [--cwd DIR] ["<text>"] [--prompt-file <path>]
+peeragent tell <job-id> [--cwd DIR] ['<text>'] [--prompt-file <path>]
 peeragent inbox
 ```
 
@@ -294,9 +294,17 @@ always wins. Final result JSON is also archived under `index/results/` for
 when repository job metadata is absent, including after the worktree is removed.
 Archives expire after 30 days; every archive write prunes older snapshots.
 Prompt files and raw log files are not copied, and repository job folders keep
-their existing lifetime. Existing jobs without a snapshot need their original
-files. Corrupt or unreadable local state is still an error; the archive never
-masks it. An explicit `--cwd` must match the archived result's directory, comparing
+their existing lifetime. Jobs with neither a retained snapshot nor indexed metadata need their original
+files. When full result archives are unavailable, `--status` and `--result`
+return the compact indexed summary with `metadata.indexed_only: true` and an
+explicit `metadata.index_warning`; full message/details are absent.
+`metadata.started_at` and `metadata.finished_at` carry retained times.
+`--wait` returns indexed-only history immediately rather than polling a lost
+worktree indefinitely. To resume in a replacement worktree, pass its existing
+path with `--cwd`; saved model and effort still apply. Indexed-only records are
+excluded from live-writer checks and old-mailbox carryover, so reads and resume
+do not recreate removed worktrees. Corrupt or unreadable local state is still
+an error; the archive never masks it. An explicit `--cwd` must match the archived result's directory, comparing
 case-insensitively on Windows and default macOS filesystems, and exactly on
 Linux. A successful status lookup reports exit code zero regardless of the
 archived target exit code; an absent job still reports lookup exit code four.
@@ -389,8 +397,12 @@ exit behavior: terminal target outcomes exit `0`, with the target's outcome in
 
 `peeragent --jobs [--cwd DIR] [--all] [--json | --text]` lists every job in
 that directory, including finished jobs and unindexed local jobs, newest first.
-`--all` also includes directories in the per-user job index; removed directories
-are skipped. It does not search arbitrary directories. JSON output is one object
+`--all` includes retained metadata from removed worktrees as well as live
+indexed directories. Removed-worktree rows carry `indexed_only: true` and an
+`index_warning` explaining that local files/logs are unavailable. They retain
+id, agent, model, effort, cwd, last known status, `agent_session`, final summary,
+creation time and `finished_at` when finished. Last-known running status is not
+proof of a live process. It does not search arbitrary directories. JSON output is one object
 per line, using the multi-job status fields: job id, agent, model, status,
 `started_at` (creation time), `last_message_at` when available, and
 `agent_session`. An empty JSON list produces no lines; `--text` prints a table.
@@ -470,15 +482,23 @@ Windows retains the worker's native handle until its wait completes.
 The private per-user lookup index is stored under
 `<os.UserCacheDir()>/peeragent/index/{jobs,sessions}/`, or
 `$PEERAGENT_STATE_DIR/index/{jobs,sessions}/` when overridden. Keys are hashed;
-values are absolute working directories. Index directories use `0700` and
+session values are absolute working directories. Job values are compact JSON
+metadata; legacy path-only job entries are still accepted. Index directories use `0700` and
 files `0600` on Unix. Independent atomic entries support concurrent launches
 without one shared read/modify/write file. The index can be deleted; explicit
 `--cwd` remains usable. Job entries are written before launch and session
-entries when the target returns a session. Short per-session launch locks live
+entries when a target session is observed. Short per-session launch locks live
 in `index/session-launch-locks/` and hold a launcher PID for diagnostics. The
-directory index is a locator. Terminal result snapshots in `index/results/`
-are a fallback when repository metadata is removed, with the retention described
-above. Archive failures warn through `metadata.index_warning` and leave the
+job index preserves metadata independently of the original worktree. Snapshots
+are updated at launch, when a session is learned, and on completion. Summaries
+are capped at 600 Unicode characters. Launch/completion prune entries older
+than 30 days and retain at most 10,000, newest updates first; live progress does
+not scan the index to prune it. Full terminal snapshots in `index/results/`
+keep their separate 30-day lifetime and existing contents. Listing or resuming
+promotes older terminal archives into metadata, skipping complete snapshots
+already represented there. Older snapshots without explicit times use the job
+ID timestamp for creation and the archive file modification time for completion.
+Archive failures warn through `metadata.index_warning` and leave the
 repository completion intact.
 On Windows, transient sharing or access-denied errors during index replacement
 are retried up to ten attempts with at most 450ms of delay. Other errors return

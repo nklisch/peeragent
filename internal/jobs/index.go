@@ -1,16 +1,16 @@
 package jobs
 
 import (
+	"bytes"
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
-// Directory entries contain only working directories; terminal result snapshots
-// are stored separately and never copy prompt files or raw logs.
-// Separate files avoid lost updates between simultaneous launches.
+// Separate per-job files avoid lost updates between simultaneous launches.
+// Job entries may be legacy directory strings or compact JSON metadata.
 
 func indexPath(kind, key string) (string, error) {
 	root := os.Getenv("PEERAGENT_STATE_DIR")
@@ -73,44 +73,63 @@ func readIndex(kind, key string) (string, error) {
 
 func IndexJob(id, cwd string) error { return writeIndex("jobs", id, cwd) }
 
-func LookupJob(id string) (string, error) { return readIndex("jobs", id) }
+func LookupJob(id string) (string, error) {
+	path, err := indexPath("jobs", id)
+	if err != nil {
+		return "", err
+	}
+	entry, err := readJobIndexFile(path)
+	return entry.CWD, err
+}
+
+func decodeJobIndex(data []byte) (IndexedJob, error) {
+	if !bytes.HasPrefix(bytes.TrimSpace(data), []byte("{")) {
+		return IndexedJob{CWD: string(data)}, nil
+	}
+	var entry IndexedJob
+	if err := json.Unmarshal(data, &entry); err != nil {
+		return entry, fmt.Errorf("decode job index entry: %w", err)
+	}
+	if err := ValidateID(entry.ID); err != nil {
+		return entry, fmt.Errorf("decode job index entry: %w", err)
+	}
+	return entry, nil
+}
 
 func IndexSession(agent, session, cwd string) error {
 	return writeIndex("sessions", agent+"\x00"+session, cwd)
 }
 
 func LookupSession(agent, session string) (string, error) {
-	return readIndex("sessions", agent+"\x00"+session)
+	cwd, err := readIndex("sessions", agent+"\x00"+session)
+	if err != nil || cwd != "" {
+		return cwd, err
+	}
+	entries, err := IndexedJobs()
+	if err != nil {
+		return "", err
+	}
+	var latest IndexedJob
+	for _, entry := range entries {
+		if entry.ID != "" && entry.Agent == agent && entry.AgentSession == session &&
+			(latest.ID == "" || entry.StartedAt.After(latest.StartedAt) || entry.StartedAt.Equal(latest.StartedAt) && entry.ID > latest.ID) {
+			latest = entry
+		}
+	}
+	return latest.CWD, nil
 }
 
 // IndexedDirectories returns distinct job directories without depending on the
-// hashed index filenames. Removed worktrees remain harmless stale entries.
+// hashed index filenames, including legacy path-only entries.
 func IndexedDirectories() ([]string, error) {
-	path, err := indexPath("jobs", "")
+	entries, err := IndexedJobs()
 	if err != nil {
 		return nil, err
-	}
-	entries, err := os.ReadDir(filepath.Dir(path))
-	if os.IsNotExist(err) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("list job index: %w", err)
 	}
 	seen := map[string]bool{}
 	var dirs []string
 	for _, entry := range entries {
-		if entry.IsDir() || strings.HasPrefix(entry.Name(), ".index-") {
-			continue
-		}
-		data, err := os.ReadFile(filepath.Join(filepath.Dir(path), entry.Name()))
-		if os.IsNotExist(err) {
-			continue
-		}
-		if err != nil {
-			return nil, fmt.Errorf("read job index entry: %w", err)
-		}
-		cwd := string(data)
+		cwd := entry.CWD
 		if cwd != "" && !seen[cwd] {
 			seen[cwd] = true
 			dirs = append(dirs, cwd)

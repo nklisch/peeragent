@@ -13,12 +13,15 @@ import (
 // JobStatus is the compact multi-job status contract; single-job status keeps
 // using Result for compatibility with existing hosts.
 type JobStatus struct {
-	Failure          string `json:"failure,omitempty"`
-	Version          string `json:"version"`
-	Agent            string `json:"agent"`
-	MessagingEnabled bool   `json:"messaging_enabled"`
-	MessagingSource  string `json:"messaging_source,omitempty"`
-	MessagingWarning string `json:"messaging_warning,omitempty"`
+	IndexedOnly      bool       `json:"indexed_only,omitempty"`
+	IndexWarning     string     `json:"index_warning,omitempty"`
+	FinishedAt       *time.Time `json:"finished_at,omitempty"`
+	Failure          string     `json:"failure,omitempty"`
+	Version          string     `json:"version"`
+	Agent            string     `json:"agent"`
+	MessagingEnabled bool       `json:"messaging_enabled"`
+	MessagingSource  string     `json:"messaging_source,omitempty"`
+	MessagingWarning string     `json:"messaging_warning,omitempty"`
 	jobs.MessageStats
 	KeepTerminalEnv bool       `json:"keep_terminal_env,omitempty"`
 	LastEventAt     *time.Time `json:"last_event_at,omitempty"`
@@ -39,11 +42,17 @@ type JobStatus struct {
 func FormatJobStatuses(records []JobStatus) string {
 	var out bytes.Buffer
 	w := tabwriter.NewWriter(&out, 0, 4, 2, ' ', 0)
-	fmt.Fprintln(w, "JOB\tSTATUS\tAGENT\tMODEL\tEFFORT\tAGENT_SESSION\tSTARTED\tCAPACITY_BACKOFF\tHEAD\tLAST_EVENT\tLAST_MESSAGE\tINBOX_UNREAD\tOLDEST_UNREAD\tMESSAGING\tOUTBOX_SENT\tLAST_MESSAGE_AT\tNOTE")
+	fmt.Fprintln(w, "JOB\tSTATUS\tAGENT\tMODEL\tEFFORT\tAGENT_SESSION\tSTARTED\tFINISHED\tCAPACITY_BACKOFF\tHEAD\tLAST_EVENT\tLAST_MESSAGE\tINBOX_UNREAD\tOLDEST_UNREAD\tMESSAGING\tOUTBOX_SENT\tLAST_MESSAGE_AT\tNOTE")
 	for _, r := range records {
 		note := r.Summary
 		if r.FinalReceived {
 			note = "final message received, process still alive"
+		}
+		if r.IndexWarning != "" {
+			if note != "" {
+				note += "; "
+			}
+			note += r.IndexWarning
 		}
 		if r.MessagingWarning != "" {
 			if note != "" {
@@ -77,7 +86,11 @@ func FormatJobStatuses(records []JobStatus) string {
 		if r.LastMessageAt != nil {
 			lastMessage = r.LastMessageAt.UTC().Format(time.RFC3339Nano)
 		}
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%t\t%s\t%s\t%s\t%d\t%s\t%t\t%d\t%s\t%s\n", r.JobID, r.Status, r.Agent, r.Model, r.Effort, r.AgentSession, r.StartedAt.UTC().Format(time.RFC3339), r.CapacityBackoff, r.HeadCommit, lastEvent, r.LastMessage, r.InboxUnread, oldestUnreadAge(r.MessageStats), r.MessagingEnabled, r.OutboxSent, lastMessage, note)
+		finished := ""
+		if r.FinishedAt != nil {
+			finished = r.FinishedAt.UTC().Format(time.RFC3339)
+		}
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%t\t%s\t%s\t%s\t%d\t%s\t%t\t%d\t%s\t%s\n", r.JobID, r.Status, r.Agent, r.Model, r.Effort, r.AgentSession, r.StartedAt.UTC().Format(time.RFC3339), finished, r.CapacityBackoff, r.HeadCommit, lastEvent, r.LastMessage, r.InboxUnread, oldestUnreadAge(r.MessageStats), r.MessagingEnabled, r.OutboxSent, lastMessage, note)
 	}
 	_ = w.Flush()
 	return out.String()

@@ -34,6 +34,8 @@ type InboxSource struct {
 }
 
 type Job struct {
+	IndexedOnly          bool   `json:"-"`
+	IndexWarning         string `json:"index_warning,omitempty"`
 	messagingRecorded    bool
 	MessagingEnabled     bool          `json:"messaging_enabled"`
 	AgentSession         string        `json:"agent_session,omitempty"`

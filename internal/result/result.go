@@ -45,12 +45,15 @@ type Verification struct {
 }
 
 type Metadata struct {
-	StopReason       string `json:"stop_reason,omitempty"`
-	StopMessage      string `json:"stop_message,omitempty"`
-	MessagingSource  string `json:"messaging_source,omitempty"`
-	MessagingWarning string `json:"messaging_warning,omitempty"`
-	Version          string `json:"version"`
-	MessagingEnabled bool   `json:"messaging_enabled"`
+	IndexedOnly      bool       `json:"indexed_only,omitempty"`
+	StartedAt        *time.Time `json:"started_at,omitempty"`
+	FinishedAt       *time.Time `json:"finished_at,omitempty"`
+	StopReason       string     `json:"stop_reason,omitempty"`
+	StopMessage      string     `json:"stop_message,omitempty"`
+	MessagingSource  string     `json:"messaging_source,omitempty"`
+	MessagingWarning string     `json:"messaging_warning,omitempty"`
+	Version          string     `json:"version"`
+	MessagingEnabled bool       `json:"messaging_enabled"`
 	*jobs.MessageStats
 	KeepTerminalEnv bool       `json:"keep_terminal_env,omitempty"`
 	LastEventAt     *time.Time `json:"last_event_at,omitempty"`

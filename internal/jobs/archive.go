@@ -1,16 +1,84 @@
 package jobs
 
 import (
-	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
+	"sort"
 	"time"
 )
 
 const resultRetention = 30 * 24 * time.Hour
+
+// VisitUnindexedArchives promotes legacy snapshots only when no compact job
+// metadata exists. Read at most the newest metadata-retention budget, one
+// archive at a time, so listing does not repeatedly load full handbacks.
+func VisitUnindexedArchives(known []IndexedJob, visit func([]byte, time.Time) error) error {
+	path, err := indexPath("results", "")
+	if err != nil {
+		return err
+	}
+	seen := map[string]bool{}
+	for _, job := range known {
+		if job.ID != "" && IsTerminalStatus(job.Status) {
+			key, err := indexPath("results", job.ID)
+			if err != nil {
+				return err
+			}
+			seen[filepath.Base(key)] = true
+		}
+	}
+	files, err := os.ReadDir(filepath.Dir(path))
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	var candidates []os.FileInfo
+	before := time.Now().Add(-resultRetention)
+	for _, file := range files {
+		if file.IsDir() || !indexFileName(file.Name()) {
+			continue
+		}
+		info, err := file.Info()
+		if os.IsNotExist(err) {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		if !info.ModTime().Before(before) {
+			candidates = append(candidates, info)
+		}
+	}
+	sort.Slice(candidates, func(i, j int) bool {
+		if candidates[i].ModTime().Equal(candidates[j].ModTime()) {
+			return candidates[i].Name() < candidates[j].Name()
+		}
+		return candidates[i].ModTime().After(candidates[j].ModTime())
+	})
+	for i, file := range candidates {
+		if i >= maxIndexedJobs {
+			break
+		}
+		if seen[file.Name()] {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(filepath.Dir(path), file.Name()))
+		if os.IsNotExist(err) {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		if err := visit(data, file.ModTime()); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
 // ArchiveResult keeps just the terminal result JSON outside the worktree.
 // The application owns terminal membership and encoding, avoiding a dependency
@@ -63,10 +131,7 @@ func pruneArchivedResults(dir string, before time.Time) error {
 		return err
 	}
 	for _, entry := range entries {
-		if entry.IsDir() || len(entry.Name()) != 64 || strings.ToLower(entry.Name()) != entry.Name() {
-			continue
-		}
-		if _, err := hex.DecodeString(entry.Name()); err != nil {
+		if entry.IsDir() || !indexFileName(entry.Name()) {
 			continue
 		}
 		info, err := entry.Info()

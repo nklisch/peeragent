@@ -138,9 +138,10 @@ Ordinary settings and authentication remain available. The repository's
 ## Job Messages
 
 For a running job, send a reply with `<resolved-peeragent-bin> tell <job-id>
-[--cwd DIR] "<text>"`. Finished jobs require `--resume`. Replies are a mailbox:
+[--cwd DIR] '<text>'` or `tell <job-id> --prompt-file <path>`. Finished jobs require `--resume`. Replies are a mailbox:
 the job reads them with `peeragent inbox` after long steps and before handback.
 Every command inside a job announces unread replies on stderr.
+Use single quotes or a prompt file: backticks in double quotes execute in the shell before `tell` receives the text.
 
 Both `tell` and `say` accept `--prompt-file <path>`. Use a file for long or
 multiline messages. Like launch, positional text plus file input is accepted:
@@ -242,8 +243,11 @@ launch returns a job id, start peeragent's attached waiter:
 
 `peeragent --jobs [--cwd DIR] [--all] [--json | --text]` lists every job in
 that directory, including finished jobs and unindexed local jobs, newest first.
-`--all` also includes directories in the per-user job index; removed directories
-are skipped. It does not search arbitrary directories. JSON output is one object
+`--all` includes retained metadata for removed worktrees as well as live indexed
+directories. Such rows carry `indexed_only: true` and a clear warning; they
+preserve id, agent/model/effort, cwd, status, session, final summary and finish
+time. They do not prove that a last-known running job still has a live process.
+It does not search arbitrary directories. JSON output is one object
 per line, using the multi-job status fields: job id, agent, model, status,
 `started_at` (creation time), `last_message_at` when available, and
 `agent_session`. An empty JSON list produces no lines; `--text` prints a table.
@@ -369,11 +373,22 @@ starts with a dash. Validate session variables before constructing a resume call
 
 Do not claim success unless the wrapper reports `success`.
 
-Terminal result JSON is also retained in the per-user index for 30 days, so
-`--result`, `--wait`, and single-job `--status` work after a worktree is removed.
-New archives prune expired snapshots. Prompts and raw log files are not copied;
-repository job folders keep their existing lifetime. Older jobs without an
-archive still need their original files.
+Compact job metadata is retained in the per-user index for 30 days, up to
+10,000 entries, with final summaries capped at 600 Unicode characters. It keeps
+removed-worktree jobs discoverable through `--jobs --all`; `--status` and
+`--result` can return their indexed summary even without a full archive.
+`metadata.indexed_only: true` and `metadata.index_warning` identify that fallback;
+no final message, logs, mailbox or details are reconstructed. `--wait` returns
+such last-known history immediately, including when its status was running.
+Resume retains the saved model/effort; supply `--cwd <replacement-worktree>`
+when the original directory has been removed. Indexed-only jobs do not add old
+mailboxes to a resumed turn or count as evidence of another live writer.
+
+Full terminal result JSON still has its separate 30-day archive and takes
+precedence over the compact fallback. Listing or resuming promotes older
+archives into metadata when needed. Prompts and raw log files are not copied;
+repository job folders keep their existing lifetime. A legacy job with neither
+metadata nor a retained archive still needs its original files.
 
 ## Options
 

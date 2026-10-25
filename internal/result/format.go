@@ -102,6 +102,12 @@ func FormatText(res Result) string {
 	if res.Metadata.IndexWarning != "" {
 		fmt.Fprintf(&b, "- index_warning: %s\n", res.Metadata.IndexWarning)
 	}
+	if res.Metadata.IndexedOnly {
+		fmt.Fprintln(&b, "- indexed_only: true")
+	}
+	if res.Metadata.FinishedAt != nil {
+		fmt.Fprintf(&b, "- finished_at: %s\n", res.Metadata.FinishedAt.UTC().Format(time.RFC3339Nano))
+	}
 	if res.Metadata.CapacityRetries > 0 {
 		fmt.Fprintf(&b, "- capacity_retries: %d\n", res.Metadata.CapacityRetries)
 	}

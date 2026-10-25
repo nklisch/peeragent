@@ -12,15 +12,33 @@ import (
 // scope using the per-user index; it does not crawl unrelated filesystem trees.
 func (s *Service) ListJobs(ctx context.Context, cwd string, all bool) ([]result.JobStatus, error) {
 	dirs := []string{cwd}
+	var requests []JobRequest
+	var indexed []jobs.IndexedJob
+	metadata := map[string]jobs.IndexedJob{}
 	if all {
-		indexed, err := jobs.IndexedDirectories()
+		var err error
+		indexed, err = jobs.IndexedJobs()
 		if err != nil {
 			return nil, err
 		}
-		dirs = append(dirs, indexed...)
+		imported, err := importArchivedJobMetadata(indexed)
+		if err != nil {
+			return nil, err
+		}
+		indexed = append(indexed, imported...)
+		for _, entry := range indexed {
+			dirs = append(dirs, entry.CWD)
+			if entry.ID != "" {
+				requests = append(requests, JobRequest{CWD: entry.CWD, JobID: entry.ID})
+				metadata[entry.ID] = entry
+			}
+		}
 	}
 	seen := map[string]bool{}
-	var requests []JobRequest
+	seenJobs := map[JobRequest]bool{}
+	for _, req := range requests {
+		seenJobs[req] = true
+	}
 	for _, dir := range dirs {
 		if seen[dir] {
 			continue
@@ -32,10 +50,14 @@ func (s *Service) ListJobs(ctx context.Context, cwd string, all bool) ([]result.
 			return nil, err
 		}
 		for _, id := range ids {
-			requests = append(requests, JobRequest{CWD: dir, JobID: id})
+			req := JobRequest{CWD: dir, JobID: id}
+			if !seenJobs[req] {
+				requests = append(requests, req)
+				seenJobs[req] = true
+			}
 		}
 	}
-	records, err := s.jobStatuses(ctx, requests, true)
+	records, err := s.jobStatuses(ctx, requests, true, metadata)
 	if err != nil {
 		return nil, err
 	}

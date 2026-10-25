@@ -44,6 +44,7 @@ func RecordJobProgress(store jobs.Store, id string, progress executil.Progress) 
 		if !changed {
 			return nil
 		}
+		newSession := progress.AgentSession != "" && progress.AgentSession != job.AgentSession
 		if progress.AgentSession != "" {
 			job.Spec.Resume = progress.AgentSession
 			job.AgentSession = progress.AgentSession
@@ -55,11 +56,25 @@ func RecordJobProgress(store jobs.Store, id string, progress executil.Progress) 
 			}
 		}
 		job.FinalReceived = progress.FinalReceived
-		return store.Save(job)
+		if err := store.Save(job); err != nil {
+			return err
+		}
+		if newSession {
+			_, err := jobs.WriteIndexedJob(jobs.JobIndexEntry(job))
+			if err == nil {
+				err = jobs.IndexSession(job.Spec.Agent, job.Session(), job.CWD)
+			}
+			if err != nil {
+				job.IndexWarning = "index live session: " + err.Error()
+				return store.Save(job)
+			}
+		}
+		return nil
 	})
 }
 
 func enrichJobResult(res *result.Result, job jobs.Job) error {
+	setResultJobMetadata(res, job)
 	res.Metadata.ResumeWarning = job.ResumeWarning
 	res.Metadata.KeepTerminalEnv = job.Spec.KeepTerminalEnv
 	res.Metadata.MessagingEnabled = job.MessagingEnabled

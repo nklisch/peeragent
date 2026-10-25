@@ -370,7 +370,7 @@ The launcher can reply to a running job, and the job can ask its launcher a
 question without receiving terminal-control addresses:
 
 ```sh
-peeragent tell <job-id> [--cwd DIR] "<text>"  # launcher → job mailbox
+peeragent tell <job-id> [--cwd DIR] '<text>'  # launcher → job mailbox
 peeragent tell <job-id> --prompt-file reply.md # read a longer reply from a file
 peeragent inbox                            # job → print unread replies and mark read
 peeragent say "<text>"                      # job → native launcher inbox, or queued for review
@@ -390,6 +390,9 @@ prints an explicit queued receipt. It never writes to terminal input. Claude
 Code launchers use their recorded local socket; nested jobs use the parent job's
 mailbox. Herdr-only and unsupported launchers queue. Transport failures also queue, without automatic retries.
 Native submission does not acknowledge acceptance or reading.
+
+Single-quote reply text or use `--prompt-file`: backticks inside double quotes
+execute in the shell before `tell` can read the message.
 
 Both `tell` and `say` accept `--prompt-file <path>` alone or with positional text.
 As with launch, positional text comes first, followed by trimmed file content,
@@ -492,8 +495,8 @@ bin/peeragent --status <job-id>
 
 `peeragent --jobs [--cwd DIR] [--all] [--json | --text]` lists every job in
 that directory, including finished jobs and unindexed local jobs, newest first.
-`--all` also includes directories in the per-user job index; removed directories
-are skipped. It does not search arbitrary directories. JSON output is one object
+`--all` also includes retained metadata from removed worktrees, marked as
+`indexed_only` with an explicit warning. It does not search arbitrary directories. JSON output is one object
 per line, using the multi-job status fields: job id, agent, model, status,
 `started_at` (creation time), `last_message_at` when available, and
 `agent_session`. An empty JSON list produces no lines; `--text` prints a table.
@@ -554,16 +557,15 @@ Job state for both blocking and async launches lives under `.peeragent/jobs/`
 in the target repository. It is
 local runtime state and ignored by git. Job controls find newly launched jobs by
 id from any directory. `--resume <agent-session>` uses the directory recorded
-when that session last returned a result. An explicit `--cwd <path>` always
+when that session was last observed. An explicit `--cwd <path>` always
 wins. Older jobs and sessions without an index entry still need their original
 directory or `--cwd`.
 
 The lookup index lives at `<user-cache>/peeragent/index/` (Go's `os.UserCacheDir`:
 `$XDG_CACHE_HOME` or `~/.cache` on Linux, `~/Library/Caches` on macOS, and
 `%LocalAppData%` on Windows). `PEERAGENT_STATE_DIR` overrides the `peeragent`
-state root. Its lookup entries contain only working directories, keyed by job
-id or by agent
-and session id; short launch-lock files contain their holder PID. Directories use mode `0700` and files `0600` on Unix. Clearing
+state root. Its job entries retain compact metadata; session entries contain working
+directories, keyed by agent and session id; short launch-lock files contain their holder PID. Directories use mode `0700` and files `0600` on Unix. Clearing
 it does not remove jobs, but requires `--cwd` for lookup again. An index write
 failure is reported in `metadata.index_warning`; the job still runs and can be
 controlled with `--cwd`.
@@ -575,7 +577,18 @@ not copied. Snapshots expire after 30 days, and archiving a new result removes
 expired snapshots. Repository job folders keep their existing lifetime.
 Snapshots are a fallback for missing repository state; corrupt or unreadable
 local state still reports its error. Clearing the index also clears these copies.
-Jobs completed before this feature need their repository-local result files.
+Jobs with neither retained metadata nor a full result snapshot need their
+repository-local files.
+
+Job metadata survives worktree removal in the per-user index for 30 days, up to
+10,000 entries, with summaries capped at 600 Unicode characters. `--jobs --all`
+keeps those jobs discoverable, including their session, model, effort and finish
+time. When no full result archive remains, `--status` and `--result` return the
+indexed summary and mark `metadata.indexed_only: true`. Resume with
+`--resume <agent-session> --cwd <existing-replacement-worktree>` to keep the
+saved model/effort without recreating the removed directory or its old mailbox.
+Full result archives retain their separate 30-day lifetime and take precedence;
+older archives are promoted into compact metadata during listing or resumption.
 
 Resuming a session with a live running job exits `2` before launch, naming that
 job and its `--wait` and `--cancel` commands. This prevents two agents from
@@ -740,8 +753,9 @@ then set `PEERAGENT_BIN` to the installed binary. For source checkouts,
 
 Job ids from indexed launches work from any directory. If lookup fails, check
 whether the per-user index was cleared; use `--cwd` for an unindexed job whose
-repository state remains. Removed worktrees require an archived result from the
-last 30 days; older jobs without a snapshot still need their original files.
+repository state remains. Removed worktrees require retained metadata or a result archive; a job with
+neither still needs its original files. Metadata is retained for 30 days, up
+to 10,000 entries. Use `--jobs --all` to recover a retained session ID.
 
 ### Gemini permissions and autonomy
 
