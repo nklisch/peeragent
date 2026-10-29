@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -56,7 +57,7 @@ type Request struct {
 }
 
 func Parse(args []string, stdin io.Reader, getwd func() (string, error)) (Request, error) {
-	if len(args) > 0 && (args[0] == "say" || args[0] == "tell" || args[0] == "inbox") {
+	if len(args) > 0 && (args[0] == "say" || args[0] == "tell" || args[0] == "inbox" || args[0] == "messages") {
 		return parseMessage(args, getwd)
 	}
 	parsed, err := parseArgs(args)
@@ -133,6 +134,17 @@ func Parse(args []string, stdin io.Reader, getwd func() (string, error)) (Reques
 	taskText := strings.Join(parts, "\n\n")
 	controlRequest := len(parsed.statusIDs) > 0 || len(parsed.waitAnyIDs) > 0 || parsed.statusJobID != "" || parsed.resultJobID != "" ||
 		parsed.waitJobID != "" || parsed.cancelJobID != "" || parsed.jobRunID != ""
+	// A mistyped control command must not launch an editing agent in a worktree.
+	// Explicit task delimiters and prompt files disambiguate legitimate prose.
+	if !controlRequest && !parsed.literalTask && parsed.promptFile == "" {
+		words := strings.Fields(taskText)
+		if len(words) == 1 && jobs.ValidateID(words[0]) == nil {
+			return Request{}, fmt.Errorf("unknown command %s; real commands: %s; use -- before ambiguous task text", words[0], RealCommands)
+		}
+		if len(words) >= 2 && commandWord.MatchString(words[0]) && jobs.ValidateID(words[1]) == nil {
+			return Request{}, fmt.Errorf("unknown command %s; real commands: %s; use -- before ambiguous task text", words[0], RealCommands)
+		}
+	}
 	delegation := Delegation{
 		NoPreamble:      parsed.noPreamble,
 		KeepTerminalEnv: parsed.keepTerminalEnv,
@@ -277,7 +289,12 @@ func isInteractiveTTY(stdin io.Reader) bool {
 	return info.Mode()&os.ModeCharDevice != 0
 }
 
+const RealCommands = "say, tell, inbox, messages; controls: --jobs, --status, --result, --wait, --wait-any, --cancel"
+
+var commandWord = regexp.MustCompile(`^[a-z][a-z-]*$`)
+
 type parsedArgs struct {
+	literalTask             bool
 	jobs, all, version      bool
 	noPreamble              bool
 	keepTerminalEnv         bool
@@ -314,6 +331,7 @@ func parseArgs(args []string) (parsedArgs, error) {
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		if arg == "--" {
+			parsed.literalTask = len(parsed.positionals) == 0
 			parsed.positionals = append(parsed.positionals, args[i+1:]...)
 			break
 		}

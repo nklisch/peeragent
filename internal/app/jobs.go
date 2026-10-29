@@ -21,20 +21,22 @@ import (
 // at the application boundary; an empty value uses the per-user job index,
 // then falls back to the service's working-directory port for unindexed jobs.
 type JobRequest struct {
-	CWD   string
-	JobID string
+	LookupWarning string
+	CWD           string
+	JobID         string
 }
 
 // JobStatus returns the compact lifecycle state for one repository-local job.
 // Missing job state is a structured exit-code-4 result for CLI compatibility;
 // malformed persisted state is returned as an infrastructure error.
-func (s *Service) JobStatus(ctx context.Context, raw JobRequest) (result.Result, error) {
+func (s *Service) JobStatus(ctx context.Context, raw JobRequest) (res result.Result, err error) {
 	req, err := s.normalizeJobRequest(ctx, raw)
 	if err != nil {
 		return result.Result{}, err
 	}
 
-	job, err := jobs.NewStore(req.CWD).Load(req.JobID)
+	defer func() { res.Metadata.LookupWarning = req.LookupWarning }()
+	job, err := loadJobRequest(&req)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			res, found, archiveErr := readArchivedJobResult(req)
@@ -52,13 +54,17 @@ func (s *Service) JobStatus(ctx context.Context, raw JobRequest) (result.Result,
 		return result.Result{}, fmt.Errorf("load async job %q: %w", req.JobID, err)
 	}
 
-	res := jobStatusResult(req, job)
+	job, err = reconcileWorker(jobs.NewStore(req.CWD), job)
+	if err != nil {
+		return result.Result{}, err
+	}
+	res = jobStatusResult(req, job)
 	if job.Status == jobs.StatusFailed {
 		stored, exists, err := readStoredResult(job.ResultPath)
 		if err != nil {
 			return result.Result{}, err
 		}
-		if exists && stored.Failure != "" {
+		if exists {
 			res.Failure, res.Summary = stored.Failure, stored.Summary
 			res.Metadata.StopReason = stored.Metadata.StopReason
 			res.Metadata.StopMessage = stored.Metadata.StopMessage
@@ -87,14 +93,15 @@ func (s *Service) PollJobResult(ctx context.Context, raw JobRequest) (result.Res
 	return s.jobResult(ctx, raw, false)
 }
 
-func (s *Service) jobResult(ctx context.Context, raw JobRequest, includeRunningMessage bool) (result.Result, error) {
+func (s *Service) jobResult(ctx context.Context, raw JobRequest, includeRunningMessage bool) (res result.Result, err error) {
 	req, err := s.normalizeJobRequest(ctx, raw)
 	if err != nil {
 		return result.Result{}, err
 	}
 
+	defer func() { res.Metadata.LookupWarning = req.LookupWarning }()
+	job, err := loadJobRequest(&req)
 	store := jobs.NewStore(req.CWD)
-	job, err := store.Load(req.JobID)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return archivedJobResult(req, err)
@@ -102,6 +109,10 @@ func (s *Service) jobResult(ctx context.Context, raw JobRequest, includeRunningM
 		return result.Result{}, fmt.Errorf("load async job %q: %w", req.JobID, err)
 	}
 
+	job, err = reconcileWorker(store, job)
+	if err != nil {
+		return result.Result{}, err
+	}
 	content, err := os.ReadFile(job.ResultPath)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
@@ -173,7 +184,27 @@ func (s *Service) normalizeJobRequest(ctx context.Context, raw JobRequest) (JobR
 			return JobRequest{}, errors.New("resolve cwd: working directory is empty")
 		}
 	}
+
 	return raw, nil
+}
+
+// Try the requested folder once before consulting the locator on a lookup miss.
+// Corrupt and unreadable local state keep their error instead of falling back.
+func loadJobRequest(req *JobRequest) (jobs.Job, error) {
+	job, err := jobs.NewStore(req.CWD).Load(req.JobID)
+	if !errors.Is(err, fs.ErrNotExist) {
+		return job, err
+	}
+	indexed, lookupErr := jobs.LookupJob(req.JobID)
+	if lookupErr != nil {
+		return job, lookupErr
+	}
+	if indexed == "" || sameJobDirectory(indexed, req.CWD) {
+		return job, err
+	}
+	req.LookupWarning = fmt.Sprintf("no job %s under %s; using indexed folder %s", req.JobID, req.CWD, indexed)
+	req.CWD = indexed
+	return jobs.NewStore(req.CWD).Load(req.JobID)
 }
 
 func jobStatusResult(req JobRequest, job jobs.Job) result.Result {
@@ -240,8 +271,8 @@ func runningJobResultForRequest(req JobRequest, job jobs.Job) result.Result {
 // for all inbound adapters without terminating the current process.
 func JobLookupFailureResult(req JobRequest, err error) result.Result {
 	return result.Result{
-		Status:       result.StatusFailed,
-		Summary:      fmt.Sprintf("async job %s lookup failed: %v", req.JobID, err),
+		Status:       result.StatusNotFound,
+		Summary:      fmt.Sprintf("no job %s under %s", req.JobID, req.CWD),
 		ChangedFiles: []string{},
 		Verification: []result.Verification{},
 		Metadata: result.Metadata{
@@ -464,6 +495,9 @@ func readArchivedJobResult(req JobRequest) (result.Result, bool, error) {
 	}
 	if !isTerminalResultStatus(res.Status) || res.Metadata.JobID != req.JobID || !sameJobDirectory(res.Metadata.CWD, req.CWD) {
 		return result.Result{}, false, nil
+	}
+	if res.Status == result.StatusFailed {
+		res.FinalMessage = nil
 	}
 	return res, true, nil
 }

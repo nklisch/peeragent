@@ -38,12 +38,19 @@ func LiveSessionJob(matches []Job) (Job, bool, error) {
 		if IsTerminalStatus(job.Status) {
 			continue
 		}
-		pid, err := NewStore(job.CWD).ReadPID(job.ID)
+		if job.Worker != nil {
+			if job.Worker.PID > 1 && !job.Worker.Gone() {
+				return job, true, nil
+			}
+			continue
+		}
+		store := NewStore(job.CWD)
+		pid, err := store.ReadPID(job.ID)
 		if os.IsNotExist(err) {
 			continue
 		}
 		if err != nil {
-			return Job{}, false, fmt.Errorf("read job %s pid: %w", job.ID, err)
+			return Job{}, false, err
 		}
 		if ProcessExists(pid) {
 			return job, true, nil

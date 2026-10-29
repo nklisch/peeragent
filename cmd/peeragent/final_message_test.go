@@ -129,8 +129,8 @@ func TestFailedCodexJobFinalMessage(t *testing.T) {
 		status result.Status
 		want   string
 	}{
-		// The agent's last message before a failing exit is still its handback.
-		{"failed-message", result.StatusFailed, strings.Repeat("complete report — ", 12000)},
+		// A failed exit keeps the last message in details, without inventing a handback.
+		{"failed-message", result.StatusFailed, "<null>"},
 		// Raw CLI events are not an agent message.
 		{"ordinary", result.StatusFailed, "<null>"},
 		// A capacity stop leaves an interim message, not a final one.

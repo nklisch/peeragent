@@ -34,8 +34,9 @@ type InboxSource struct {
 }
 
 type Job struct {
-	IndexedOnly          bool   `json:"-"`
-	IndexWarning         string `json:"index_warning,omitempty"`
+	Worker               *ProcessIdentity `json:"worker,omitempty"`
+	IndexedOnly          bool             `json:"-"`
+	IndexWarning         string           `json:"index_warning,omitempty"`
 	messagingRecorded    bool
 	MessagingEnabled     bool          `json:"messaging_enabled"`
 	AgentSession         string        `json:"agent_session,omitempty"`
@@ -210,7 +211,23 @@ func (s Store) WritePID(id string, pid int) error {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
-	return AtomicWriteFile(filepath.Join(dir, "pid"), []byte(strconv.Itoa(pid)+"\n"), 0o644)
+	return s.WithJobLock(id, func() error {
+		job, err := s.Load(id)
+		if err != nil {
+			return err
+		}
+		identity := IdentifyProcess(pid)
+		job.Worker = &identity
+		if job.Status == StatusRunning {
+			if _, err := WriteIndexedJob(JobIndexEntry(job)); err != nil {
+				job.IndexWarning = "index worker identity: " + err.Error()
+			}
+		}
+		if err := s.Save(job); err != nil {
+			return err
+		}
+		return AtomicWriteFile(filepath.Join(dir, "pid"), []byte(strconv.Itoa(pid)+"\n"), 0o644)
+	})
 }
 
 func (s Store) ReadPID(id string) (int, error) {
@@ -237,10 +254,9 @@ func (s Store) RemovePID(id string) error {
 	return err
 }
 
-// WithJobLock serializes short updates that must keep job.json and result.json
-// consistent. It relies on local filesystem O_EXCL semantics, writes the
-// holder PID for diagnostics, and times out after jobLockTimeout rather than
-// stealing an existing lock.
+// WithJobLock serializes short updates that keep job.json and result.json
+// consistent. A kernel lock releases on death; the removable owner file also
+// coordinates with older binaries and diagnoses a live holder.
 func (s Store) WithJobLock(id string, fn func() error) error {
 	dir, err := s.jobDir(id)
 	if err != nil {
@@ -253,11 +269,32 @@ func (s Store) WithJobLock(id string, fn func() error) error {
 }
 
 func withFileLock(lockPath string, fn func() error) error {
+	// The guard inode stays in place: unlinking a kernel-locked inode would
+	// let a second opener lock a different inode and enter the same critical section.
+	guard, err := os.OpenFile(lockPath+".guard", os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		return err
+	}
+	defer guard.Close()
 	deadline := time.Now().Add(jobLockTimeout)
+	for {
+		acquired, err := tryLockFile(guard)
+		if err != nil {
+			return err
+		}
+		if acquired {
+			break
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("acquire job lock %s: timed out after %s", lockPath, jobLockTimeout)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
 	for {
 		file, err := os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 		if err == nil {
-			if _, err := fmt.Fprintf(file, "%d\n", os.Getpid()); err != nil {
+			owner, _ := json.Marshal(IdentifyProcess(os.Getpid()))
+			if _, err := file.Write(append(owner, '\n')); err != nil {
 				_ = file.Close()
 				_ = os.Remove(lockPath)
 				return err
@@ -272,8 +309,27 @@ func withFileLock(lockPath string, fn func() error) error {
 		if !lockBusy(err) {
 			return err
 		}
+		// Only a proven dead owner is recoverable. The kernel guard serializes
+		// stale-file removal so two recoverers cannot unlink a new holder.
+		data, readErr := os.ReadFile(lockPath)
+		if os.IsNotExist(readErr) {
+			continue
+		}
+		if readErr != nil {
+			return readErr
+		}
+		var owner ProcessIdentity
+		if json.Unmarshal(data, &owner) != nil {
+			owner.PID, _ = strconv.Atoi(strings.TrimSpace(string(data)))
+		}
+		if owner.Gone() {
+			if err := os.Remove(lockPath); err != nil && !os.IsNotExist(err) {
+				return err
+			}
+			continue
+		}
 		if time.Now().After(deadline) {
-			return fmt.Errorf("acquire job lock %s: timed out after %s: %w", lockPath, jobLockTimeout, err)
+			return fmt.Errorf("acquire job lock %s: timed out after %s (holder pid %d); remove the stale lock file manually if its identity cannot be checked", lockPath, jobLockTimeout, owner.PID)
 		}
 		time.Sleep(10 * time.Millisecond)
 	}

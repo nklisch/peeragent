@@ -23,7 +23,7 @@ func (s *Service) ResolveJobs(ctx context.Context, requests []JobRequest) ([]Job
 		if err != nil {
 			return nil, err
 		}
-		if _, err := jobs.NewStore(req.CWD).Load(req.JobID); err != nil {
+		if _, err := loadJobRequest(&req); err != nil {
 			return nil, fmt.Errorf("load async job %q: %w", req.JobID, err)
 		}
 		resolved = append(resolved, req)
@@ -45,7 +45,7 @@ func (s *Service) jobStatuses(ctx context.Context, requests []JobRequest, skipMi
 		if err != nil {
 			return nil, err
 		}
-		job, err := jobs.NewStore(req.CWD).Load(req.JobID)
+		job, err := loadJobRequest(&req)
 		if err != nil {
 			if errors.Is(err, fs.ErrNotExist) {
 				entry, found := indexed[req.JobID]
@@ -57,7 +57,9 @@ func (s *Service) jobStatuses(ctx context.Context, requests []JobRequest, skipMi
 					}
 				}
 				if found && sameJobDirectory(entry.CWD, req.CWD) {
-					records = append(records, indexedJobStatus(entry))
+					record := indexedJobStatus(reconcileIndexedWorker(entry))
+					record.LookupWarning = req.LookupWarning
+					records = append(records, record)
 					continue
 				}
 				if skipMissing {
@@ -65,6 +67,10 @@ func (s *Service) jobStatuses(ctx context.Context, requests []JobRequest, skipMi
 				}
 			}
 			return nil, fmt.Errorf("load async job %q: %w", req.JobID, err)
+		}
+		job, err = reconcileWorker(jobs.NewStore(req.CWD), job)
+		if err != nil {
+			return nil, err
 		}
 		head, known := heads[req.CWD]
 		if !known {
@@ -111,11 +117,12 @@ func (s *Service) jobStatuses(ctx context.Context, requests []JobRequest, skipMi
 			return nil, err
 		}
 		records = append(records, result.JobStatus{
-			FinishedAt:   finishedAt,
-			IndexWarning: job.IndexWarning,
-			MessageStats: mailbox.Stats(),
-			Failure:      failure,
-			Version:      version.Version, Agent: job.Spec.Agent, MessagingEnabled: support.Enabled, MessagingSource: support.Source, MessagingWarning: support.Warning,
+			LookupWarning: req.LookupWarning,
+			FinishedAt:    finishedAt,
+			IndexWarning:  job.IndexWarning,
+			MessageStats:  mailbox.Stats(),
+			Failure:       failure,
+			Version:       version.Version, Agent: job.Spec.Agent, MessagingEnabled: support.Enabled, MessagingSource: support.Source, MessagingWarning: support.Warning,
 			KeepTerminalEnv: job.Spec.KeepTerminalEnv,
 			LastEventAt:     progress.At, LastMessage: progress.LastMessage, Summary: summary,
 			JobID: job.ID, CWD: req.CWD, Status: ResultStatusFromJob(string(job.Status)),

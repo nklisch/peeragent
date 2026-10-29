@@ -148,7 +148,7 @@ func TestIsTerminalJobStatus(t *testing.T) {
 
 func TestJobLookupFailureResult(t *testing.T) {
 	res := app.JobLookupFailureResult(app.JobRequest{CWD: "/repo", JobID: "job-1"}, errors.New("missing"))
-	if res.Status != result.StatusFailed {
+	if res.Status != result.StatusNotFound {
 		t.Fatalf("Status = %q", res.Status)
 	}
 	if res.Metadata.ExitCode != 4 {
@@ -157,7 +157,7 @@ func TestJobLookupFailureResult(t *testing.T) {
 	if res.Metadata.JobID != "job-1" {
 		t.Fatalf("JobID = %q", res.Metadata.JobID)
 	}
-	if !strings.Contains(res.Summary, "missing") {
+	if !strings.Contains(res.Summary, "no job job-1 under /repo") {
 		t.Fatalf("Summary = %q", res.Summary)
 	}
 }

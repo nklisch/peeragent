@@ -12,9 +12,9 @@ import (
 func parseMessage(args []string, getwd func() (string, error)) (Request, error) {
 	req := Request{MessageCommand: args[0]}
 	args = args[1:]
-	if req.MessageCommand == "tell" {
+	if req.MessageCommand == "tell" || req.MessageCommand == "messages" {
 		if len(args) == 0 {
-			return req, fmt.Errorf("tell requires a job id and message text")
+			return req, fmt.Errorf("tell/messages requires a job id")
 		}
 		req.MessageJobID = args[0]
 		args = args[1:]
@@ -29,7 +29,11 @@ func parseMessage(args []string, getwd func() (string, error)) (Request, error) 
 			text = append(text, args[i+1:]...)
 			break
 		}
-		if (req.MessageCommand == "tell" && args[i] == "--cwd") || (req.MessageCommand != "inbox" && args[i] == "--prompt-file") {
+		if req.MessageCommand == "messages" && (args[i] == "--json" || args[i] == "--text") {
+			req.JSON = args[i] == "--json"
+			continue
+		}
+		if ((req.MessageCommand == "tell" || req.MessageCommand == "messages") && args[i] == "--cwd") || ((req.MessageCommand == "tell" || req.MessageCommand == "say") && args[i] == "--prompt-file") {
 			option := args[i]
 			if i+1 >= len(args) || strings.TrimSpace(args[i+1]) == "" || strings.HasPrefix(args[i+1], "-") {
 				return req, fmt.Errorf("%s requires a non-empty value", option)
@@ -61,14 +65,14 @@ func parseMessage(args []string, getwd func() (string, error)) (Request, error) 
 		}
 		req.TaskText = strings.Join(parts, "\n\n")
 	}
-	if req.MessageCommand == "inbox" {
+	if req.MessageCommand == "inbox" || req.MessageCommand == "messages" {
 		if len(text) != 0 {
-			return req, fmt.Errorf("inbox takes no arguments")
+			return req, fmt.Errorf("%s takes no message text", req.MessageCommand)
 		}
 	} else if req.MessageCommand == "tell" && strings.TrimSpace(req.TaskText) == "" {
 		return req, fmt.Errorf("%s requires message text", req.MessageCommand)
 	}
-	if req.MessageCommand == "tell" {
+	if req.MessageCommand == "tell" || req.MessageCommand == "messages" {
 		if req.CWD == "" {
 			cwd, err := jobs.LookupJob(req.MessageJobID)
 			if err != nil {

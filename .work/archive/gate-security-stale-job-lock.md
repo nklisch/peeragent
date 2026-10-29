@@ -1,13 +1,14 @@
 ---
 id: gate-security-stale-job-lock
 kind: story
+stage: done
 tags: [security]
 parent: null
 depends_on: []
-release_binding: 0.5.0
+release_binding: null
 gate_origin: security
 created: 2026-07-12
-updated: 2026-07-12
+updated: 2026-10-29
 ---
 
 # Recover stale async job locks safely
@@ -32,3 +33,9 @@ A crashed lock holder leaves a file that permanently wedges future terminal upda
 
 ## Remediation direction
 Verify holder liveness and safely recover stale locks after timeout, with diagnostics and race coverage.
+
+## Resolution (2026-10-29)
+
+Kernel-backed guard locks serialize writers and release on process exit. Owner records include boot/PID/start identity; proven-dead owner files are recovered under the guard, including concurrent recoverers. `TestStaleLockRecoverySerializesContenders` covers stale identity and serialized updates.
+
+Implemented in the friction batch; release and installed binaries remain with the owner after review.

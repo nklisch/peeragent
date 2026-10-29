@@ -7,10 +7,12 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/nklisch/peeragent/internal/app"
 	"github.com/nklisch/peeragent/internal/input"
 	"github.com/nklisch/peeragent/internal/jobs"
+	"github.com/nklisch/peeragent/internal/result"
 )
 
 func currentJob() (jobs.Store, string, error) {
@@ -50,6 +52,41 @@ func printUnreadNotice() error {
 }
 
 func runMessageCommand(ctx context.Context, req input.Request) error {
+	if req.MessageCommand == "messages" {
+		res, err := applicationService.JobMessages(ctx, app.JobRequest{CWD: req.CWD, JobID: req.MessageJobID})
+		if err != nil {
+			return err
+		}
+		if res.Status == result.StatusNotFound {
+			return writeJobControlResult(ctx, req, res)
+		}
+		if res.Metadata.LookupWarning != "" {
+			fmt.Fprintln(os.Stderr, res.Metadata.LookupWarning)
+		}
+		if res.Metadata.IndexedOnly {
+			fmt.Fprintln(os.Stderr, "message history unavailable: only indexed job metadata remains")
+		}
+		encoder := json.NewEncoder(os.Stdout)
+		for _, entry := range res.Conversation {
+			if req.JSON {
+				if err := encoder.Encode(entry); err != nil {
+					return err
+				}
+			} else {
+				state, reason := "", ""
+				if entry.Status != "" {
+					state = " (" + entry.Status + ")"
+				}
+				if entry.Reason != "" {
+					reason = " [" + entry.Reason + "]"
+				}
+				if _, err := fmt.Fprintf(os.Stdout, "%s %s from %s%s: %s%s\n", entry.Time.UTC().Format(time.RFC3339Nano), entry.Direction, entry.From, state, entry.Text, reason); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}
 	if req.MessageCommand == "tell" {
 		from := os.Getenv("HERDR_PANE_ID")
 		if from == "" {

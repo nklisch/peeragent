@@ -22,7 +22,7 @@ const (
 // context: an interrupted CLI request must not strand a detached child after
 // cancelled state is durable.
 type ProcessController interface {
-	TerminateAndWait(pid int, termGrace, killGrace time.Duration) error
+	TerminateAndWait(identity jobs.ProcessIdentity, termGrace, killGrace time.Duration) error
 }
 
 type processController struct{}
@@ -140,10 +140,10 @@ func (s *Service) CancelJob(ctx context.Context, raw JobRequest) (result.Result,
 		return cancelResult, fmt.Errorf("read async job %q pid: %w", job.ID, err)
 	}
 	var controllerErr error
-	if pid > 0 {
+	if pid > 0 && job.Worker != nil && job.Worker.PID == pid && job.Worker.StartTime != "" && !job.Worker.Gone() {
 		// This call intentionally does not receive ctx. Once cancellation is
 		// persisted, TERM/KILL cleanup must finish after caller interruption.
-		controllerErr = s.processController.TerminateAndWait(pid, cancelTermGrace, cancelKillGrace)
+		controllerErr = s.processController.TerminateAndWait(*job.Worker, cancelTermGrace, cancelKillGrace)
 	}
 	removeErr := store.RemovePID(job.ID)
 	if controllerErr != nil {
@@ -169,8 +169,9 @@ func cancelledJobResult(req JobRequest, job jobs.Job) result.Result {
 	}
 }
 
-func (processController) TerminateAndWait(pid int, termGrace, killGrace time.Duration) error {
-	if pid <= 0 {
+func (processController) TerminateAndWait(identity jobs.ProcessIdentity, termGrace, killGrace time.Duration) error {
+	pid := identity.PID
+	if pid <= 1 || identity.StartTime == "" || identity.Gone() {
 		return nil
 	}
 
@@ -182,6 +183,9 @@ func (processController) TerminateAndWait(pid int, termGrace, killGrace time.Dur
 		return nil
 	}
 
+	if identity.Gone() {
+		return nil
+	}
 	killErr := jobs.SignalProcessGroup(pid, jobs.KillSignal())
 	if !jobs.ProcessGroupExists(pid) {
 		return nil

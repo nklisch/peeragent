@@ -85,10 +85,10 @@ func ResultFromExecution(delegation input.Delegation, execResult executil.Result
 		summary = execErr.Error()
 	} else if execResult.ExitCode != 0 {
 		status = result.StatusFailed
-		summary = fmt.Sprintf("%s exited with non-zero status", agentDisplayName(delegation))
+		summary = fmt.Sprintf("%s exited with non-zero status %d", agentDisplayName(delegation), execResult.ExitCode)
 	}
 
-	if execErr == nil && strings.TrimSpace(execResult.Stdout) != "" {
+	if status == result.StatusSuccess && strings.TrimSpace(execResult.Stdout) != "" {
 		summary = messageSummary(execResult.Stdout)
 	}
 
@@ -126,9 +126,9 @@ func ResultFromExecution(delegation input.Delegation, execResult executil.Result
 		summary = "Stopped by OpenAI's safety filter. " + stopMessage +
 			" Resuming this session is likely to fail the same way; start a fresh session for unrelated steps."
 	}
-	// A resumable stop leaves an interim message, not a handback.
+	// Failed and resumable stops keep the last update in details, not as a handback.
 	var finalMessage *string
-	if execResult.FinalMessage != "" && status != result.StatusCapacity && status != result.StatusOutputLimit && status != result.StatusAuthRequired && status != result.StatusInterrupted {
+	if execResult.FinalMessage != "" && status == result.StatusSuccess {
 		finalMessage = &execResult.FinalMessage
 	}
 	return result.Result{

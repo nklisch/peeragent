@@ -112,7 +112,20 @@ func previousSessionJobs(agent, session, cwd string) ([]jobs.Job, error) {
 	if err != nil {
 		return nil, err
 	}
-	return jobs.SessionJobsFromIndex(agent, session, cwd, append(known, imported...))
+	matches, err := jobs.SessionJobsFromIndex(agent, session, cwd, append(known, imported...))
+	if err != nil {
+		return nil, err
+	}
+	for i, job := range matches {
+		if job.IndexedOnly {
+			continue
+		}
+		matches[i], err = reconcileWorker(jobs.NewStore(job.CWD), job)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return matches, nil
 }
 
 func readIndexedJobResult(req JobRequest) (result.Result, bool, error) {
@@ -123,6 +136,7 @@ func readIndexedJobResult(req JobRequest) (result.Result, bool, error) {
 	if !found || !sameJobDirectory(entry.CWD, req.CWD) {
 		return result.Result{}, false, nil
 	}
+	entry = reconcileIndexedWorker(entry)
 	summary := entry.Summary
 	if summary == "" {
 		summary = fmt.Sprintf("Last indexed state for job %s: %s", entry.ID, entry.Status)
@@ -142,4 +156,16 @@ func indexedJobStatus(entry jobs.IndexedJob) result.JobStatus {
 		Status: ResultStatusFromJob(string(entry.Status)), AgentSession: entry.AgentSession,
 		StartedAt: entry.StartedAt, FinishedAt: entry.FinishedAt, Summary: entry.Summary,
 		Failure: entry.Failure, IndexedOnly: true, IndexWarning: jobs.IndexedOnlyWarning}
+}
+
+// Missing worktrees have no local terminal writer. Retained worker identity can
+// still distinguish a live job from a process lost since the last snapshot.
+func reconcileIndexedWorker(entry jobs.IndexedJob) jobs.IndexedJob {
+	if entry.Status == jobs.StatusRunning && entry.Worker != nil && entry.Worker.Gone() {
+		entry.Status = jobs.StatusInterrupted
+		entry.Summary = result.RecoverySummary(result.StatusInterrupted, entry.AgentSession)
+		entry.ExitCode = 1
+		entry.StopReason = "worker_interrupted"
+	}
+	return entry
 }

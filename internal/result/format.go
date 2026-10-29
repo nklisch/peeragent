@@ -19,6 +19,13 @@ func FormatJSON(res Result) ([]byte, error) {
 func FormatText(res Result) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "Alt Subagent: %s\n\n", res.Status)
+	if res.Metadata.JobID != "" {
+		fmt.Fprintf(&b, "Job: %s\n", res.Metadata.JobID)
+		if res.Status == StatusRunning {
+			fmt.Fprintf(&b, "Wait: peeragent --wait %s\n", res.Metadata.JobID)
+		}
+		b.WriteString("\n")
+	}
 	fmt.Fprintf(&b, "Summary:\n%s\n\n", res.Summary)
 
 	for _, step := range res.PendingHeavySteps {
@@ -64,6 +71,9 @@ func FormatText(res Result) string {
 		b.WriteString("\n")
 	}
 	b.WriteString("Metadata:\n")
+	if res.Metadata.LookupWarning != "" {
+		fmt.Fprintf(&b, "- lookup_warning: %s\n", res.Metadata.LookupWarning)
+	}
 	fmt.Fprintf(&b, "- version: %s\n", version.Version)
 	if res.Metadata.StopReason != "" {
 		fmt.Fprintf(&b, "- stop_reason: %s\n- stop_message: %s\n", res.Metadata.StopReason, res.Metadata.StopMessage)

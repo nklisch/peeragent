@@ -13,6 +13,7 @@ import (
 // JobStatus is the compact multi-job status contract; single-job status keeps
 // using Result for compatibility with existing hosts.
 type JobStatus struct {
+	LookupWarning    string     `json:"lookup_warning,omitempty"`
 	IndexedOnly      bool       `json:"indexed_only,omitempty"`
 	IndexWarning     string     `json:"index_warning,omitempty"`
 	FinishedAt       *time.Time `json:"finished_at,omitempty"`
@@ -45,6 +46,9 @@ func FormatJobStatuses(records []JobStatus) string {
 	fmt.Fprintln(w, "JOB\tSTATUS\tAGENT\tMODEL\tEFFORT\tAGENT_SESSION\tSTARTED\tFINISHED\tCAPACITY_BACKOFF\tHEAD\tLAST_EVENT\tLAST_MESSAGE\tINBOX_UNREAD\tOLDEST_UNREAD\tMESSAGING\tOUTBOX_SENT\tLAST_MESSAGE_AT\tNOTE")
 	for _, r := range records {
 		note := r.Summary
+		if r.LookupWarning != "" {
+			note += "; " + r.LookupWarning
+		}
 		if r.FinalReceived {
 			note = "final message received, process still alive"
 		}

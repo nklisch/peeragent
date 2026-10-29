@@ -52,7 +52,7 @@ func TestProviderFilterResultExplainsStopAndPreservesDiagnostic(t *testing.T) {
 	for _, failure := range []string{"policy_refusal", "", "other_failure"} {
 		execution := executil.Result{ExitCode: 1, Stdout: "Checks are continuing.", FinalMessage: "Checks are continuing.", Failure: failure, FailureMessage: diagnostic}
 		got := ResultFromExecution(input.Delegation{Agent: "codex", Resume: "filtered-session"}, execution, nil)
-		if got.Status != result.StatusFailed || got.Failure != failure || got.Metadata.AgentSession != "filtered-session" || got.FinalMessage == nil || *got.FinalMessage != execution.FinalMessage {
+		if got.Status != result.StatusFailed || got.Failure != failure || got.Metadata.AgentSession != "filtered-session" || got.FinalMessage != nil {
 			t.Fatalf("result: %#v", got)
 		}
 		if failure == "policy_refusal" {
@@ -68,7 +68,7 @@ func TestProviderFilterResultExplainsStopAndPreservesDiagnostic(t *testing.T) {
 				t.Fatal("text output lost stop metadata")
 			}
 		} else {
-			want := execution.Stdout
+			want := "Codex exited with non-zero status 1"
 			if failure != "" {
 				want = diagnostic
 			}

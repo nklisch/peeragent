@@ -208,14 +208,16 @@ func (s *Service) Say(ctx context.Context, raw JobRequest, text string) (receipt
 		case utf8.RuneCountInString(text) > 2000:
 			refusal = "message exceeds 2,000 characters"
 		default:
-			recent := 0
+			var recent []time.Time
 			for _, prior := range mailbox.Outbox {
 				if prior.DeliveryAttempted && prior.Time.After(entry.Time.Add(-5*time.Minute)) {
-					recent++
+					recent = append(recent, prior.Time)
 				}
 			}
-			if recent >= 3 {
-				refusal = "rate limit: at most 3 messages per 5 minutes per job"
+			if len(recent) >= 3 {
+				sort.Slice(recent, func(i, j int) bool { return recent[i].Before(recent[j]) })
+				next := recent[len(recent)-3].Add(5 * time.Minute)
+				refusal = "rate limit: at most 3 messages per 5 minutes per job; next send allowed at " + next.Format(time.RFC3339Nano)
 				break
 			}
 			data, err := os.ReadFile(filepath.Join(filepath.Dir(job.LogPath), "launcher.json"))
@@ -377,4 +379,24 @@ func addMessaging(ctx context.Context, res *result.Result, job jobs.Job, convers
 		res.Conversation = m.Conversation()
 	}
 	return nil
+}
+
+// JobMessages reads history without acknowledging or recovering inbox cursors.
+func (s *Service) JobMessages(ctx context.Context, raw JobRequest) (res result.Result, err error) {
+	req, err := s.normalizeJobRequest(ctx, raw)
+	if err != nil {
+		return res, err
+	}
+	defer func() { res.Metadata.LookupWarning = req.LookupWarning }()
+	job, err := loadJobRequest(&req)
+	store := jobs.NewStore(req.CWD)
+	if os.IsNotExist(err) {
+		return archivedJobResult(req, err)
+	}
+	if err != nil {
+		return res, fmt.Errorf("load job %s: %w", req.JobID, err)
+	}
+	res = jobStatusResult(req, job)
+	res.Conversation, err = store.ConversationHistory(job.ID)
+	return res, err
 }

@@ -10,6 +10,7 @@ import (
 type Status string
 
 const (
+	StatusNotFound     Status = "not_found"
 	StatusAuthRequired Status = "auth_required"
 	StatusInterrupted  Status = "interrupted"
 	StatusCapacity     Status = "capacity_exhausted"
@@ -22,7 +23,7 @@ const (
 )
 
 // Result is the public result contract. FinalMessage is the job's complete
-// final agent message, or null while running, after a resumable stop, or when
+// final agent message, or null while running, after a failed or resumable stop, or when
 // the target produced no message. Summary and Details keep their established shapes.
 type Result struct {
 	JobID             string         `json:"job_id,omitempty"`
@@ -45,6 +46,7 @@ type Verification struct {
 }
 
 type Metadata struct {
+	LookupWarning    string     `json:"lookup_warning,omitempty"`
 	IndexedOnly      bool       `json:"indexed_only,omitempty"`
 	StartedAt        *time.Time `json:"started_at,omitempty"`
 	FinishedAt       *time.Time `json:"finished_at,omitempty"`

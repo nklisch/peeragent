@@ -33,6 +33,7 @@ peeragent --status <job-id>
 peeragent --result <job-id>
 peeragent --wait <job-id>
 peeragent --cancel <job-id>
+peeragent messages <job-id> [--cwd DIR] [--json | --text]
 ```
 
 Task text is resolved from positional arguments, then `--prompt-file`, then
@@ -53,6 +54,12 @@ Unknown option-shaped arguments are usage errors (exit `2`) naming the valid
 options; `--` makes every following argument literal task text. Every valued
 option requires a non-empty value and cannot consume the next option as its
 value. This validation happens before reading prompts or launching work.
+
+Task text consisting of a job ID, or starting with a lowercase command-like word
+followed by a job ID, is a usage error naming the unknown command and real
+commands. This prevents a mistyped job-control command from launching an editing
+agent. Explicit `--` task input and `--prompt-file` disambiguate intentional text;
+ordinary tasks and stdin task input keep their existing resolution order.
 
 Codex receives the constructed prompt through stdin with `-` as its prompt
 argument, for both new and resumed sessions. This also applies to file-based
@@ -109,10 +116,12 @@ Options:
   metadata contain the resolved model and effort. An absent model for Codex or
   Claude means its native CLI default, including when inherited.
 - `--cwd <path>`: Set the repository root, overriding the indexed job or session
-  directory. Paths resolve to absolute paths before target invocation.
+  directory. Paths resolve to absolute paths before target invocation. If a job
+  read finds no local job there, an indexed job location is used and
+  `metadata.lookup_warning` names both folders.
 - `--prompt-file <path>`: Read task text from a file.
 - `--json`: Emit JSON output. This is the default.
-- `--text`: Emit human-readable text output.
+- `--text`: Emit human-readable text output; this flag takes no value.
 - `--jobs [--cwd DIR] [--all]`: List jobs, with the scope and format below.
 - `--version`: Print the running binary version.
 - `--status <job-id>`: Inspect an async job.
@@ -129,6 +138,7 @@ Options:
 peeragent say ["<text>"] [--prompt-file <path>]
 peeragent tell <job-id> [--cwd DIR] ['<text>'] [--prompt-file <path>]
 peeragent inbox
+peeragent messages <job-id> [--cwd DIR] [--json | --text]
 ```
 
 `PEERAGENT_JOB_ID` and `PEERAGENT_JOB_DIR` identify the current job. Every target
@@ -144,6 +154,15 @@ label. It never submits terminal input. Unsupported or ambiguous launchers and
 failed transports retain the question as `queued` in the job's result
 conversation, with an explicit receipt and no automatic retry. Native socket
 submission has no acceptance/read acknowledgement.
+
+`messages` prints both mailbox directions, timestamped and ordered oldest first,
+without acknowledging or consuming inbox replies. Default output is text;
+`--json` prints JSON Lines, one object per message. Outbound outcome updates are
+collapsed by message ID to their latest state. A removed worktree may retain
+conversation history in its full terminal archive; compact indexed metadata has
+no mailbox history. `say` accepts at most 2,000 Unicode characters and three
+native delivery attempts per five minutes. Rate-limit refusal names the exact
+UTC time the next send is allowed; the limit itself is unchanged.
 
 The standard prompt includes these instructions for checking and sending messages:
 
@@ -224,10 +243,10 @@ The default result is JSON:
 never trimmed, so scripts can read the handback without parsing `details`.
 `summary` keeps its 600-character preview and `details` keeps its
 `stdout:`/`stderr:` shape. `final_message` is `null` while a job runs (until
-the target reports its final message), after a `capacity_exhausted` or
-`output_limit` stop, and when the target produced no agent message, such as a
+the target reports its final message), after a failed or resumable stop, and when the target produced no agent message, such as a
 failure that printed only diagnostics. A failed job keeps its last agent
-message. `--result`, `--wait` and blocking calls fill it in; launch and
+message in `details` and leaves `final_message` null. Its summary names the stop
+cause rather than being overwritten by an interim message. `--result`, `--wait` and blocking calls fill it in; launch and
 `--status` results carry `null`. Text output already shows the message under
 details, so it adds no separate section.
 
@@ -237,12 +256,14 @@ and resumed calls, carries top-level `job_id` and matching `metadata.job_id`, an
 Single-job status and results mirror the same ID, including older stored results.
 `--wait` JSON stdout contains exactly one document: the terminal result. It never
 prints intermediate status; diagnostics and unread-message notices use stderr.
-Text results include `job_id`; blocking text calls print it to stderr before waiting.
+Text results print `Job: <job-id>` on its own line, with a `peeragent --wait`
+command while running; blocking text calls also print the ID to stderr before waiting.
 
 `status` values:
 
 - `success`: Target completed successfully.
 - `failed`: Target or wrapper failed.
+- `not_found`: No job under the searched folder and no indexed location; lookup exit `4`.
 - `blocked`: Reserved for explicit target-reported blockers.
 - `running`: Async job started or is still running, including capacity backoff.
 - `capacity_exhausted`: Codex reported “Selected model is at capacity”; terminal
@@ -255,8 +276,9 @@ Text results include `job_id`; blocking text calls print it to stderr before wai
 - `auth_required`: Codex reported a revoked or invalidated login. Terminal
   unless the shared async retry budget permits its one immediate continuation
   using the current login. The conversation remains resumable when known.
-- `interrupted`: Codex could not record rollout items because its thread was
-  not found, with no structured terminal outcome. Preserve the session and
+- `interrupted`: The recorded worker is gone, belongs to a prior boot, or its
+  PID belongs to a different process; or Codex could not record rollout items
+  because its thread was not found, with no structured terminal outcome. Preserve the session and
   resume manually; this status is never retried automatically.
 - `cancelled`: Async job was cancelled.
 
@@ -265,7 +287,7 @@ A structured Codex cybersecurity refusal remains `failed`, with
 and warns that resuming this session is likely to fail the same way; use a fresh
 session for unrelated steps. `metadata.stop_reason` is the stable value
 `provider_safety_filter`, and `metadata.stop_message` preserves the exact provider
-message. These optional metadata fields are omitted for other outcomes. Single-job status and job listings also expose
+message. Worker-loss recovery uses `metadata.stop_reason: worker_interrupted`. Single-job status and job listings also expose
 this classification. An explicit structured terminal outcome takes precedence
 over stderr diagnostics, including rollout-recording errors.
 
@@ -289,7 +311,8 @@ last result, including blocking and failed results. Missing entries fall back
 to the current directory, preserving access to older repository-local jobs.
 Index read errors explain the `--cwd` override; index write errors report
 `metadata.index_warning` and allow execution to continue. An explicit `--cwd`
-always wins. Final result JSON is also archived under `index/results/` for
+is searched first; if the job is absent and indexed elsewhere, the indexed folder
+is used with `metadata.lookup_warning` naming both paths. Final result JSON is also archived under `index/results/` for
 30 days. `--result`, `--wait`, single-job `--status`, and `--cancel` use this copy
 when repository job metadata is absent, including after the worktree is removed.
 Archives expire after 30 days; every archive write prunes older snapshots.
@@ -304,7 +327,8 @@ worktree indefinitely. To resume in a replacement worktree, pass its existing
 path with `--cwd`; saved model and effort still apply. Indexed-only records are
 excluded from live-writer checks and old-mailbox carryover, so reads and resume
 do not recreate removed worktrees. Corrupt or unreadable local state is still
-an error; the archive never masks it. An explicit `--cwd` must match the archived result's directory, comparing
+an error; the archive never masks it. After index resolution, the selected
+folder must match the archived result's directory, comparing
 case-insensitively on Windows and default macOS filesystems, and exactly on
 Linux. A successful status lookup reports exit code zero regardless of the
 archived target exit code; an absent job still reports lookup exit code four.
@@ -435,7 +459,8 @@ files; missing git/HEAD omits the commit. Single-id output remains a Result.
 Missing or unreadable batch-status jobs produce an error before printing rows.
 
 Both controls accept `job-id@directory` references. A per-job directory wins
-over `--cwd`; without one, explicit `--cwd` wins over indexed lookup. An
+over `--cwd`; without one, explicit `--cwd` is searched before indexed lookup.
+A missing job at that location can use its indexed folder with a lookup warning. An
 unindexed id falls back to the current directory. Quote references containing
 spaces. Relative directories resolve against the caller's directory.
 
@@ -465,7 +490,7 @@ Windows retains the worker's native handle until its wait completes.
 
 ```text
 .peeragent/jobs/<job-id>/
-  job.json       lifecycle + ExecSpec + mailbox references + live observations
+  job.json       lifecycle + ExecSpec + worker boot/PID/start identity + mailbox references + live observations
   prompt.txt     resolved task text, parent-written, child-read
   launcher.json  optional private native launcher channel (legacy Herdr fields readable), mode 0600
   inbox.jsonl    launcher replies {time, from, text}, mode 0600
@@ -476,7 +501,8 @@ Windows retains the worker's native handle until its wait completes.
   agent.log      live compact Codex progress JSONL + background wrapper diagnostics
   target.log     raw target stdout+stderr written after the attempt exits
   message.txt    latest completed agent message, written as received (untruncated)
-  result.json    final result, written by child OR by --cancel
+  result.json    final result, written by child, cancellation, or lost-worker recovery
+  lock.guard     persistent kernel-lock inode; lock contains the transient owner identity
 ```
 
 The private per-user lookup index is stored under
@@ -488,9 +514,9 @@ files `0600` on Unix. Independent atomic entries support concurrent launches
 without one shared read/modify/write file. The index can be deleted; explicit
 `--cwd` remains usable. Job entries are written before launch and session
 entries when a target session is observed. Short per-session launch locks live
-in `index/session-launch-locks/` and hold a launcher PID for diagnostics. The
+in `index/session-launch-locks/` and hold a launcher boot/PID/start identity for diagnostics. The
 job index preserves metadata independently of the original worktree. Snapshots
-are updated at launch, when a session is learned, and on completion. Summaries
+are updated at launch, when worker identity or a session is learned, and on completion. Summaries
 are capped at 600 Unicode characters. Launch/completion prune entries older
 than 30 days and retain at most 10,000, newest updates first; live progress does
 not scan the index to prune it. Full terminal snapshots in `index/results/`
@@ -521,8 +547,22 @@ checking for capacity, including on `turn.failed`. The existing
 cancel/finish lock protects terminal state from later retry completion.
 
 `--cancel` writes `job.json` and `result.json` as cancelled before signalling.
-On Unix, it signals the process group recorded by `pid`. If the `pid` sidecar is
-missing, cancellation still records the terminal state and skips signalling.
+On Unix, it signals the process group recorded by `pid` only after verifying
+its saved process start time and boot identity. Missing, mismatched, or legacy
+identities without a start time skip signalling while retaining cancelled state.
+Verification repeats before escalation; a narrow exit/reuse race remains between
+the verification and signal kernel operations.
+
+Worker records use `/proc/sys/kernel/random/boot_id` where available and a PID
+plus process start time on other supported platforms. Status, result, wait,
+wait-any and resume reconcile a provably lost running worker to terminal
+`interrupted` under the same writer lock as completion. A stored terminal result
+wins. The session, full last message and progress preview survive; unavailable
+probes alone never prove death, and the launch's pre-PID window remains running.
+Compact indexed metadata retains worker identity for reads after worktree removal.
+Job and session locks use kernel locks released at process death. Owner files
+left by provably dead holders are recovered under that lock; unknown/live owners
+retain the bounded lock wait and manual removal or concurrent-session override.
 
 ## Guarantees
 
@@ -560,7 +600,7 @@ Retries retain the preceding attempt's last message until a new message arrives.
 
 Before a resume starts, peeragent scans jobs in the requested worktree and
 worktrees located by the job/session index, checking nonterminal jobs for the
-same agent/session and a live recorded PID. A per-session launch lock makes the
+same agent/session and a matching live worker identity. A per-session launch lock makes the
 check and worker launch atomic relative to other resumed launches. This prevents
 lost or interleaved work in one session. It is not an authority over unknown
 worktrees: after clearing the index, use the original worktree with `--cwd`.

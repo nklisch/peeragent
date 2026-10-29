@@ -1,8 +1,10 @@
 ---
 id: make-a-text-mode-launch-show-its-job-id
+kind: story
+stage: done
 tags: [cli]
 created: 2026-10-25
-updated: 2026-10-25
+updated: 2026-10-29
 ---
 
 # Make a text-mode launch show its job id
@@ -13,3 +15,9 @@ JSON, so the caller lost the job id and had to find it under `.peeragent/jobs`. 
 always prints its job id on a line of its own (and the `--wait` command to use), and either a `--prompt TEXT` option
 exists or `--text` refuses to be read as taking a value. Acceptance: a test where `--async --text` launch output
 contains the job id; the chosen option or refusal has a test.
+
+## Resolution (2026-10-29)
+
+Text results print `Job: <id>` on its own line and running results print a `peeragent --wait <id>` command. Help says `--text` takes no value; task text remains positional. `TestTextAsyncLaunchNamesJobAndWait` and `TestHelpNamesLimitsJSONLinesAndTextFlag` cover the behavior.
+
+Implemented in the friction batch; release and installed binaries remain with the owner after review.

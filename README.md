@@ -247,7 +247,9 @@ when you want an independent second opinion.
 The default result is intentionally compact: for Codex JSONL output, peeragent
 surfaces only the final completed agent message in `details`. Scripts should
 read the complete, untrimmed handback from the top-level `final_message` string
-(`null` while running or when the target produced none). If you need to
+(`null` while running, after a failed or resumable stop, or when the target produced
+none). A failed result keeps its stop cause in `summary`, with the last agent
+message in `details`; an interim update is not promoted to a final handback. If you need to
 inspect the raw target stdout/stderr, open `metadata.log_path`; for continuity,
 use `metadata.agent_session` to resume the target session.
 
@@ -358,10 +360,16 @@ returns a clear JSON failure instead of silently changing how work is done.
 Options are strict: unknown options such as `--list` and `--background`, and
 missing or empty option values, exit with usage code `2` before starting work.
 The source-checkout shim preserves those exit codes too.
-Use `--` to pass task text that starts with a dash:
+Task text that looks like a mistyped control command, such as `outbox <job-id>`,
+or a job id alone, exits `2` before launching an agent. The error lists real
+commands. Use `--` or `--prompt-file` for intentional ambiguous task text.
+`--text` only selects the output format and takes no value.
+
+Use `--` to pass task text that starts with a dash or looks like a command:
 
 ```sh
 bin/peeragent -- --review-this-task
+bin/peeragent -- "review 20261027T161759Z-654b65f7"
 ```
 
 ## Job messages
@@ -373,6 +381,8 @@ question without receiving terminal-control addresses:
 peeragent tell <job-id> [--cwd DIR] '<text>'  # launcher → job mailbox
 peeragent tell <job-id> --prompt-file reply.md # read a longer reply from a file
 peeragent inbox                            # job → print unread replies and mark read
+peeragent messages <job-id> [--cwd DIR]      # print both directions, oldest first
+peeragent messages <job-id> --json           # JSON Lines, one message per line
 peeragent say "<text>"                      # job → native launcher inbox, or queued for review
 peeragent say --prompt-file question.md       # file input also works for say
 ```
@@ -384,7 +394,12 @@ Outbound messages always begin with:
 ```
 
 Body header brackets are replaced. Limits are 2,000 characters and three messages
-per five minutes per job. Without a safe native launcher inbox,
+per five minutes per job. `say` help shows the 2,000-character cap; a rate-limit
+refusal gives the exact UTC time when the next send is allowed. `messages`
+includes timestamps, direction, sender, text and outbound delivery status, and
+does not acknowledge or consume inbox replies. Message history stays in local
+job files and terminal result archives; compact indexed metadata has no history.
+Without a safe native launcher inbox,
 `say` retains the question as `queued` in the job's `--result` conversation and
 prints an explicit queued receipt. It never writes to terminal input. Claude
 Code launchers use their recorded local socket; nested jobs use the parent job's
@@ -558,14 +573,17 @@ in the target repository. It is
 local runtime state and ignored by git. Job controls find newly launched jobs by
 id from any directory. `--resume <agent-session>` uses the directory recorded
 when that session was last observed. An explicit `--cwd <path>` always
-wins. Older jobs and sessions without an index entry still need their original
+wins when it contains the job. If that folder has no such job and the index
+knows its location, job reads use the indexed folder and report both paths in
+`metadata.lookup_warning`. An unindexed miss returns `status: "not_found"`, exit
+`4`, and names the folder searched. Older jobs and sessions without an index entry still need their original
 directory or `--cwd`.
 
 The lookup index lives at `<user-cache>/peeragent/index/` (Go's `os.UserCacheDir`:
 `$XDG_CACHE_HOME` or `~/.cache` on Linux, `~/Library/Caches` on macOS, and
 `%LocalAppData%` on Windows). `PEERAGENT_STATE_DIR` overrides the `peeragent`
 state root. Its job entries retain compact metadata; session entries contain working
-directories, keyed by agent and session id; short launch-lock files contain their holder PID. Directories use mode `0700` and files `0600` on Unix. Clearing
+directories, keyed by agent and session id; short launch-lock files contain their holder process identity. Directories use mode `0700` and files `0600` on Unix. Clearing
 it does not remove jobs, but requires `--cwd` for lookup again. An index write
 failure is reported in `metadata.index_warning`; the job still runs and can be
 controlled with `--cwd`.
@@ -589,6 +607,20 @@ indexed summary and mark `metadata.indexed_only: true`. Resume with
 saved model/effort without recreating the removed directory or its old mailbox.
 Full result archives retain their separate 30-day lifetime and take precedence;
 older archives are promoted into compact metadata during listing or resumption.
+
+Each new job records its worker PID, process start time, and boot id when the
+platform supplies one. Status, result, wait, wait-any and resume recognize a
+worker from an earlier boot, a gone process, or a reused PID as terminal
+`interrupted`, preserving the session and last message for resumption. A live
+worker remains running; an unavailable identity probe alone does not prove death.
+The same worker identity is retained in compact indexed metadata. Short job and
+session locks use kernel locks that release on process exit, and recover owner
+files left by a provably dead process.
+
+Cancellation verifies the recorded worker identity before signalling. Legacy
+records without a process start time can still be marked cancelled, but their
+unverified PID is not signalled. A process can exit between identity verification
+and signalling; kernel process handles are not retained across CLI invocations.
 
 Resuming a session with a live running job exits `2` before launch, naming that
 job and its `--wait` and `--cancel` commands. This prevents two agents from

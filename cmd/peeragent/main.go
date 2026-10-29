@@ -52,9 +52,10 @@ Usage:
   peeragent --prompt-file <path> [flags]
   peeragent --jobs [--cwd DIR] [--all] [--json | --text]
   peeragent --version
-  peeragent say ["<text>"] [--prompt-file <path>]
+  peeragent say ["<text>"] [--prompt-file <path>]  (2,000 characters maximum)
   peeragent tell <job-id> [--cwd DIR] ['<text>'] [--prompt-file <path>]
   peeragent inbox
+  peeragent messages <job-id> [--cwd DIR] [--json | --text]
   peeragent --result|--wait|--cancel <job-id> [flags]
   peeragent --status|--wait-any <job-id>... [flags]
 
@@ -89,17 +90,17 @@ Flags:
                                   including with --resume. Output and auth stops each resume once immediately, sharing N.
   --capacity-backoff <duration>   Delay between capacity retries (default 10m); requires
                                   --async --agent codex, including with --resume.
-  --jobs                         List jobs in the selected directory; --all includes indexed directories.
-  --all                          With --jobs, include retained metadata for removed directories.
+  --jobs                         List jobs in the selected directory; --json prints JSON Lines (one object per line).
+  --all                          With --jobs, include indexed directories and retained metadata.
   --version                      Print the running version.
   --status <job-id>...            One job: existing result; several: JSONL or --text table.
   --result <job-id>               Print a job result, or its retained indexed summary.
   --wait <job-id>                 Wait for and print a job's terminal result.
   --wait-any <job-id>...          Print the first terminal job; validate all ids first.
   --cancel <job-id>               Best-effort cancel a background job.
-  --json | --text                 Output format (default --json).
+  --json | --text                 Output format (default --json); --text takes no value.
   -h, --help                      Show this help.
-  --                              Treat all following arguments as task text.
+  --                              Treat all following arguments as task text, including ambiguous command-like text.
 
 Job ids work from any directory through the per-user index. Unknown options and
 empty/missing option values are usage errors (exit 2). Text and --prompt-file

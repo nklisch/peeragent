@@ -1,9 +1,10 @@
 ---
 id: say-no-such-job-for-a-wrong-cwd
 kind: story
+stage: done
 tags: [results, wording]
 created: 2026-10-28
-updated: 2026-10-28
+updated: 2026-10-29
 ---
 
 # Say "no such job under this folder" when `--status` gets the wrong `--cwd`
@@ -17,3 +18,9 @@ The job was running fine in `/storage/worktrees/voxlar/75-movers-unit3`; the fol
 knows the job's real folder, name it. A reader shouldn't take a live job for a dead one.
 
 **Not this item:** the exit code for a missing job (4) can stay; only the status and wording change.
+
+## Resolution (2026-10-29)
+
+Missing unindexed jobs return `not_found`, exit 4, and the searched folder. Missing selected state with an indexed location reads that location and reports both folders in `metadata.lookup_warning`. `TestWrongDirectoryUsesIndexOrReportsNotFound` proves both paths.
+
+Implemented in the friction batch; release and installed binaries remain with the owner after review.

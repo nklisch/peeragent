@@ -56,7 +56,9 @@ if [ "$committed_code" -ne 4 ]; then
   echo "$committed_out"
   exit 1
 fi
-printf '%s\n' "$committed_out" | grep -q '"status":"failed"'
+# Committed release binaries may predate the source status vocabulary; assert
+# their lookup exit/envelope here. The source shim smoke below pins not_found.
+printf '%s\n' "$committed_out" | grep -q '"job_id":"'"$MISSING_JOB_ID"'"'
 printf '%s\n' "$committed_out" | grep -q '"exit_code":4'
 
 set +e
@@ -209,7 +211,7 @@ if [ "$status_code" -ne 4 ]; then
   exit 1
 fi
 
-printf '%s\n' "$status_output" | grep -q '"status":"failed"'
+printf '%s\n' "$status_output" | grep -q '"status":"not_found"'
 printf '%s\n' "$status_output" | grep -q '"job_id":"'"$MISSING_JOB_ID"'"'
 printf '%s\n' "$status_output" | grep -q '"exit_code":4'
 

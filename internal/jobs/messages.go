@@ -96,6 +96,50 @@ func (m Mailbox) Conversation() []Message {
 // ReadMailboxLocked must be called under WithJobLock, including read-only
 // snapshots, so readers never observe a partial append or a mismatched cursor.
 func (s Store) ReadMailboxLocked(id string) (Mailbox, error) {
+	m, err := s.readMessageFilesLocked(id)
+	if err != nil {
+		return m, err
+	}
+	m.state, err = s.readInboxStateLocked(id)
+	if err != nil {
+		return m, err
+	}
+	if m.state.Read > len(m.Inbox) {
+		return m, fmt.Errorf("inbox cursor outside mailbox of %d", len(m.Inbox))
+	}
+	for index, entry := range m.state.Entries {
+		if index < m.state.Read || index >= len(m.Inbox) || (!entry.Read && entry.Attempt == nil) || (entry.Read && entry.Attempt != nil) {
+			return m, fmt.Errorf("invalid inbox entry state at %d", index)
+		}
+	}
+	if err := s.recoverInboxLocked(id, &m.state); err != nil {
+		return m, err
+	}
+	m.Read = m.state.Read
+	for index := m.Read; index < len(m.Inbox); index++ {
+		entry := m.state.Entries[index]
+		if !entry.Read && entry.Attempt == nil {
+			m.unread = append(m.unread, index)
+		}
+	}
+	return m, nil
+}
+
+// ConversationHistory does not read, settle, or acknowledge inbox state.
+func (s Store) ConversationHistory(id string) ([]Message, error) {
+	var entries []Message
+	err := s.WithJobLock(id, func() error {
+		m, err := s.readMessageFilesLocked(id)
+		if err != nil {
+			return err
+		}
+		entries = m.Conversation()
+		return nil
+	})
+	return entries, err
+}
+
+func (s Store) readMessageFilesLocked(id string) (Mailbox, error) {
 	dir, err := s.jobDir(id)
 	if err != nil {
 		return Mailbox{}, err
@@ -129,28 +173,6 @@ func (s Store) ReadMailboxLocked(id string) (Mailbox, error) {
 				positions[entry.ID] = len(*file.entries)
 			}
 			*file.entries = append(*file.entries, entry)
-		}
-	}
-	m.state, err = s.readInboxStateLocked(id)
-	if err != nil {
-		return m, err
-	}
-	if m.state.Read > len(m.Inbox) {
-		return m, fmt.Errorf("inbox cursor outside mailbox of %d", len(m.Inbox))
-	}
-	for index, entry := range m.state.Entries {
-		if index < m.state.Read || index >= len(m.Inbox) || (!entry.Read && entry.Attempt == nil) || (entry.Read && entry.Attempt != nil) {
-			return m, fmt.Errorf("invalid inbox entry state at %d", index)
-		}
-	}
-	if err := s.recoverInboxLocked(id, &m.state); err != nil {
-		return m, err
-	}
-	m.Read = m.state.Read
-	for index := m.Read; index < len(m.Inbox); index++ {
-		entry := m.state.Entries[index]
-		if !entry.Read && entry.Attempt == nil {
-			m.unread = append(m.unread, index)
 		}
 	}
 	return m, nil

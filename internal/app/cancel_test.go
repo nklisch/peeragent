@@ -22,7 +22,7 @@ func TestCancelJobPersistsCancelledStateAndCleansPIDThroughPort(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := store.WritePID(job.ID, 4242); err != nil {
+	if err := store.WritePID(job.ID, os.Getpid()); err != nil {
 		t.Fatal(err)
 	}
 	controller := &fakeProcessController{}
@@ -52,7 +52,7 @@ func TestCancelJobPersistsCancelledStateAndCleansPIDThroughPort(t *testing.T) {
 	if _, err := store.ReadPID(job.ID); !os.IsNotExist(err) {
 		t.Fatalf("ReadPID after cancel = %v, want missing pid", err)
 	}
-	if controller.calls() != 1 || controller.pid != 4242 || controller.termGrace != cancelTermGrace || controller.killGrace != cancelKillGrace {
+	if controller.calls() != 1 || controller.pid != os.Getpid() || controller.termGrace != cancelTermGrace || controller.killGrace != cancelKillGrace {
 		t.Fatalf("controller call = %#v", controller)
 	}
 }
@@ -64,7 +64,7 @@ func TestCancelJobReportsCorruptResultAsInfrastructureError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := store.WritePID(job.ID, 4242); err != nil {
+	if err := store.WritePID(job.ID, os.Getpid()); err != nil {
 		t.Fatal(err)
 	}
 	beforeJob, err := os.ReadFile(filepath.Join(store.Root, job.ID, "job.json"))
@@ -113,7 +113,7 @@ func TestCancelJobReportsCorruptResultAsInfrastructureError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if pid != 4242 {
+	if pid != os.Getpid() {
 		t.Fatalf("pid = %d, want unchanged pid 4242", pid)
 	}
 }
@@ -125,7 +125,7 @@ func TestCancelJobCompletionWinsWithoutSignalling(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := store.WritePID(job.ID, 4242); err != nil {
+	if err := store.WritePID(job.ID, os.Getpid()); err != nil {
 		t.Fatal(err)
 	}
 	winner := result.Result{
@@ -177,7 +177,7 @@ func TestCancelJobRepairsCompletionResultThatPrecedesJobStatus(t *testing.T) {
 	if err := WriteJobResult(job.ResultPath, winner); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.WritePID(job.ID, 4242); err != nil {
+	if err := store.WritePID(job.ID, os.Getpid()); err != nil {
 		t.Fatal(err)
 	}
 	controller := &fakeProcessController{}
@@ -232,7 +232,7 @@ func TestCancelJobCleanupIgnoresCallerCancellationAfterCommit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := store.WritePID(job.ID, 4242); err != nil {
+	if err := store.WritePID(job.ID, os.Getpid()); err != nil {
 		t.Fatal(err)
 	}
 	controller := &fakeProcessController{started: make(chan struct{}), release: make(chan struct{})}
@@ -274,7 +274,7 @@ func TestCancelJobReturnsProcessControlErrorAfterRemovingPID(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := store.WritePID(job.ID, 4242); err != nil {
+	if err := store.WritePID(job.ID, os.Getpid()); err != nil {
 		t.Fatal(err)
 	}
 	expected := errors.New("process unavailable")
@@ -305,7 +305,8 @@ type fakeProcessController struct {
 	startedOnce sync.Once
 }
 
-func (f *fakeProcessController) TerminateAndWait(pid int, termGrace, killGrace time.Duration) error {
+func (f *fakeProcessController) TerminateAndWait(identity jobs.ProcessIdentity, termGrace, killGrace time.Duration) error {
+	pid := identity.PID
 	f.mu.Lock()
 	f.pid = pid
 	f.termGrace = termGrace

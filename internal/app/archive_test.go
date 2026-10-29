@@ -27,7 +27,7 @@ func TestTerminalResultsSurviveRemovedJobDirectory(t *testing.T) {
 			}
 			message := "complete handback"
 			res := result.Result{Status: status, Summary: "outcome", FinalMessage: &message, Details: "retained details", Metadata: result.Metadata{AgentSession: "archived-session", ExitCode: 1}}
-			if status == result.StatusAuthRequired || status == result.StatusInterrupted {
+			if status == result.StatusAuthRequired || status == result.StatusInterrupted || status == result.StatusFailed {
 				res.FinalMessage = nil
 			}
 			if status == result.StatusFailed {
@@ -61,8 +61,8 @@ func TestTerminalResultsSurviveRemovedJobDirectory(t *testing.T) {
 				t.Fatalf("archived status: %#v %v", got, err)
 			}
 			got, err = s.JobResult(context.Background(), JobRequest{CWD: t.TempDir(), JobID: job.ID})
-			if err != nil || got.Metadata.ExitCode != 4 {
-				t.Fatalf("explicit cwd ignored: %#v %v", got, err)
+			if err != nil || got.Metadata.CWD != cwd || got.Status != status {
+				t.Fatalf("indexed cwd not recovered: %#v %v", got, err)
 			}
 		})
 	}
@@ -126,7 +126,7 @@ func TestArchivedDirectoryLookupUsesPlatformCaseRules(t *testing.T) {
 		{filepath.Join(root, "project"), runtime.GOOS == "windows" || runtime.GOOS == "darwin"},
 		{filepath.Join(root, "different"), false},
 	} {
-		got, err := NewService(Options{}).JobResult(context.Background(), JobRequest{JobID: id, CWD: tc.dir})
+		got, _, err := readArchivedJobResult(JobRequest{JobID: id, CWD: tc.dir})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -134,7 +134,7 @@ func TestArchivedDirectoryLookupUsesPlatformCaseRules(t *testing.T) {
 			if got.Status != result.StatusSuccess || got.Metadata.CWD != cwd {
 				t.Fatalf("directory %q did not match: %#v", tc.dir, got)
 			}
-		} else if got.Metadata.ExitCode != 4 {
+		} else if got.Status != "" {
 			t.Fatalf("directory %q incorrectly matched: %#v", tc.dir, got)
 		}
 	}

@@ -112,6 +112,7 @@ func TestJobResultReturnsRunningUntilResultExists(t *testing.T) {
 }
 
 func TestJobLookupFailureIsStructuredExitCodeFour(t *testing.T) {
+	t.Setenv("PEERAGENT_STATE_DIR", t.TempDir())
 	cwd := t.TempDir()
 	service := NewService(Options{})
 	const missingJobID = "20260712T123456Z-deadbeef"
@@ -130,7 +131,7 @@ func TestJobLookupFailureIsStructuredExitCodeFour(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if got.Status != result.StatusFailed || got.Metadata.ExitCode != 4 || got.Metadata.JobID != missingJobID {
+		if got.Status != result.StatusNotFound || got.Metadata.ExitCode != 4 || got.Metadata.JobID != missingJobID {
 			t.Fatalf("missing-job result = %#v", got)
 		}
 	}
