@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.17.0
+
+### Fixes
+- A Codex usage-limit stop ends with its own terminal status, `usage_limited`. Its summary and `failure_reason` quote
+  the provider's message, including the retry time when there is one. `--retry-capacity` doesn't retry it, because
+  the reset is usually hours or days away.
+- A failed job's `failure_reason` keeps the last provider error even when the closing `turn.failed` marker omits it.
+  A resumed attempt's capacity or usage-limit stop keeps its classification instead of reading as a bare `failed`.
+- A blocking call whose worker exits without a result reports that exit code and its log, instead of `interrupted`.
+
+### Changes
+- New job records live inside the checkout's Git directory (`<git-dir>/peeragent/jobs`, per worktree), so a job
+  never leaves untracked files in a working tree, including another owner's worktree or an integration checkout.
+  Outside Git, records stay in `.peeragent/jobs`. Every lookup (`--status`, `--result`, `--wait`, `--resume`, `tell`,
+  `messages`, `--jobs` and the index) still finds jobs recorded in the old location.
+
 ## v0.16.0
 
 ### Fixes
