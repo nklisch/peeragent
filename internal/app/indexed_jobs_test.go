@@ -15,7 +15,7 @@ import (
 )
 
 func TestIndexedMetadataSurvivesRemovedWorktreeWithoutArchive(t *testing.T) {
-	for _, status := range []result.Status{result.StatusSuccess, result.StatusFailed, result.StatusCapacity, result.StatusOutputLimit, result.StatusAuthRequired, result.StatusInterrupted, result.StatusCancelled, result.StatusRunning} {
+	for _, status := range []result.Status{result.StatusSuccess, result.StatusFailed, result.StatusCapacity, result.StatusUsageLimited, result.StatusOutputLimit, result.StatusAuthRequired, result.StatusInterrupted, result.StatusCancelled, result.StatusRunning} {
 		t.Run(string(status), func(t *testing.T) {
 			state, cwd, replacement := t.TempDir(), t.TempDir(), t.TempDir()
 			t.Setenv("PEERAGENT_STATE_DIR", state)

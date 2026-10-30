@@ -28,6 +28,10 @@ func FormatText(res Result) string {
 	}
 	fmt.Fprintf(&b, "Summary:\n%s\n\n", res.Summary)
 
+	if res.FailureReason != "" {
+		fmt.Fprintf(&b, "Failure reason:\n%s\n\n", res.FailureReason)
+	}
+
 	for _, step := range res.PendingHeavySteps {
 		fmt.Fprintf(&b, "Warning: pending heavy step %s (%s): %s\n", step.Job, step.State, step.Command)
 	}

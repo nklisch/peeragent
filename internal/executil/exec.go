@@ -18,6 +18,7 @@ type Result struct {
 	TurnStarted       bool
 	OutputLimit       bool
 	CapacityExhausted bool
+	UsageLimited      bool
 	ExitCode          int
 	Stdout            string
 	Stderr            string

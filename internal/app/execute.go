@@ -120,6 +120,20 @@ func ResultFromExecution(delegation input.Delegation, execResult executil.Result
 		status = result.StatusFailed
 		summary = execResult.FailureMessage
 	}
+	if execResult.UsageLimited {
+		status = result.StatusUsageLimited
+		summary = "stopped: usage_limited; " + execResult.FailureMessage
+		if execResult.ExitCode == 0 {
+			execResult.ExitCode = 1
+		}
+	}
+	failureReason := ""
+	if status != result.StatusSuccess {
+		failureReason = execResult.FailureMessage
+		if failureReason == "" {
+			failureReason = summary
+		}
+	}
 	stopReason, stopMessage := "", ""
 	if execResult.Failure == "policy_refusal" {
 		stopReason, stopMessage = "provider_safety_filter", execResult.FailureMessage
@@ -132,13 +146,14 @@ func ResultFromExecution(delegation input.Delegation, execResult executil.Result
 		finalMessage = &execResult.FinalMessage
 	}
 	return result.Result{
-		Status:       status,
-		Failure:      execResult.Failure,
-		Summary:      summary,
-		FinalMessage: finalMessage,
-		ChangedFiles: []string{},
-		Verification: []result.Verification{},
-		Details:      executionDetails(execResult.Stdout, execResult.Stderr),
+		Status:        status,
+		Failure:       execResult.Failure,
+		FailureReason: failureReason,
+		Summary:       summary,
+		FinalMessage:  finalMessage,
+		ChangedFiles:  []string{},
+		Verification:  []result.Verification{},
+		Details:       executionDetails(execResult.Stdout, execResult.Stderr),
 		Metadata: result.Metadata{
 			StopReason:      stopReason,
 			StopMessage:     stopMessage,

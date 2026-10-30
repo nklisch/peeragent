@@ -84,7 +84,7 @@ func (s *Service) jobStatuses(ctx context.Context, requests []JobRequest, skipMi
 		if err != nil {
 			return nil, fmt.Errorf("read job %s progress: %w", job.ID, err)
 		}
-		summary, failure := "", ""
+		summary, failure, failureReason := "", "", ""
 		var finishedAt *time.Time
 		if jobs.IsTerminalStatus(job.Status) {
 			finishedAt = &job.UpdatedAt
@@ -94,6 +94,7 @@ func (s *Service) jobStatuses(ctx context.Context, requests []JobRequest, skipMi
 			}
 			if exists {
 				failure, summary = stored.Failure, stored.Summary
+				failureReason = stored.FailureReason
 				if stored.Metadata.FinishedAt != nil {
 					finishedAt = stored.Metadata.FinishedAt
 				}
@@ -122,6 +123,7 @@ func (s *Service) jobStatuses(ctx context.Context, requests []JobRequest, skipMi
 			IndexWarning:  job.IndexWarning,
 			MessageStats:  mailbox.Stats(),
 			Failure:       failure,
+			FailureReason: failureReason,
 			Version:       version.Version, Agent: job.Spec.Agent, MessagingEnabled: support.Enabled, MessagingSource: support.Source, MessagingWarning: support.Warning,
 			KeepTerminalEnv: job.Spec.KeepTerminalEnv,
 			LastEventAt:     progress.At, LastMessage: progress.LastMessage, Summary: summary,

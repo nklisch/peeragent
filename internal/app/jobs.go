@@ -59,13 +59,17 @@ func (s *Service) JobStatus(ctx context.Context, raw JobRequest) (res result.Res
 		return result.Result{}, err
 	}
 	res = jobStatusResult(req, job)
-	if job.Status == jobs.StatusFailed {
+	if jobs.IsTerminalStatus(job.Status) {
 		stored, exists, err := readStoredResult(job.ResultPath)
 		if err != nil {
 			return result.Result{}, err
 		}
 		if exists {
-			res.Failure, res.Summary = stored.Failure, stored.Summary
+			res.Failure = stored.Failure
+			if job.Status == jobs.StatusFailed || job.Status == jobs.StatusUsageLimited {
+				res.Summary = stored.Summary
+			}
+			res.FailureReason = stored.FailureReason
 			res.Metadata.StopReason = stored.Metadata.StopReason
 			res.Metadata.StopMessage = stored.Metadata.StopMessage
 		}
@@ -84,16 +88,23 @@ func (s *Service) JobStatus(ctx context.Context, raw JobRequest) (res result.Res
 // interpretation remains centralized and corrupt storage stays distinguishable
 // from an ordinary in-flight job.
 func (s *Service) JobResult(ctx context.Context, raw JobRequest) (result.Result, error) {
-	return s.jobResult(ctx, raw, true)
+	return s.jobResult(ctx, raw, true, true)
 }
 
 // PollJobResult is the waiter's result read. In-flight messages can be large;
 // waiters need only lifecycle metadata until a terminal result is available.
 func (s *Service) PollJobResult(ctx context.Context, raw JobRequest) (result.Result, error) {
-	return s.jobResult(ctx, raw, false)
+	return s.jobResult(ctx, raw, false, true)
 }
 
-func (s *Service) jobResult(ctx context.Context, raw JobRequest, includeRunningMessage bool) (res result.Result, err error) {
+// PollOwnedJobResult reads completion for a caller holding the worker handle.
+// Only that handle's exit handler decides worker loss; an observer must not
+// publish interruption before the owner can preserve the exit code and logs.
+func (s *Service) PollOwnedJobResult(ctx context.Context, raw JobRequest) (result.Result, error) {
+	return s.jobResult(ctx, raw, false, false)
+}
+
+func (s *Service) jobResult(ctx context.Context, raw JobRequest, includeRunningMessage, reconcile bool) (res result.Result, err error) {
 	req, err := s.normalizeJobRequest(ctx, raw)
 	if err != nil {
 		return result.Result{}, err
@@ -109,9 +120,11 @@ func (s *Service) jobResult(ctx context.Context, raw JobRequest, includeRunningM
 		return result.Result{}, fmt.Errorf("load async job %q: %w", req.JobID, err)
 	}
 
-	job, err = reconcileWorker(store, job)
-	if err != nil {
-		return result.Result{}, err
+	if reconcile {
+		job, err = reconcileWorker(store, job)
+		if err != nil {
+			return result.Result{}, err
+		}
 	}
 	content, err := os.ReadFile(job.ResultPath)
 	if err != nil {
@@ -192,6 +205,9 @@ func (s *Service) normalizeJobRequest(ctx context.Context, raw JobRequest) (JobR
 // Corrupt and unreadable local state keep their error instead of falling back.
 func loadJobRequest(req *JobRequest) (jobs.Job, error) {
 	job, err := jobs.NewStore(req.CWD).Load(req.JobID)
+	if err == nil {
+		req.CWD = job.CWD
+	}
 	if !errors.Is(err, fs.ErrNotExist) {
 		return job, err
 	}
@@ -295,6 +311,8 @@ func ResultStatusFromJob(status string) result.Status {
 		return result.StatusInterrupted
 	case jobs.StatusOutputLimit:
 		return result.StatusOutputLimit
+	case jobs.StatusUsageLimited:
+		return result.StatusUsageLimited
 	case jobs.StatusCapacity:
 		return result.StatusCapacity
 	case jobs.StatusFailed:
@@ -322,6 +340,8 @@ func JobStatusFromResult(status result.Status) jobs.Status {
 		return jobs.StatusInterrupted
 	case result.StatusOutputLimit:
 		return jobs.StatusOutputLimit
+	case result.StatusUsageLimited:
+		return jobs.StatusUsageLimited
 	case result.StatusCapacity:
 		return jobs.StatusCapacity
 	case result.StatusSuccess:
@@ -337,6 +357,9 @@ func JobStatusFromResult(status result.Status) jobs.Status {
 // conflict rules as cancellation. It remains an application operation even
 // though the child-run CLI is the adapter that invokes it.
 func FinishJob(store jobs.Store, job jobs.Job, res result.Result) error {
+	if res.Status == result.StatusFailed && res.FailureReason == "" {
+		res.FailureReason = res.Summary
+	}
 	res.Metadata.JobID = job.ID
 	if res.Metadata.CWD == "" {
 		res.Metadata.CWD = job.CWD
@@ -443,6 +466,7 @@ func readStoredResult(path string) (result.Result, bool, error) {
 func isTerminalResultStatus(status result.Status) bool {
 	for _, persisted := range []jobs.Status{
 		jobs.StatusCapacity,
+		jobs.StatusUsageLimited,
 		jobs.StatusOutputLimit,
 		jobs.StatusAuthRequired,
 		jobs.StatusInterrupted,

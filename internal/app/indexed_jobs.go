@@ -89,7 +89,7 @@ func indexedEntryFromResult(res result.Result) jobs.IndexedJob {
 	entry := jobs.IndexedJob{ID: res.Metadata.JobID, Agent: res.Metadata.Agent,
 		Model: res.Metadata.Model, Effort: res.Metadata.Effort, CWD: res.Metadata.CWD,
 		AgentSession: res.Metadata.AgentSession, Status: JobStatusFromResult(res.Status),
-		Summary: res.Summary, Failure: res.Failure, FinishedAt: res.Metadata.FinishedAt,
+		Summary: res.Summary, Failure: res.Failure, FailureReason: res.FailureReason, FinishedAt: res.Metadata.FinishedAt,
 		ExitCode: res.Metadata.ExitCode, StopReason: res.Metadata.StopReason, StopMessage: res.Metadata.StopMessage}
 	if res.Metadata.StartedAt != nil {
 		entry.StartedAt = *res.Metadata.StartedAt
@@ -141,7 +141,7 @@ func readIndexedJobResult(req JobRequest) (result.Result, bool, error) {
 	if summary == "" {
 		summary = fmt.Sprintf("Last indexed state for job %s: %s", entry.ID, entry.Status)
 	}
-	return result.Result{Status: ResultStatusFromJob(string(entry.Status)), Failure: entry.Failure,
+	return result.Result{Status: ResultStatusFromJob(string(entry.Status)), Failure: entry.Failure, FailureReason: entry.FailureReason,
 		Summary: summary, ChangedFiles: []string{}, Verification: []result.Verification{},
 		Metadata: result.Metadata{Version: version.Version, JobID: entry.ID, Agent: entry.Agent,
 			CWD: entry.CWD, Model: entry.Model, Effort: entry.Effort, AgentSession: entry.AgentSession,
@@ -155,7 +155,7 @@ func indexedJobStatus(entry jobs.IndexedJob) result.JobStatus {
 		Model: entry.Model, Effort: entry.Effort, CWD: entry.CWD,
 		Status: ResultStatusFromJob(string(entry.Status)), AgentSession: entry.AgentSession,
 		StartedAt: entry.StartedAt, FinishedAt: entry.FinishedAt, Summary: entry.Summary,
-		Failure: entry.Failure, IndexedOnly: true, IndexWarning: jobs.IndexedOnlyWarning}
+		Failure: entry.Failure, FailureReason: entry.FailureReason, IndexedOnly: true, IndexWarning: jobs.IndexedOnlyWarning}
 }
 
 // Missing worktrees have no local terminal writer. Retained worker identity can

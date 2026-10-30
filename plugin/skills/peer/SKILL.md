@@ -329,11 +329,17 @@ Unknown options (including `--list` and `--background`) and empty/missing option
 values exit `2` before any job starts. Put `--` before literal task text that
 starts with a dash. Validate session variables before constructing a resume call.
 
+Job records live under `<git-dir>/peeragent/jobs/` in a Git checkout, separately
+for each linked worktree. Outside Git they live under `.peeragent/jobs/`.
+All controls, message commands, listings, resumes and indexed lookups also find
+existing `.peeragent/jobs/` records without moving them.
+
 ## Result Handling
 
 - `status: success` — report what changed and what verification ran.
 - `status: blocked` — explain the blocker; continue from the host side.
-- `status: failed` — surface the failure reason and useful log details.
+- `status: failed` — surface `failure_reason` (the last provider error message)
+  and useful log details.
   - If exit code `3` (or, in `--text` mode, a "no prebuilt binary for this
     platform" message), peeragent has no committed binary for the user's
     OS/arch. Prebuilt binaries cover linux/darwin on amd64/arm64. Tell the
@@ -351,6 +357,10 @@ starts with a dash. Validate session variables before constructing a resume call
   they stop without a session id or when the budget is spent. Other failures
   are never retried except the single output-limit and login continuations.
   `metadata.capacity_retries` counts all additional attempts.
+- `status: usage_limited` — Codex hit its usage limit. Surface `summary` and
+  `failure_reason`, which preserve the exact provider message and retry time
+  when present. `--retry-capacity` never retries this status, including after
+  a capacity retry; wait until usage is available before resuming manually.
 - `status: output_limit` — Codex stopped at `max_output_tokens`. Keep the session
   and resume command. The shared async retry budget permits one immediate
   continuation; a repeated limit is terminal.

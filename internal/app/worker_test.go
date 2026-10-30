@@ -71,7 +71,7 @@ func TestWorkerExitHelper(t *testing.T) {
 }
 
 func TestWorkerExitPreservesTerminalWinner(t *testing.T) {
-	for _, status := range []result.Status{result.StatusSuccess, result.StatusFailed, result.StatusCapacity, result.StatusOutputLimit, result.StatusAuthRequired, result.StatusInterrupted, result.StatusCancelled} {
+	for _, status := range []result.Status{result.StatusSuccess, result.StatusFailed, result.StatusCapacity, result.StatusUsageLimited, result.StatusOutputLimit, result.StatusAuthRequired, result.StatusInterrupted, result.StatusCancelled} {
 		t.Run(string(status), func(t *testing.T) {
 			cwd := t.TempDir()
 			store := jobs.NewStore(cwd)
@@ -130,5 +130,36 @@ func TestWorkerExitRepairsUnfinishedTerminalWrite(t *testing.T) {
 	job, err = store.Load(job.ID)
 	if err != nil || job.Status != jobs.StatusComplete {
 		t.Fatalf("unfinished status not repaired: %#v %v", job, err)
+	}
+}
+
+func TestOwnedWorkerPollDefersLossToExitHandler(t *testing.T) {
+	t.Setenv("PEERAGENT_STATE_DIR", t.TempDir())
+	cwd := t.TempDir()
+	store := jobs.NewStore(cwd)
+	job, err := store.Create(cwd, jobs.ExecSpec{Agent: "codex", Resume: "owned-session"}, "work")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.WritePID(job.ID, os.Getpid()); err != nil {
+		t.Fatal(err)
+	}
+	job, err = store.Load(job.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	job.Worker.StartTime += "-gone"
+	if err := store.Save(job); err != nil {
+		t.Fatal(err)
+	}
+	service := NewService(Options{})
+	req := JobRequest{CWD: cwd, JobID: job.ID}
+	polled, err := service.PollOwnedJobResult(context.Background(), req)
+	if err != nil || polled.Status != result.StatusRunning {
+		t.Fatalf("owner's poll reconciled worker loss: %#v %v", polled, err)
+	}
+	terminal, err := service.WorkerExited(context.Background(), req, 23, nil)
+	if err != nil || terminal.Status != result.StatusFailed || terminal.Metadata.ExitCode != 23 || terminal.Metadata.LogPath != job.LogPath || terminal.FailureReason != terminal.Summary {
+		t.Fatalf("owned exit lost diagnostics: %#v %v", terminal, err)
 	}
 }

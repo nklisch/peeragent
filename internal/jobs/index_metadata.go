@@ -19,21 +19,22 @@ const IndexedOnlyWarning = "Indexed metadata only; local job files and logs are 
 // IndexedJob is enough to find and resume a conversation after its worktree is
 // removed. Prompts, messages, mailboxes, and raw logs stay in their existing stores.
 type IndexedJob struct {
-	Worker       *ProcessIdentity `json:"worker,omitempty"`
-	ID           string           `json:"id"`
-	Agent        string           `json:"agent"`
-	Model        string           `json:"model"`
-	Effort       string           `json:"effort"`
-	CWD          string           `json:"cwd"`
-	Status       Status           `json:"status"`
-	AgentSession string           `json:"agent_session"`
-	Summary      string           `json:"summary,omitempty"`
-	Failure      string           `json:"failure,omitempty"`
-	ExitCode     int              `json:"exit_code"`
-	StopReason   string           `json:"stop_reason,omitempty"`
-	StopMessage  string           `json:"stop_message,omitempty"`
-	StartedAt    time.Time        `json:"started_at"`
-	FinishedAt   *time.Time       `json:"finished_at,omitempty"`
+	Worker        *ProcessIdentity `json:"worker,omitempty"`
+	ID            string           `json:"id"`
+	Agent         string           `json:"agent"`
+	Model         string           `json:"model"`
+	Effort        string           `json:"effort"`
+	CWD           string           `json:"cwd"`
+	Status        Status           `json:"status"`
+	AgentSession  string           `json:"agent_session"`
+	Summary       string           `json:"summary,omitempty"`
+	FailureReason string           `json:"failure_reason,omitempty"`
+	Failure       string           `json:"failure,omitempty"`
+	ExitCode      int              `json:"exit_code"`
+	StopReason    string           `json:"stop_reason,omitempty"`
+	StopMessage   string           `json:"stop_message,omitempty"`
+	StartedAt     time.Time        `json:"started_at"`
+	FinishedAt    *time.Time       `json:"finished_at,omitempty"`
 }
 
 func JobIndexEntry(job Job) IndexedJob {

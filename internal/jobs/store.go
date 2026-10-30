@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -25,6 +26,7 @@ const (
 	StatusAuthRequired Status = "auth_required"
 	StatusInterrupted  Status = "interrupted"
 	StatusCapacity     Status = "capacity_exhausted"
+	StatusUsageLimited Status = "usage_limited"
 	StatusOutputLimit  Status = "output_limit"
 )
 
@@ -83,13 +85,19 @@ type ExecSpec struct {
 }
 
 type Store struct {
-	Root string
+	Root       string
+	legacyRoot string
 }
 
 const jobLockTimeout = 5 * time.Second
 
 func NewStore(cwd string) Store {
-	return Store{Root: filepath.Join(cwd, ".peeragent", "jobs")}
+	legacy := filepath.Join(cwd, ".peeragent", "jobs")
+	out, err := exec.Command("git", "-C", cwd, "rev-parse", "--absolute-git-dir").Output()
+	if err != nil || strings.TrimSpace(string(out)) == "" {
+		return Store{Root: legacy}
+	}
+	return Store{Root: filepath.Join(strings.TrimSpace(string(out)), "peeragent", "jobs"), legacyRoot: legacy}
 }
 
 func (s Store) Create(cwd string, spec ExecSpec, prompt string) (Job, error) {
@@ -339,7 +347,22 @@ func (s Store) jobDir(id string) (string, error) {
 	if err := ValidateID(id); err != nil {
 		return "", err
 	}
-	return filepath.Join(s.Root, id), nil
+	primary := filepath.Join(s.Root, id)
+	if s.legacyRoot == "" {
+		return primary, nil
+	}
+	// Keep all reads and writes for an existing job in its original folder,
+	// including locks and mailboxes used by workers from an older binary.
+	if _, err := os.Stat(primary); !os.IsNotExist(err) {
+		return primary, err
+	}
+	legacy := filepath.Join(s.legacyRoot, id)
+	if _, err := os.Stat(legacy); err == nil {
+		return legacy, nil
+	} else if !os.IsNotExist(err) {
+		return "", err
+	}
+	return primary, nil
 }
 
 func newID() (string, error) {
@@ -368,7 +391,7 @@ func AtomicWriteFile(path string, content []byte, perm os.FileMode) error {
 // cannot be accidentally overwritten by an older process.
 func IsTerminalStatus(status Status) bool {
 	switch status {
-	case StatusComplete, StatusFailed, StatusCancelled, StatusCapacity, StatusOutputLimit, StatusAuthRequired, StatusInterrupted:
+	case StatusComplete, StatusFailed, StatusCancelled, StatusCapacity, StatusUsageLimited, StatusOutputLimit, StatusAuthRequired, StatusInterrupted:
 		return true
 	default:
 		return false

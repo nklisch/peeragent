@@ -17,6 +17,7 @@ type JobStatus struct {
 	IndexedOnly      bool       `json:"indexed_only,omitempty"`
 	IndexWarning     string     `json:"index_warning,omitempty"`
 	FinishedAt       *time.Time `json:"finished_at,omitempty"`
+	FailureReason    string     `json:"failure_reason,omitempty"`
 	Failure          string     `json:"failure,omitempty"`
 	Version          string     `json:"version"`
 	Agent            string     `json:"agent"`

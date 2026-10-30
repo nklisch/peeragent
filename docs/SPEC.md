@@ -87,7 +87,11 @@ Async callers may opt into `--retry-capacity N` additional attempts with
 `--capacity-backoff <duration>` (default ten minutes). Retries resume that
 session under the original job id. A `max_output_tokens` stop reports
 `output_limit`; the same budget permits one immediate, concise continuation
-per job. Other failures are never retried.
+per job. A usage-limit stop reports `usage_limited`, preserving the exact
+provider message and retry time in the summary and `failure_reason`; it is
+never retried. Failed results retain the last error event's message in
+`failure_reason`, including when followed by a bare `turn.failed` marker.
+Other failures are never retried.
 
 `peeragent --jobs [--cwd DIR] [--all] [--json | --text]` lists every job in
 that directory, including finished jobs and unindexed local jobs, newest first.

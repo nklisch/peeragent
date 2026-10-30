@@ -39,6 +39,23 @@ func fakeCodexMain() {
 		fmt.Println(`{"type":"thread.started","thread_id":"fake-session"}`)
 	}
 	mode := os.Getenv("PEERAGENT_FAKE_MODE")
+	if strings.HasPrefix(mode, "friction-") {
+		diagnostic := "Selected model is at capacity. Please try a different model."
+		if mode == "friction-usage" || (mode == "friction-capacity-usage" && len(calls) > 1) {
+			diagnostic = "You’ve hit your usage limit. Visit https://chatgpt.com/settings/usage to purchase more credits or try again at Nov 3rd, 2026 11:48 PM."
+		}
+		if mode == "friction-last-error" {
+			fmt.Println(`{"type":"error","message":"first error"}`)
+			diagnostic = "last error"
+		}
+		if mode == "friction-success" || (mode == "friction-capacity-resumes" && len(calls) == 4) {
+			fmt.Println(`{"type":"task_complete","last_agent_message":"done"}`)
+			return
+		}
+		fmt.Printf("{\"type\":\"error\",\"message\":%q}\n", diagnostic)
+		fmt.Println(`{"type":"turn.failed"}`)
+		os.Exit(1)
+	}
 	if mode == "messaging" || mode == "messaging-retry" {
 		input, _ := io.ReadAll(os.Stdin)
 		data, _ := json.Marshal(map[string]any{"prompt": string(input), "env": terminalenv.TerminalEnvSnapshot()})

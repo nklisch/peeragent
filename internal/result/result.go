@@ -14,6 +14,7 @@ const (
 	StatusAuthRequired Status = "auth_required"
 	StatusInterrupted  Status = "interrupted"
 	StatusCapacity     Status = "capacity_exhausted"
+	StatusUsageLimited Status = "usage_limited"
 	StatusOutputLimit  Status = "output_limit"
 	StatusSuccess      Status = "success"
 	StatusFailed       Status = "failed"
@@ -27,6 +28,7 @@ const (
 // the target produced no message. Summary and Details keep their established shapes.
 type Result struct {
 	JobID             string         `json:"job_id,omitempty"`
+	FailureReason     string         `json:"failure_reason,omitempty"`
 	Failure           string         `json:"failure,omitempty"`
 	PendingHeavySteps []heavy.Step   `json:"pending_heavy_steps,omitempty"`
 	Status            Status         `json:"status"`

@@ -270,6 +270,9 @@ command while running; blocking text calls also print the ID to stderr before wa
   after the optional retry budget, or immediately when no retry/session is available.
   `metadata.agent_session` carries the resumable conversation when known.
   `metadata.capacity_retries` records additional attempts actually made.
+- `usage_limited`: Codex hit its usage limit; terminal, with no automatic retry.
+  The summary and `failure_reason` preserve the exact provider message and retry
+  time when present, including when the limit occurs after a capacity retry.
 - `output_limit`: Codex stopped at `max_output_tokens`; terminal unless the shared
   retry budget permits its one immediate continuation. Session and resume command
   are reported as described below.
@@ -281,6 +284,11 @@ command while running; blocking text calls also print the ID to stderr before wa
   because its thread was not found, with no structured terminal outcome. Preserve the session and
   resume manually; this status is never retried automatically.
 - `cancelled`: Async job was cancelled.
+
+Failed results expose `failure_reason`: the last provider error event's message,
+or the wrapper failure summary when no provider message is available. A bare
+`turn.failed` retains the preceding error and classification. Single-job status,
+job listings, archives and the compact index retain this reason.
 
 A structured Codex cybersecurity refusal remains `failed`, with
 `failure: policy_refusal`. Its summary explicitly names OpenAI's safety filter
@@ -305,6 +313,13 @@ when available.
 ## Working Directory
 
 The default working directory for new tasks is the current host directory.
+New job records live in the checkout's Git directory (`git rev-parse --git-dir`),
+under `peeragent/jobs/`. Linked worktrees have separate job folders. Outside Git,
+records live under `.peeragent/jobs/`. Every lookup also reads existing
+`.peeragent/jobs/` records, including session scans, messaging and listings;
+updates to an existing job stay in its original folder. The working directory
+recorded in metadata and the index remains the target checkout, not its Git directory.
+
 Job controls without `--cwd` first look up the job id in the per-user index.
 Resume without `--cwd` first looks up the agent/session pair recorded at the
 last result, including blocking and failed results. Missing entries fall back
@@ -484,12 +499,15 @@ path in `metadata.log_path`. Even an exit status of zero without a terminal
 result is a failed job; the blocking CLI returns exit `1`. No wall-clock
 failure deadline is used. A terminal result or cancellation already recorded
 keeps precedence. Normal terminal results are read without being rewritten.
-Collected worker exits remove the PID sidecar. Unix liveness checks also ignore
+Blocking callers read persisted completion without reconciling worker loss;
+their owned handle supplies the definitive exit code and log. External
+observers retain stale-worker recovery. Collected worker exits remove the PID
+sidecar. Unix liveness checks also ignore
 exited, uncollected workers (Linux process state; macOS native exit events).
 Windows retains the worker's native handle until its wait completes.
 
 ```text
-.peeragent/jobs/<job-id>/
+<git-dir>/peeragent/jobs/<job-id>/
   job.json       lifecycle + ExecSpec + worker boot/PID/start identity + mailbox references + live observations
   prompt.txt     resolved task text, parent-written, child-read
   launcher.json  optional private native launcher channel (legacy Herdr fields readable), mode 0600

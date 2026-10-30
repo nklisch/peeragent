@@ -14,7 +14,7 @@ import (
 )
 
 func TestTerminalResultsSurviveRemovedJobDirectory(t *testing.T) {
-	for _, status := range []result.Status{result.StatusSuccess, result.StatusFailed, result.StatusAuthRequired, result.StatusInterrupted, result.StatusCancelled} {
+	for _, status := range []result.Status{result.StatusSuccess, result.StatusFailed, result.StatusUsageLimited, result.StatusAuthRequired, result.StatusInterrupted, result.StatusCancelled} {
 		t.Run(string(status), func(t *testing.T) {
 			cwd := t.TempDir()
 			store := jobs.NewStore(cwd)
@@ -27,7 +27,7 @@ func TestTerminalResultsSurviveRemovedJobDirectory(t *testing.T) {
 			}
 			message := "complete handback"
 			res := result.Result{Status: status, Summary: "outcome", FinalMessage: &message, Details: "retained details", Metadata: result.Metadata{AgentSession: "archived-session", ExitCode: 1}}
-			if status == result.StatusAuthRequired || status == result.StatusInterrupted || status == result.StatusFailed {
+			if status == result.StatusAuthRequired || status == result.StatusInterrupted || status == result.StatusFailed || status == result.StatusUsageLimited {
 				res.FinalMessage = nil
 			}
 			if status == result.StatusFailed {

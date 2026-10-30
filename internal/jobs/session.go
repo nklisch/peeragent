@@ -86,23 +86,17 @@ func SessionJobsFromIndex(agent, session, cwd string, entries []IndexedJob) ([]J
 	seen := map[string]bool{}
 	for dir := range dirs {
 		store := NewStore(dir)
-		entries, err := os.ReadDir(store.Root)
-		if os.IsNotExist(err) {
-			continue
-		}
+		ids, err := store.ListIDs()
 		if err != nil {
 			return nil, fmt.Errorf("read jobs in %s: %w", dir, err)
 		}
-		for _, entry := range entries {
-			if !entry.IsDir() || ValidateID(entry.Name()) != nil {
-				continue
-			}
-			job, err := store.Load(entry.Name())
+		for _, id := range ids {
+			job, err := store.Load(id)
 			if os.IsNotExist(err) {
 				continue
 			}
 			if err != nil {
-				return nil, fmt.Errorf("load job %s: %w", entry.Name(), err)
+				return nil, fmt.Errorf("load job %s: %w", id, err)
 			}
 			if job.Spec.Agent == agent && job.Session() == session && !seen[job.ID] {
 				matches = append(matches, job)

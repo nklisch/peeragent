@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 )
 
 // Separate per-job files avoid lost updates between simultaneous launches.
@@ -139,18 +140,27 @@ func IndexedDirectories() ([]string, error) {
 }
 
 func (s Store) ListIDs() ([]string, error) {
-	entries, err := os.ReadDir(s.Root)
-	if os.IsNotExist(err) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("list jobs: %w", err)
-	}
+	seen := map[string]bool{}
 	var ids []string
-	for _, entry := range entries {
-		if entry.IsDir() && ValidateID(entry.Name()) == nil {
-			ids = append(ids, entry.Name())
+	for _, root := range []string{s.Root, s.legacyRoot} {
+		if root == "" {
+			continue
+		}
+		entries, err := os.ReadDir(root)
+		if os.IsNotExist(err) {
+			continue
+		}
+		if err != nil {
+			return nil, fmt.Errorf("list jobs: %w", err)
+		}
+		for _, entry := range entries {
+			id := entry.Name()
+			if entry.IsDir() && ValidateID(id) == nil && !seen[id] {
+				ids = append(ids, id)
+				seen[id] = true
+			}
 		}
 	}
+	sort.Strings(ids)
 	return ids, nil
 }

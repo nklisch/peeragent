@@ -228,7 +228,14 @@ the complete variable list and protection scope.
    `--status` and `--result` remain fallbacks.
 ```
 
-Async job truth is local to the repository under `.peeragent/jobs/`. A private
+Blocking callers poll persisted completion without reconciling worker loss;
+their owned process handle supplies the exit code and diagnostic log. External
+observers reconcile proven process loss to `interrupted`.
+
+Async job truth lives under `<git-dir>/peeragent/jobs/`, separately for each
+checkout or linked worktree. Outside Git it lives under `.peeragent/jobs/`.
+The store reads existing `.peeragent/jobs/` records too, keeping each job's
+updates and locks in its original folder. A private
 per-user index maps job ids and agent/session pairs to absolute working
 directories. Separate atomic files avoid contention between launches. The
 CLI consults it before applying the current-directory default; application job

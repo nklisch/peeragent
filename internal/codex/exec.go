@@ -162,6 +162,7 @@ type streamState struct {
 	session, message, preview   string
 	capacity, terminal, success bool
 	outputLimit                 bool
+	usageLimited                bool
 	authRequired                bool
 	failure, failureMessage     string
 	turnComplete                bool
@@ -172,14 +173,8 @@ func (s *streamState) consume(line string) (executil.Progress, bool) {
 	s.observation = executil.CompletionUnchanged
 	var event codexEvent
 	if err := json.Unmarshal([]byte(line), &event); err != nil {
-		if !s.terminal && isCapacityDiagnostic(line) {
-			s.capacity = true
-		}
-		if !s.terminal && isAuthDiagnostic(line) {
-			s.authRequired = true
-		}
-		if !s.terminal && isOutputLimitDiagnostic(line) {
-			s.outputLimit = true
+		if !s.terminal && (isCapacityDiagnostic(line) || isAuthDiagnostic(line) || isOutputLimitDiagnostic(line) || isUsageLimitDiagnostic(line)) {
+			s.recordError(codexEvent{Message: line})
 		}
 		return executil.Progress{}, false
 	}
@@ -194,7 +189,7 @@ func (s *streamState) consume(line string) (executil.Progress, bool) {
 	oldMessage := s.message
 	if s.turnComplete && isActivityEvent(event.Type) {
 		s.turnComplete, s.terminal = false, false
-		s.outputLimit, s.authRequired = false, false
+		s.outputLimit, s.authRequired, s.usageLimited = false, false, false
 		s.failure, s.failureMessage = "", ""
 		s.observation = executil.CompletionActive
 	}
@@ -226,7 +221,7 @@ func (s *streamState) consume(line string) (executil.Progress, bool) {
 			}
 			if item.Phase == "final" || item.Phase == "final_answer" {
 				s.terminal, s.success, s.capacity = true, true, false
-				s.outputLimit, s.authRequired = false, false
+				s.outputLimit, s.authRequired, s.usageLimited = false, false, false
 				s.failure, s.failureMessage = "", ""
 				s.turnComplete = false
 				s.observation = executil.CompletionPending
@@ -238,25 +233,12 @@ func (s *streamState) consume(line string) (executil.Progress, bool) {
 		}
 	case "error":
 		if !s.terminal {
-			s.authRequired = s.authRequired || isAuthDiagnostic(event.Message) || isAuthDiagnostic(event.Error.Message)
-			if message := policyRefusalMessage(event); message != "" {
-				s.failure, s.failureMessage = "policy_refusal", message
-			}
-		}
-		if !s.terminal && outputLimitEvent(event) {
-			s.outputLimit = true
-		}
-		if !s.terminal && (isCapacityDiagnostic(event.Message) || isCapacityDiagnostic(event.Error.Message)) {
-			s.capacity = true
+			s.recordError(event)
 		}
 	case "turn.failed":
-		s.authRequired = isAuthDiagnostic(event.Message) || isAuthDiagnostic(event.Error.Message)
-		s.failure, s.failureMessage = "", policyRefusalMessage(event)
-		if s.failureMessage != "" {
-			s.failure = "policy_refusal"
-		}
-		s.outputLimit = outputLimitEvent(event)
-		s.capacity = isCapacityDiagnostic(event.Message) || isCapacityDiagnostic(event.Error.Message)
+		// A bare terminal marker closes the preceding error; only an explicit
+		// replacement diagnostic may change its classification.
+		s.recordError(event)
 		s.terminal, s.success = true, false
 		s.turnComplete = false
 		s.observation = executil.CompletionPending
@@ -271,7 +253,7 @@ func (s *streamState) consume(line string) (executil.Progress, bool) {
 			s.message = event.LastAgentMessage
 		}
 		s.capacity, s.terminal, s.success = false, true, true
-		s.outputLimit, s.authRequired = false, false
+		s.outputLimit, s.authRequired, s.usageLimited = false, false, false
 		s.failure, s.failureMessage = "", ""
 	}
 	if oldMessage != s.message {
@@ -282,6 +264,27 @@ func (s *streamState) consume(line string) (executil.Progress, bool) {
 		progress.Message = s.message
 	}
 	return progress, event.Type != ""
+}
+
+// recordError keeps the last provider error verbatim. Terminal markers often
+// omit it, especially on resumed attempts, so absence does not erase the cause.
+func (s *streamState) recordError(event codexEvent) {
+	message := event.Error.Message
+	if message == "" {
+		message = event.Message
+	}
+	if message == "" {
+		return
+	}
+	s.failureMessage = message
+	s.failure = ""
+	if policyRefusalMessage(event) != "" {
+		s.failure = "policy_refusal"
+	}
+	s.capacity = isCapacityDiagnostic(message)
+	s.outputLimit = isOutputLimitDiagnostic(message)
+	s.authRequired = isAuthDiagnostic(message)
+	s.usageLimited = isUsageLimitDiagnostic(message)
 }
 
 // Turn completion is provisional: stop hooks and goals can continue the same
@@ -315,6 +318,7 @@ func normalizeStreamResult(result *Result, state streamState) {
 		}
 	}
 	result.CapacityExhausted = capacity
+	result.UsageLimited = state.usageLimited
 	result.OutputLimit = state.outputLimit
 	result.AuthRequired = state.authRequired
 	result.Failure, result.FailureMessage = state.failure, state.failureMessage
@@ -351,6 +355,12 @@ func normalizeStreamResult(result *Result, state streamState) {
 	}
 }
 
+func isUsageLimitDiagnostic(text string) bool {
+	text = strings.TrimSpace(strings.ToLower(text))
+	text = strings.ReplaceAll(text, "’", "'")
+	return strings.HasPrefix(text, "you've hit your usage limit.")
+}
+
 func isCapacityDiagnostic(text string) bool {
 	text = strings.TrimSpace(strings.ToLower(text))
 	text = strings.TrimSpace(strings.TrimPrefix(text, "error:"))
@@ -364,12 +374,6 @@ func isCapacityDiagnostic(text string) bool {
 	// Require the diagnostic's own prefix, not a quoted or historical mention.
 	suffix := strings.TrimPrefix(text, diagnostic)
 	return suffix == "" || strings.ContainsRune(" \t.,:;!?", rune(suffix[0]))
-}
-
-// Only error/outcome envelopes call this; assistant prose mentioning the limit
-// must not turn a successful handback into another execution attempt.
-func outputLimitEvent(e codexEvent) bool {
-	return isOutputLimitDiagnostic(e.Error.Message) || isOutputLimitDiagnostic(e.Message)
 }
 
 func isOutputLimitDiagnostic(text string) bool {

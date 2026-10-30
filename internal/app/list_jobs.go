@@ -35,9 +35,9 @@ func (s *Service) ListJobs(ctx context.Context, cwd string, all bool) ([]result.
 		}
 	}
 	seen := map[string]bool{}
-	seenJobs := map[JobRequest]bool{}
+	seenJobs := map[string]bool{}
 	for _, req := range requests {
-		seenJobs[req] = true
+		seenJobs[req.JobID] = true
 	}
 	for _, dir := range dirs {
 		if seen[dir] {
@@ -51,9 +51,9 @@ func (s *Service) ListJobs(ctx context.Context, cwd string, all bool) ([]result.
 		}
 		for _, id := range ids {
 			req := JobRequest{CWD: dir, JobID: id}
-			if !seenJobs[req] {
+			if !seenJobs[id] {
 				requests = append(requests, req)
-				seenJobs[req] = true
+				seenJobs[req.JobID] = true
 			}
 		}
 	}

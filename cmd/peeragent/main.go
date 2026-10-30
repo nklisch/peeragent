@@ -253,7 +253,7 @@ func waitForBlockingWorker(ctx context.Context, req input.Request, id string, wo
 		return applicationService.WorkerExited(ctx, request, exit.code, exit.err)
 	}
 	for {
-		res, err := applicationService.PollJobResult(ctx, request)
+		res, err := applicationService.PollOwnedJobResult(ctx, request)
 		if err != nil {
 			return result.Result{}, err
 		}

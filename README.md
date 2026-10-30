@@ -568,9 +568,13 @@ Cancel the job:
 bin/peeragent --cancel <job-id>
 ```
 
-Job state for both blocking and async launches lives under `.peeragent/jobs/`
-in the target repository. It is
-local runtime state and ignored by git. Job controls find newly launched jobs by
+Job state for both blocking and async launches lives under `<git-dir>/peeragent/jobs/`
+inside the checkout's Git directory (`git rev-parse --git-dir`). Linked worktrees
+have separate job folders, and launches leave no job records in the working tree.
+Outside Git, records live under `.peeragent/jobs/` in the target directory.
+All job controls, message commands, listings, session resumes and index lookups
+also find existing `.peeragent/jobs/` records; those jobs keep their original
+folders, including while older workers are running. Job controls find newly launched jobs by
 id from any directory. `--resume <agent-session>` uses the directory recorded
 when that session was last observed. An explicit `--cwd <path>` always
 wins when it contains the job. If that folder has no such job and the index
@@ -642,6 +646,13 @@ additional attempts with a ten-minute delay:
 ```sh
 bin/peeragent --async --retry-capacity 12 "Implement the requested change."
 ```
+
+Codex's “You've hit your usage limit” stop returns `usage_limited`. Its summary
+and `failure_reason` preserve the provider's exact message, including a retry time
+when present. `--retry-capacity` never retries a usage limit, including one reached
+after a capacity retry. A bare `turn.failed` marker retains the preceding error's
+message and classification. Failed results expose the last error event's message
+as `failure_reason`; the reason is retained in status, listings and indexed results.
 
 Codex `max_output_tokens` stops return the terminal status `output_limit`,
 with the captured `agent_session` and a resume command in the summary. Under
