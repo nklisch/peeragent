@@ -1,6 +1,25 @@
 # Changelog
 
-## Unreleased
+## v0.16.0
+
+### Fixes
+- A job whose worker process is gone is no longer reported as `running`. Jobs record the worker's boot id, PID and
+  process start time; `--status`, `--result`, `--wait`, `--wait-any` and `--resume` report a job whose boot or worker
+  no longer matches as `interrupted`, a terminal state that keeps `agent_session` and the last message and that
+  `--resume` accepts. Unknown identity is never treated as death, and PID reuse is guarded by the start time.
+- A wrong `--cwd` reports `not_found` (exit 4) naming the folder searched, or uses the indexed folder when the
+  cross-directory index knows the job, instead of reading as a failed job.
+- A mistyped control word followed by a job id (for example `peeragent outbox <job-id>`), or a job id alone, is refused
+  as an unknown command before any job starts. Put `--` before task text that looks like one, or use `--prompt-file`.
+- An async launch in text mode prints its job id and the matching `--wait` command; a failed job's summary keeps its
+  stop cause; `--jobs --json` is documented as JSON Lines.
+
+### Features
+- `peeragent messages <job-id>` prints a job's inbox and outbox messages, oldest first, with `--json` for JSON Lines.
+- `say` documents its 2,000-character cap, and a refusal by the outbound rate limit names when the next send is allowed.
+- Retained job metadata also records worker identity, so status and resume work after the worktree is removed.
+
+## v0.15.1
 
 ### Fixes
 - Keep compact job metadata in the cross-directory index after worktree removal,
