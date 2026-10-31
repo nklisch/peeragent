@@ -8,7 +8,11 @@ import (
 )
 
 func TestGitJobStoreIsPerWorktree(t *testing.T) {
-	root := t.TempDir()
+	// Git reports canonical paths: macOS temp folders sit behind a /private link and Windows ones can use 8.3 names.
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
 	repo := filepath.Join(root, "repo")
 	git := func(args ...string) {
 		t.Helper()

@@ -156,7 +156,12 @@ func TestGitJobStorageControls(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			expected := filepath.Join(cwd, ".git", "peeragent", "jobs", newJob.ID)
+			// Git reports canonical paths: macOS temp folders sit behind a /private link and Windows ones can use 8.3 names.
+			canonical, err := filepath.EvalSymlinks(cwd)
+			if err != nil {
+				t.Fatal(err)
+			}
+			expected := filepath.Join(canonical, ".git", "peeragent", "jobs", newJob.ID)
 			if filepath.Dir(newJob.LogPath) != expected {
 				t.Fatalf("new job folder: %s, want %s", newJob.LogPath, expected)
 			}
