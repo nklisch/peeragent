@@ -87,7 +87,7 @@ vice versa.
 ## Effort And Model
 
 The `sol` alias selects `gpt-6.1-sol`; `luna` selects `gpt-6-luna`, and
-`terra` selects `gpt-5.6-terra`. Explicit `gpt-6-sol`, `gpt-5.6-luna`, and
+`terra` selects `gpt-6.1-terra`. Explicit `gpt-6-sol`, `gpt-5.6-luna`, `gpt-5.6-terra`, and
 `gpt-5.6-sol` IDs remain supported.
 
 Use GPT-6 for routine Codex work. Luna is the routine fast path; Sol is the
@@ -409,7 +409,7 @@ Use advanced modes only when the request calls for them:
 - `--worktree` — reserved; returns a clear failure today.
 - `--profile <name>` — Codex profile override.
 - `--model <name>` — Codex aliases (`astra`, `luna`, `terra`, `sol`) or their
-  canonical `gpt-6.1-sol`, `gpt-6-<astra|luna|sol>`, and
+  canonical `gpt-6.1-<sol|terra>`, `gpt-6-<astra|luna|sol>`, and
   `gpt-5.6-<luna|terra|sol>` IDs;
   Claude aliases (`fable`, `sonnet`, `opus`, `haiku`); Gemini `flash`, `pro`, or a supported explicit family ID; or Z.AI
   `glm-5.2`. No other Z.AI models are accepted.

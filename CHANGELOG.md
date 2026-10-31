@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.17.1
+
+### Changes
+- The Codex `terra` alias selects `gpt-6.1-terra`, and `gpt-6.1-terra` is accepted as an explicit ID. The previous
+  `gpt-5.6-terra` stays available by its explicit ID.
+
 ## v0.17.0
 
 ### Fixes

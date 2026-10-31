@@ -43,7 +43,7 @@ codex plugin add peeragent@peeragent
 Pi:
 
 ```sh
-pi install git:github.com/nklisch/peeragent@v0.17.0
+pi install git:github.com/nklisch/peeragent@v0.17.1
 ```
 
 The Pi package loads the `peer` skill from `plugin/skills`, so its wrapper
@@ -127,7 +127,7 @@ pattern. If you want that behavior, add a project instruction to `CLAUDE.md` or
 `AGENTS.md` telling the host when to delegate through `/peer`.
 
 The `sol` alias selects `gpt-6.1-sol`; `luna` selects `gpt-6-luna`, and
-`terra` selects `gpt-5.6-terra`. Explicit `gpt-6-sol`, `gpt-5.6-luna`, and
+`terra` selects `gpt-6.1-terra`. Explicit `gpt-6-sol`, `gpt-5.6-luna`, `gpt-5.6-terra`, and
 `gpt-5.6-sol` IDs remain supported.
 
 Use GPT-6 for routine Codex work and jump to GPT-6 Astra for the most
@@ -290,7 +290,7 @@ bin/peeragent --agent zai --effort xhigh "Review the cross-module migration for 
 
 Codex accepts the short aliases `astra`, `luna`, `terra`, and `sol` and passes
 `astra` as `gpt-6-astra`, `luna` as `gpt-6-luna`, `sol` as `gpt-6.1-sol`,
-and `terra` as `gpt-5.6-terra` to the Codex CLI. Explicit `gpt-6-sol` and
+and `terra` as `gpt-6.1-terra` to the Codex CLI. Explicit `gpt-6-sol` and
 GPT-5.6 IDs are also supported. Claude
 supports `--model
 fable`, `--model sonnet`, `--model opus`, and `--model haiku`. Gemini accepts
@@ -732,23 +732,23 @@ published as downloadable archives for manual install.
 Build release archives locally:
 
 ```sh
-make release VERSION=0.17.0
+make release VERSION=0.17.1
 ```
 
 That writes:
 
 ```text
-dist/release/peeragent_0.17.0_linux_amd64.tar.gz
-dist/release/peeragent_0.17.0_linux_arm64.tar.gz
-dist/release/peeragent_0.17.0_darwin_amd64.tar.gz
-dist/release/peeragent_0.17.0_darwin_arm64.tar.gz
+dist/release/peeragent_0.17.1_linux_amd64.tar.gz
+dist/release/peeragent_0.17.1_linux_arm64.tar.gz
+dist/release/peeragent_0.17.1_darwin_amd64.tar.gz
+dist/release/peeragent_0.17.1_darwin_arm64.tar.gz
 dist/release/checksums.txt
 ```
 
 Publish a GitHub release from a machine with `gh` authenticated:
 
 ```sh
-make publish-release VERSION=0.17.0
+make publish-release VERSION=0.17.1
 ```
 
 The GitHub Actions workflow in `.github/workflows/release.yml` also publishes
