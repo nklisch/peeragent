@@ -36,6 +36,11 @@ the first call and use that path for every invocation:
 - Use bare `peeragent` only if the bundled path cannot be found and
   `command -v peeragent` succeeds.
 
+When the machine's own instructions say that bare `peeragent` runs a locally
+deployed build (for example, an owner who builds peeragent's main and installs
+it on `PATH`), use bare `peeragent` instead: merged fixes reach that build
+without a plugin update, and the bundled wrapper would run an older release.
+
 Claude Code cache wrappers follow the active install in its installed-plugins
 record, including when an existing session keeps an older cache path on PATH.
 The wrapper needs Python 3 or jq to read the record and otherwise keeps its
