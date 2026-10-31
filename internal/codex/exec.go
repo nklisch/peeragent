@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"os/exec"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -166,6 +168,9 @@ type streamState struct {
 	authRequired                bool
 	failure, failureMessage     string
 	turnComplete                bool
+	completedTurn               bool
+	transportErrors             int
+	transportExhausted          bool
 	observation                 executil.CompletionObservation
 }
 
@@ -243,6 +248,7 @@ func (s *streamState) consume(line string) (executil.Progress, bool) {
 		s.turnComplete = false
 		s.observation = executil.CompletionPending
 	case "turn.completed", "task_complete":
+		s.completedTurn = true
 		// A later turn marker must not downgrade an explicit session completion.
 		if event.Type == "turn.completed" && s.terminal && !s.turnComplete {
 			break
@@ -275,6 +281,12 @@ func (s *streamState) recordError(event codexEvent) {
 	}
 	if message == "" {
 		return
+	}
+	if isTransportDiagnostic(message) && (event.Type != "turn.failed" || message != s.failureMessage) {
+		s.transportErrors++
+	}
+	if exhaustedReconnect(message) {
+		s.transportExhausted = true
 	}
 	s.failureMessage = message
 	s.failure = ""
@@ -327,7 +339,11 @@ func normalizeStreamResult(result *Result, state streamState) {
 	}
 	lines := strings.Split(result.Stderr, "\n")
 	filtered := lines[:0]
+	transportLogErrors := 0
 	for _, line := range lines {
+		if isTransportDiagnostic(codexLogDiagnostic(line)) {
+			transportLogErrors++
+		}
 		// A structured terminal outcome is authoritative over stderr history.
 		if !terminal && !result.CapacityExhausted && isCapacityDiagnostic(line) {
 			result.CapacityExhausted = true
@@ -345,6 +361,13 @@ func normalizeStreamResult(result *Result, state streamState) {
 			filtered = append(filtered, line)
 		}
 	}
+	// Transport history can explain a failed compact operation, but never a
+	// completed turn or an explicit unrelated provider failure.
+	if result.ExitCode != 0 && !state.success && !state.completedTurn &&
+		(state.transportExhausted || state.transportErrors >= 2 || transportLogErrors >= 2) &&
+		isTransportTerminal(state.failureMessage) && !result.UsageLimited && !result.AuthRequired && result.Failure == "" {
+		result.CapacityExhausted = true
+	}
 	result.Stderr = strings.TrimSpace(strings.Join(filtered, "\n"))
 	if session != "" {
 		result.AgentSession = session
@@ -353,6 +376,36 @@ func normalizeStreamResult(result *Result, state streamState) {
 		result.Stdout = text
 		result.FinalMessage = text
 	}
+}
+
+var reconnectDiagnostic = regexp.MustCompile(`(?i)^reconnecting\.\.\.\s+(\d+)/(\d+)(?:\s|\(|$)`)
+
+func exhaustedReconnect(message string) bool {
+	match := reconnectDiagnostic.FindStringSubmatch(strings.TrimSpace(message))
+	if match == nil {
+		return false
+	}
+	n, err1 := strconv.Atoi(match[1])
+	total, err2 := strconv.Atoi(match[2])
+	return err1 == nil && err2 == nil && total > 0 && n == total
+}
+
+func isTransportDiagnostic(message string) bool {
+	message = strings.ToLower(strings.TrimSpace(message))
+	return reconnectDiagnostic.MatchString(message) ||
+		strings.HasPrefix(message, "failed to connect to responses websocket") ||
+		strings.Contains(message, ": failed to connect to responses websocket") ||
+		strings.HasPrefix(message, "stream disconnected") ||
+		strings.Contains(message, ": stream disconnected")
+}
+
+func isTransportTerminal(message string) bool {
+	message = strings.ToLower(strings.TrimSpace(message))
+	if rest, ok := strings.CutPrefix(message, "error running remote compact task:"); ok {
+		return strings.HasPrefix(strings.TrimSpace(rest), "unexpected status ") || isTransportDiagnostic(rest)
+	}
+	return message == "" || isTransportDiagnostic(message) ||
+		strings.HasPrefix(message, "failed to run pre-sampling compact")
 }
 
 func isUsageLimitDiagnostic(text string) bool {

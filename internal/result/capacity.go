@@ -1,5 +1,13 @@
 package result
 
+func UsageLimitSummary(message string) string {
+	summary := "stopped: usage_limited"
+	if message != "" {
+		summary += "; " + message
+	}
+	return summary + "; not retried by --retry-capacity; usage limits clear at the reset or on an account switch"
+}
+
 func CapacitySummary(session string) string {
 	summary := "stopped: " + string(StatusCapacity)
 	if session != "" {

@@ -122,7 +122,7 @@ func ResultFromExecution(delegation input.Delegation, execResult executil.Result
 	}
 	if execResult.UsageLimited {
 		status = result.StatusUsageLimited
-		summary = "stopped: usage_limited; " + execResult.FailureMessage
+		summary = result.UsageLimitSummary(execResult.FailureMessage)
 		if execResult.ExitCode == 0 {
 			execResult.ExitCode = 1
 		}

@@ -136,6 +136,12 @@ func TestTextAsyncLaunchNamesJobAndWait(t *testing.T) {
 		t.Fatalf("jobs %#v %v", entries, err)
 	}
 	id := entries[0].Name()
+	if !strings.HasPrefix(stdout, "job "+id+"\n") {
+		t.Fatalf("first line does not name job: %s", stdout)
+	}
+	if !strings.Contains(stderr, "--text selects the output format") || !strings.Contains(stderr, "after -- or in --prompt-file") {
+		t.Fatalf("missing text flag hint: %s", stderr)
+	}
 	if !strings.Contains(stdout, "Job: "+id+"\n") || !strings.Contains(stdout, "peeragent --wait "+id) {
 		t.Fatalf("missing id/wait: %s", stdout)
 	}

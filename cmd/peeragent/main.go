@@ -86,7 +86,7 @@ Flags:
   --prompt-file <path>            Read task or tell/say message text from a file.
   --async                         Start a background job and return its id.
                                   Add --retry-capacity N for opt-in Codex recovery.
-  --retry-capacity <N>            Retry capacity/output-limit/auth stops up to N times; requires --async --agent codex,
+  --retry-capacity <N>            Retry capacity/connection/output-limit/auth stops up to N times; requires --async --agent codex,
                                   including with --resume. Output and auth stops each resume once immediately, sharing N.
   --capacity-backoff <duration>   Delay between capacity retries (default 10m); requires
                                   --async --agent codex, including with --resume.
@@ -148,6 +148,9 @@ func runCommand(parent context.Context, args []string) (runErr error) {
 			return writeErr
 		}
 		return &usageError{}
+	}
+	if req.TextFlagHint && !req.Async {
+		fmt.Fprintln(os.Stderr, "Hint: --text selects the output format; put prompts after -- or in --prompt-file.")
 	}
 	if req.MessageCommand != "" {
 		return runMessageCommand(ctx, req)
@@ -271,8 +274,14 @@ func waitForBlockingWorker(ctx context.Context, req input.Request, id string, wo
 
 func launchAsync(ctx context.Context, req input.Request) error {
 	res, err := applicationService.Launch(ctx, delegationFromRequest(req))
+	if !req.JSON && res.Metadata.JobID != "" {
+		fmt.Fprintf(os.Stdout, "job %s\n", res.Metadata.JobID)
+	}
 	if writeErr := writeResult(req, res); writeErr != nil {
 		return writeErr
+	}
+	if req.TextFlagHint {
+		fmt.Fprintln(os.Stderr, "Hint: --text selects the output format; put prompts after -- or in --prompt-file.")
 	}
 	if err != nil {
 		if res.Metadata.ExitCode == 2 {
@@ -498,7 +507,7 @@ func runAsyncJob(req input.Request) error {
 		// Never start a fresh conversation on retry. Preserve all execution options,
 		// continuing the same session with a continuation prompt instead of replaying work.
 		jobReq.Resume = res.Metadata.AgentSession
-		jobReq.TaskText = "Continue the task from where you stopped when model capacity was exhausted."
+		jobReq.TaskText = "Continue the task from where you stopped due to a capacity or connection failure."
 		if outputLimit {
 			outputLimitRetried = true
 			jobReq.TaskText = "Continue from where you stopped at the output limit. Finish your handback concisely."

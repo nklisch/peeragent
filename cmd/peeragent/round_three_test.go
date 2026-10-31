@@ -122,7 +122,7 @@ func TestEveryLaunchPrintsJobID(t *testing.T) {
 					t.Fatalf("launch: %v %s", err, output)
 				}
 				text := string(output)
-				if !strings.HasPrefix(text, "Alt Subagent: ") {
+				if !async && !strings.HasPrefix(text, "Alt Subagent: ") {
 					t.Fatalf("text result prefix changed: %s", text)
 				}
 				var id string
@@ -133,6 +133,9 @@ func TestEveryLaunchPrintsJobID(t *testing.T) {
 				}
 				if jobs.ValidateID(id) != nil {
 					t.Fatalf("launch omitted job id: %s", text)
+				}
+				if async && !strings.HasPrefix(text, "job "+id+"\n") {
+					t.Fatalf("text launch first line omitted job id: %s", text)
 				}
 				if async {
 					cleanupAsyncJob(t, cwd, id)

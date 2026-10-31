@@ -36,6 +36,7 @@ type Request struct {
 	RetryCapacity          int
 	CapacityBackoff        time.Duration
 	TaskText               string
+	TextFlagHint           bool
 	CWD                    string
 	JSON                   bool
 	Agent                  string
@@ -180,6 +181,7 @@ func Parse(args []string, stdin io.Reader, getwd func() (string, error)) (Reques
 		RetryCapacity:          parsed.retryCapacity,
 		CapacityBackoff:        parsed.capacityBackoff,
 		TaskText:               delegation.TaskText,
+		TextFlagHint:           parsed.textFlagArgument && len(parsed.positionals) == 1 && !parsed.literalTask && parsed.promptFile == "" && !controlRequest,
 		CWD:                    delegation.CWD,
 		JSON:                   parsed.json,
 		Agent:                  delegation.Agent,
@@ -294,6 +296,7 @@ const RealCommands = "say, tell, inbox, messages; controls: --jobs, --status, --
 var commandWord = regexp.MustCompile(`^[a-z][a-z-]*$`)
 
 type parsedArgs struct {
+	textFlagArgument        bool
 	literalTask             bool
 	jobs, all, version      bool
 	noPreamble              bool
@@ -374,6 +377,9 @@ func parseArgs(args []string) (parsedArgs, error) {
 			parsed.json = true
 		case "--text":
 			parsed.json = false
+			if i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
+				parsed.textFlagArgument = true
+			}
 		case "--agent":
 			i++
 			agent, err := normalizeAgent(args[i])

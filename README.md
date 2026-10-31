@@ -636,6 +636,8 @@ index, keep `--cwd` pointed at the worktree holding the running job.
 
 Codex's explicit “Selected model is at capacity” stop, including during remote
 context compaction, returns the terminal status `capacity_exhausted`, with `metadata.agent_session` when available.
+An exhausted connection or transport failure before any model turn completes also
+uses `capacity_exhausted` and the same retry budget and backoff.
 Results, wait summaries and text output say `stopped: capacity_exhausted`, include
 `--resume <session>` when known, and suggest `--retry-capacity N` for automatic recovery.
 Scripts should read the JSON `status` field and match `capacity_exhausted`, rather than
@@ -649,7 +651,8 @@ bin/peeragent --async --retry-capacity 12 "Implement the requested change."
 
 Codex's “You've hit your usage limit” stop returns `usage_limited`. Its summary
 and `failure_reason` preserve the provider's exact message, including a retry time
-when present. `--retry-capacity` never retries a usage limit, including one reached
+when present, and explain that `--retry-capacity` does not retry usage limits;
+they clear at the reset or on an account switch. This includes a limit reached
 after a capacity retry. A bare `turn.failed` marker retains the preceding error's
 message and classification. Failed results expose the last error event's message
 as `failure_reason`; the reason is retained in status, listings and indexed results.
@@ -700,6 +703,8 @@ Single-job JSON output mirrors `metadata.job_id` as top-level `job_id` for launc
 status and results. The repository directory remains `metadata.cwd`. `--wait`
 writes exactly one JSON document to stdout, its terminal result; diagnostics and
 unread-message notices use stderr. Multi-job status and job listings use JSONL.
+An async launch with `--text` starts with `job <id>` on its own line. `--text`
+selects the output format; put prompts after `--` or use `--prompt-file`.
 
 
 ## Repository Shape

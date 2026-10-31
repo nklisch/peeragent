@@ -43,6 +43,12 @@ func TestFrictionRetryOutcomes(t *testing.T) {
 					if tc.status == result.StatusUsageLimited && (!strings.Contains(got.Summary, tc.reason) || got.FinalMessage != nil) {
 						t.Fatalf("usage stop hidden: %#v", got)
 					}
+					if tc.status == result.StatusUsageLimited {
+						out, diagnostic, err := controlOutput(t, other, command, launched.Metadata.JobID, "--text")
+						if err != nil || !strings.Contains(out, tc.reason) || !strings.Contains(out, "not retried by --retry-capacity; usage limits clear at the reset or on an account switch") {
+							t.Fatalf("%s text: %q %q %v", command, out, diagnostic, err)
+						}
+					}
 				}
 				terminal := cliResult(t, other, "--result", launched.Metadata.JobID)
 				if terminal.Metadata.CapacityRetries != tc.calls-1 {

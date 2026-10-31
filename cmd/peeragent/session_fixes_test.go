@@ -39,6 +39,17 @@ func fakeCodexMain() {
 		fmt.Println(`{"type":"thread.started","thread_id":"fake-session"}`)
 	}
 	mode := os.Getenv("PEERAGENT_FAKE_MODE")
+	if mode == "transport-retry" {
+		if len(calls) == 1 {
+			fmt.Println(`{"type":"turn.started"}`)
+			fmt.Println(`{"type":"error","message":"Reconnecting... 1/2 (connection reset)"}`)
+			fmt.Println(`{"type":"error","message":"Reconnecting... 2/2 (connection reset)"}`)
+			fmt.Println(`{"type":"turn.failed","error":{"message":"Error running remote compact task: unexpected status 401 Unauthorized"}}`)
+			os.Exit(1)
+		}
+		fmt.Println(`{"type":"task_complete","last_agent_message":"continued"}`)
+		return
+	}
 	if strings.HasPrefix(mode, "friction-") {
 		diagnostic := "Selected model is at capacity. Please try a different model."
 		if mode == "friction-usage" || (mode == "friction-capacity-usage" && len(calls) > 1) {
