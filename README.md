@@ -270,7 +270,8 @@ previous job record is unavailable, omitted options use today's defaults and
 the resolved options; an absent Codex/Claude model keeps the native CLI default.
 
 Codex, Gemini, Claude, and Z.AI GLM 5.2 support `--effort`. Codex defaults to
-`high` and accepts `low`, `medium`, `high`, and `xhigh`. Gemini defaults to
+`xhigh` for Luna and Terra, and `high` for Sol, Astra, and the native default
+model. It accepts `low`, `medium`, `high`, and `xhigh`. Gemini defaults to
 `high` and accepts `low`, `medium`, and `high`. Z.AI defaults to `high` and
 accepts `medium`, `high`, and `xhigh`. Claude defaults to `xhigh` and accepts
 only `high` or `xhigh` through peeragent:

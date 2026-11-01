@@ -362,6 +362,49 @@ func TestTellInboxNoticeAndStatus(t *testing.T) {
 	}
 }
 
+func TestTellFourKilobytesSurvivesInboxAndHistory(t *testing.T) {
+	root, _ := fakeMessagingEnvironment(t)
+	message := strings.Repeat("0123456789abcdef", 256)
+	path := filepath.Join(root, "reply.txt")
+	if err := os.WriteFile(path, []byte(message), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name string
+		args []string
+	}{
+		{"argument", []string{message}},
+		{"file", []string{"--prompt-file", path}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			store := jobs.NewStore(root)
+			job, err := store.Create(root, jobs.ExecSpec{Agent: "codex"}, "task")
+			if err != nil {
+				t.Fatal(err)
+			}
+			args := append([]string{"tell", job.ID}, tc.args...)
+			if out, stderr, err := controlOutput(t, root, args...); err != nil {
+				t.Fatalf("tell: %q %q %v", out, stderr, err)
+			}
+			out, stderr, err := messageCLI(t, job, "inbox")
+			if err != nil {
+				t.Fatalf("inbox: %q %v", stderr, err)
+			}
+			var entry jobs.Message
+			if err := json.Unmarshal([]byte(out), &entry); err != nil || entry.Text != message {
+				t.Fatalf("inbox lost message: got %d bytes, want %d, error %v", len(entry.Text), len(message), err)
+			}
+			out, stderr, err = controlOutput(t, root, "messages", job.ID, "--json")
+			if err != nil {
+				t.Fatalf("history: %q %v", stderr, err)
+			}
+			if err := json.Unmarshal([]byte(out), &entry); err != nil || entry.Text != message {
+				t.Fatalf("history lost message: got %d bytes, want %d, error %v", len(entry.Text), len(message), err)
+			}
+		})
+	}
+}
+
 func cliResultTell(t *testing.T, dir, id, text string) {
 	t.Helper()
 	cmd := exec.Command(os.Args[0], "tell", id, text)

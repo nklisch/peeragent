@@ -78,12 +78,12 @@ func NormalizeDelegation(raw Delegation, getwd func() (string, error)) (Delegati
 // NormalizeModelAndEffort validates the pair after resume inheritance as well
 // as at the input boundary, since a partial override can change its validity.
 func NormalizeModelAndEffort(agent, model, effort string) (string, string, error) {
-	effort, err := normalizeEffort(agent, effort)
+	model, err := normalizeModel(agent, model)
 	if err != nil {
 		return "", "", err
 	}
 
-	model, err = normalizeModel(agent, model)
+	effort, err = normalizeEffort(agent, model, effort)
 	if err != nil {
 		return "", "", err
 	}

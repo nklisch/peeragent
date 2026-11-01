@@ -109,6 +109,10 @@ directly from Luna to Sol or Astra.
 | Fable-tier | `--model sol --effort high` or `xhigh` | `--model fable --effort high` or `xhigh` |
 | GPT-6 flagship | `--model astra --effort high` or `xhigh` | Above Fable-tier |
 
+Codex defaults to `xhigh` for Luna and Terra, and `high` for Sol, Astra, and
+the native default model. Explicit `--effort` overrides the default; resumes
+retain the previous job’s effort unless overridden.
+
 Claude also retains Opus, Sonnet, and Haiku aliases. Claude rejects `--effort medium`;
 peeragent exposes only `high|xhigh` for Claude. Gemini defaults to Gemini 3.7
 Flash at high effort and passes both model and effort to `agy`; Flash accepts
@@ -145,7 +149,10 @@ Ordinary settings and authentication remain available. The repository's
 For a running job, send a reply with `<resolved-peeragent-bin> tell <job-id>
 [--cwd DIR] '<text>'` or `tell <job-id> --prompt-file <path>`. Finished jobs require `--resume`. Replies are a mailbox:
 the job reads them with `peeragent inbox` after long steps and before handback.
-Every command inside a job announces unread replies on stderr.
+Every command inside a job announces unread replies on stderr. If a tool display
+cuts off inbox output, reread the saved message with
+`peeragent messages "$PEERAGENT_JOB_ID" --json` and use an output budget large
+enough for it.
 Use single quotes or a prompt file: backticks in double quotes execute in the shell before `tell` receives the text.
 
 Both `tell` and `say` accept `--prompt-file <path>`. Use a file for long or

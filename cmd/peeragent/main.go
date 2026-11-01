@@ -68,9 +68,10 @@ Flags:
                                   gemini: flash|pro|supported family id;
                                   zai: glm-5.2 only).
   --effort <low|medium|high|xhigh>
-                                  Reasoning effort (codex default high, accepts
-                                  all four; gemini default high, accepts
-                                  low|medium|high; zai default high, accepts medium+;
+                                  Reasoning effort (codex luna/terra default xhigh,
+                                  other codex models default high; accepts all four;
+                                  gemini default high, accepts low|medium|high;
+                                  zai default high, accepts medium+;
                                   claude default xhigh, accepts high|xhigh).
   --profile <name>                Codex profile override.
   --resume <agent-session>        Resume with the last job's model/effort unless overridden;

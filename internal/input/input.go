@@ -495,11 +495,29 @@ func normalizeAgent(raw string) (string, error) {
 	return string(canonical), nil
 }
 
-func normalizeEffort(agent string, effort string) (string, error) {
+// Each Codex model owns its aliases and default effort together.
+var codexModels = map[string]struct {
+	aliases []string
+	effort  string
+}{
+	"gpt-6-astra":   {[]string{"astra", "gpt6-astra"}, "high"},
+	"gpt-6-luna":    {[]string{"luna", "gpt6-luna"}, "xhigh"},
+	"gpt-5.6-luna":  {[]string{"gpt5.6-luna"}, "xhigh"},
+	"gpt-6.1-terra": {[]string{"terra", "gpt6.1-terra"}, "xhigh"},
+	"gpt-5.6-terra": {[]string{"gpt5.6-terra"}, "xhigh"},
+	"gpt-6.1-sol":   {[]string{"sol", "gpt6.1-sol"}, "high"},
+	"gpt-6-sol":     {[]string{"gpt6-sol"}, "high"},
+	"gpt-5.6-sol":   {[]string{"gpt5.6-sol"}, "high"},
+}
+
+func normalizeEffort(agent, model, effort string) (string, error) {
 	effort = strings.ToLower(strings.TrimSpace(effort))
 	switch agent {
 	case "codex":
 		if effort == "" {
+			if spec, ok := codexModels[model]; ok {
+				return spec.effort, nil
+			}
 			return "high", nil
 		}
 		switch effort {
@@ -557,26 +575,17 @@ func normalizeModel(agent string, model string) (string, error) {
 	}
 	switch agent {
 	case "codex":
-		switch model {
-		case "astra", "gpt6-astra", "gpt-6-astra":
-			return "gpt-6-astra", nil
-		case "luna", "gpt6-luna", "gpt-6-luna":
-			return "gpt-6-luna", nil
-		case "gpt5.6-luna", "gpt-5.6-luna":
-			return "gpt-5.6-luna", nil
-		case "terra", "gpt6.1-terra", "gpt-6.1-terra":
-			return "gpt-6.1-terra", nil
-		case "gpt5.6-terra", "gpt-5.6-terra":
-			return "gpt-5.6-terra", nil
-		case "sol", "gpt6.1-sol", "gpt-6.1-sol":
-			return "gpt-6.1-sol", nil
-		case "gpt6-sol", "gpt-6-sol":
-			return "gpt-6-sol", nil
-		case "gpt5.6-sol", "gpt-5.6-sol":
-			return "gpt-5.6-sol", nil
-		default:
-			return "", errors.New("--model for codex must be astra, luna, terra, sol, gpt-6.1-<sol|terra>, or a supported gpt-6-<astra|luna|sol> or gpt-5.6-<luna|terra|sol> model id")
+		for canonical, spec := range codexModels {
+			if model == canonical {
+				return canonical, nil
+			}
+			for _, alias := range spec.aliases {
+				if model == alias {
+					return canonical, nil
+				}
+			}
 		}
+		return "", errors.New("--model for codex must be astra, luna, terra, sol, gpt-6.1-<sol|terra>, or a supported gpt-6-<astra|luna|sol> or gpt-5.6-<luna|terra|sol> model id")
 	case "claude":
 		switch model {
 		case "fable", "sonnet", "opus", "haiku":

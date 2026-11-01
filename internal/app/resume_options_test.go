@@ -14,6 +14,7 @@ func TestResumeInheritsLatestJobOptions(t *testing.T) {
 		agent, model, effort string
 	}{
 		{"codex", "gpt-6-astra", "xhigh"},
+		{"codex", "gpt-6-luna", "high"},
 		{"claude", "opus", "high"},
 		{"gemini", "gemini-3.1-pro", "low"},
 		{"zai", "glm-5.2", "xhigh"},

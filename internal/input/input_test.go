@@ -288,6 +288,34 @@ func TestParseDefaultsEffortHighForCodex(t *testing.T) {
 	}
 }
 
+func TestCodexModelDefaultEffortAndOverride(t *testing.T) {
+	for _, tc := range []struct {
+		model, want string
+	}{
+		{"terra", "xhigh"}, {"gpt6.1-terra", "xhigh"}, {"gpt-6.1-terra", "xhigh"},
+		{"gpt5.6-terra", "xhigh"}, {"gpt-5.6-terra", "xhigh"},
+		{"luna", "xhigh"}, {"gpt6-luna", "xhigh"}, {"gpt-6-luna", "xhigh"},
+		{"gpt5.6-luna", "xhigh"}, {"gpt-5.6-luna", "xhigh"},
+		{"sol", "high"}, {"gpt-6-sol", "high"}, {"gpt-5.6-sol", "high"},
+		{"astra", "high"}, {"gpt-6-astra", "high"},
+	} {
+		t.Run(tc.model, func(t *testing.T) {
+			for _, effort := range []string{"", "low"} {
+				args := []string{"--model", tc.model}
+				want := tc.want
+				if effort != "" {
+					args = append(args, "--effort", effort)
+					want = effort
+				}
+				req, err := Parse(append(args, "task"), nil, fixedCWD)
+				if err != nil || req.Effort != want {
+					t.Fatalf("effort override %q: got %q, want %q, error %v", effort, req.Effort, want, err)
+				}
+			}
+		})
+	}
+}
+
 func TestParseDefaultsEffortXHighForClaude(t *testing.T) {
 	req, err := Parse([]string{"--agent", "claude", "task"}, nil, fixedCWD)
 	if err != nil {
