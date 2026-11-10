@@ -92,8 +92,8 @@ func TestFrictionRetryOutcomes(t *testing.T) {
 	}
 }
 
-// Every command resolves the same store, including legacy folders while a new
-// launch in the same checkout goes to the Git directory.
+// Controls and resume read existing Git-admin and worktree-local jobs in place.
+// New workspace-write Codex jobs use a folder inside the checkout.
 func TestGitJobStorageControls(t *testing.T) {
 	for _, legacy := range []bool{false, true} {
 		name := "git-directory"
@@ -106,7 +106,7 @@ func TestGitJobStorageControls(t *testing.T) {
 			if out, err := cmd.CombinedOutput(); err != nil {
 				t.Fatalf("git init: %v %s", err, out)
 			}
-			store := jobs.NewStore(cwd)
+			store := jobs.Store{Root: jobs.NewStore(cwd).Root}
 			if legacy {
 				store = jobs.Store{Root: filepath.Join(cwd, ".peeragent", "jobs")}
 			}
@@ -167,7 +167,7 @@ func TestGitJobStorageControls(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			expected := filepath.Join(canonical, ".git", "peeragent", "jobs", newJob.ID)
+			expected := filepath.Join(canonical, ".peeragent", "jobs", newJob.ID)
 			if filepath.Dir(newJob.LogPath) != expected {
 				t.Fatalf("new job folder: %s, want %s", newJob.LogPath, expected)
 			}
@@ -200,12 +200,12 @@ func TestGitJobStorageControls(t *testing.T) {
 				}
 			}
 
-			if !legacy {
-				if _, err := os.Stat(filepath.Join(cwd, ".peeragent")); !os.IsNotExist(err) {
-					t.Fatalf("working tree polluted: %v", err)
-				}
-			} else if _, err := os.Stat(filepath.Join(jobs.NewStore(cwd).Root, job.ID)); !os.IsNotExist(err) {
-				t.Fatalf("legacy job was duplicated: %v", err)
+			otherRoot := filepath.Join(canonical, ".peeragent", "jobs")
+			if legacy {
+				otherRoot = jobs.NewStore(cwd).Root
+			}
+			if _, err := os.Stat(filepath.Join(otherRoot, job.ID)); !os.IsNotExist(err) {
+				t.Fatalf("original job was duplicated: %v", err)
 			}
 		})
 	}

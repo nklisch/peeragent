@@ -3,6 +3,9 @@
 ## Unreleased
 
 ### Fixes
+- Workspace-write Codex jobs store their inbox and job records under the checkout's
+  .peeragent/jobs directory so inbox reads can lock and acknowledge messages in
+  both main checkouts and linked worktrees.
 - Exhausted Codex connection and transport failures before a completed model turn use `capacity_exhausted` and the
   existing `--retry-capacity` budget and backoff. Unrelated model and tool failures remain failed.
 - Usage-limit summaries preserve the provider's reset time and explain why `--retry-capacity` does not retry them.

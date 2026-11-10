@@ -313,12 +313,13 @@ when available.
 ## Working Directory
 
 The default working directory for new tasks is the current host directory.
-New job records live in the checkout's Git directory (`git rev-parse --git-dir`),
-under `peeragent/jobs/`. Linked worktrees have separate job folders. Outside Git,
-records live under `.peeragent/jobs/`. Every lookup also reads existing
-`.peeragent/jobs/` records, including session scans, messaging and listings;
-updates to an existing job stay in its original folder. The working directory
-recorded in metadata and the index remains the target checkout, not its Git directory.
+Workspace-write Codex jobs use `.peeragent/jobs/` at the worktree root, where
+the inbox can write its lock and acknowledgement files. If Codex starts from a
+subdirectory, peeragent grants write access to that job's directory. Other Git
+jobs use `<git-dir>/peeragent/jobs/`. Outside Git, jobs use `.peeragent/jobs/`
+in the target directory. Job controls, messaging, listings, and session scans
+read both locations and update jobs in their original folders. The working
+directory recorded in metadata and the index remains the target directory.
 
 Job controls without `--cwd` first look up the job id in the per-user index.
 Resume without `--cwd` first looks up the agent/session pair recorded at the
@@ -507,7 +508,7 @@ exited, uncollected workers (Linux process state; macOS native exit events).
 Windows retains the worker's native handle until its wait completes.
 
 ```text
-<git-dir>/peeragent/jobs/<job-id>/
+<job-store>/<job-id>/
   job.json       lifecycle + ExecSpec + worker boot/PID/start identity + mailbox references + live observations
   prompt.txt     resolved task text, parent-written, child-read
   launcher.json  optional private native launcher channel (legacy Herdr fields readable), mode 0600

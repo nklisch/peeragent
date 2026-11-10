@@ -40,7 +40,7 @@ func TestGitJobStoreIsPerWorktree(t *testing.T) {
 		cwd   string
 		store Store
 	}{{repo, primary}, {worktree, linked}} {
-		job, err := tc.store.Create(tc.cwd, ExecSpec{}, "fixture")
+		job, err := tc.store.Create(tc.cwd, ExecSpec{Agent: "claude"}, "fixture")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -48,7 +48,39 @@ func TestGitJobStoreIsPerWorktree(t *testing.T) {
 			t.Fatalf("job path: %#v", job)
 		}
 		if _, err := os.Stat(filepath.Join(tc.cwd, ".peeragent")); !os.IsNotExist(err) {
-			t.Fatalf("worktree polluted: %v", err)
+			t.Fatalf("Claude job wrote to the checkout: %v", err)
+		}
+	}
+
+	for _, cwd := range []string{repo, sub} {
+		store := NewStore(cwd)
+		top := cwd
+		if cwd == sub {
+			top = worktree
+		}
+		job, err := store.Create(cwd, ExecSpec{Agent: "codex"}, "workspace-write job")
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := filepath.Join(top, ".peeragent", "jobs", job.ID)
+		if got := filepath.Dir(job.LogPath); got != want {
+			t.Fatalf("Codex job folder = %s, want %s", got, want)
+		}
+		if loaded, err := NewStore(top).Load(job.ID); err != nil || loaded.CWD != cwd {
+			t.Fatalf("checkout-root lookup: %#v, %v", loaded, err)
+		}
+		if _, err := store.Mailbox(job.ID); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := os.Stat(filepath.Join(want, "lock.guard")); err != nil {
+			t.Fatalf("mailbox guard not in the workspace: %v", err)
+		}
+		job, err = store.Create(cwd, ExecSpec{Agent: "codex", FullAccess: true}, "full-access job")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if want := filepath.Join(store.Root, job.ID); filepath.Dir(job.LogPath) != want {
+			t.Fatalf("full-access job folder = %s, want %s", filepath.Dir(job.LogPath), want)
 		}
 	}
 }

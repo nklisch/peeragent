@@ -142,7 +142,7 @@ func IndexedDirectories() ([]string, error) {
 func (s Store) ListIDs() ([]string, error) {
 	seen := map[string]bool{}
 	var ids []string
-	for _, root := range []string{s.Root, s.legacyRoot} {
+	for _, root := range []string{s.Root, s.legacyRoot, s.workspaceRoot} {
 		if root == "" {
 			continue
 		}

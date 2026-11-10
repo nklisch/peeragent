@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -52,7 +53,7 @@ func execWithRunner(ctx context.Context, run executil.Runner, opts Options, stat
 	}
 	// Codex reads the '-' prompt from stdin, avoiding command-line size limits
 	// and shell quoting even when PATH resolves to a Windows npm shim.
-	result, err := run.Run(ctx, path, buildArgs(opts), opts.CWD, opts.Prompt)
+	result, err := run.Run(ctx, path, buildArgs(opts, executil.JobDir(ctx)), opts.CWD, opts.Prompt)
 	if state == nil {
 		normalizeJSONResult(&result)
 	} else {
@@ -61,9 +62,10 @@ func execWithRunner(ctx context.Context, run executil.Runner, opts Options, stat
 	return result, err
 }
 
-func buildArgs(opts Options) []string {
+func buildArgs(opts Options, jobDir string) []string {
+	jobArgs := workspaceJobArgs(opts, jobDir)
 	if opts.Resume != "" {
-		return buildResumeArgs(opts)
+		return buildResumeArgs(opts, jobArgs)
 	}
 
 	profileArgs := profileArgs(opts.Profile)
@@ -86,14 +88,16 @@ func buildArgs(opts Options) []string {
 		"--sandbox", "workspace-write",
 	}
 	args = append(args, profileArgs...)
+	args = append(args, jobArgs...)
 	args = append(args, approvalArgs()...)
 	args = append(args, modelArgs(opts.Model)...)
 	args = append(args, effortArgs(opts.Effort)...)
 	return append(args, "-")
 }
 
-func buildResumeArgs(opts Options) []string {
+func buildResumeArgs(opts Options, jobArgs []string) []string {
 	args := append([]string{"exec"}, profileArgs(opts.Profile)...)
+	args = append(args, jobArgs...)
 	args = append(args, "resume", "--json")
 	if opts.FullAccess {
 		args = append(args, "--dangerously-bypass-approvals-and-sandbox")
@@ -103,6 +107,21 @@ func buildResumeArgs(opts Options) []string {
 	args = append(args, modelArgs(opts.Model)...)
 	args = append(args, effortArgs(opts.Effort)...)
 	return append(args, opts.Resume, "-")
+}
+
+func workspaceJobArgs(opts Options, jobDir string) []string {
+	if opts.FullAccess || !filepath.IsAbs(jobDir) {
+		return nil
+	}
+	jobsDir := filepath.Dir(jobDir)
+	if filepath.Base(jobsDir) != "jobs" || filepath.Base(filepath.Dir(jobsDir)) != ".peeragent" {
+		return nil
+	}
+	if rel, err := filepath.Rel(opts.CWD, jobDir); err == nil && filepath.IsLocal(rel) {
+		return nil
+	}
+	// A nested cwd can write to its job directory without granting the entire checkout.
+	return []string{"--add-dir", jobDir}
 }
 
 func profileArgs(profile string) []string {

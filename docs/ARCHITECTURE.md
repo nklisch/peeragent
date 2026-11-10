@@ -232,10 +232,11 @@ Blocking callers poll persisted completion without reconciling worker loss;
 their owned process handle supplies the exit code and diagnostic log. External
 observers reconcile proven process loss to `interrupted`.
 
-Async job truth lives under `<git-dir>/peeragent/jobs/`, separately for each
-checkout or linked worktree. Outside Git it lives under `.peeragent/jobs/`.
-The store reads existing `.peeragent/jobs/` records too, keeping each job's
-updates and locks in its original folder. A private
+Workspace-write Codex jobs use `.peeragent/jobs/` at the worktree root so the
+target can update its inbox. Other Git jobs use `<git-dir>/peeragent/jobs/`.
+Outside Git, jobs use `.peeragent/jobs/` in the target directory. The store
+reads both locations and keeps each job's updates and locks in its original
+folder. A private
 per-user index maps job ids and agent/session pairs to absolute working
 directories. Separate atomic files avoid contention between launches. The
 CLI consults it before applying the current-directory default; application job

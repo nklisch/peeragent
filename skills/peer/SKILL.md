@@ -334,10 +334,10 @@ Unknown options (including `--list` and `--background`) and empty/missing option
 values exit `2` before any job starts. Put `--` before literal task text that
 starts with a dash. Validate session variables before constructing a resume call.
 
-Job records live under `<git-dir>/peeragent/jobs/` in a Git checkout, separately
-for each linked worktree. Outside Git they live under `.peeragent/jobs/`.
-All controls, message commands, listings, resumes and indexed lookups also find
-existing `.peeragent/jobs/` records without moving them.
+Workspace-write Codex jobs use `.peeragent/jobs/` at the worktree root so the
+target can update its inbox. Other Git jobs use `<git-dir>/peeragent/jobs/`.
+Outside Git, jobs use `.peeragent/jobs/` in the target directory. Controls and
+messaging find both locations and leave records in their original folders.
 
 ## Result Handling
 

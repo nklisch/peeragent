@@ -12,6 +12,12 @@ func WithJobContext(ctx context.Context, id, dir string) context.Context {
 	return context.WithValue(ctx, jobContextKey{}, jobContext{id, dir})
 }
 
+// JobDir returns the directory assigned by the launcher for this job.
+func JobDir(ctx context.Context) string {
+	job, _ := ctx.Value(jobContextKey{}).(jobContext)
+	return job.Dir
+}
+
 func jobEnvironment(ctx context.Context, env []string) []string {
 	job, ok := ctx.Value(jobContextKey{}).(jobContext)
 	if !ok {

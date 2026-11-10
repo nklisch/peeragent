@@ -20,10 +20,33 @@ func recordTestWorkerPID() {
 	if len(os.Args) != 5 || os.Args[1] != "--job-run" || os.Args[3] != "--cwd" || jobs.ValidateID(os.Args[2]) != nil {
 		return
 	}
-	path := filepath.Join(jobs.NewStore(os.Args[4]).Root, os.Args[2], "test-worker.pid")
+	path, err := testWorkerPIDPath(jobs.NewStore(os.Args[4]), os.Args[2])
+	if err != nil {
+		panic(err)
+	}
 	if err := os.WriteFile(path, []byte(strconv.Itoa(os.Getpid())), 0o600); err != nil {
 		panic(err)
 	}
+}
+
+func testWorkerPIDPath(store jobs.Store, id string) (string, error) {
+	job, err := store.Load(id)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(filepath.Dir(job.LogPath), "test-worker.pid"), nil
+}
+
+func readTestWorkerPID(store jobs.Store, id string) (int, error) {
+	path, err := testWorkerPIDPath(store, id)
+	if err != nil {
+		return 0, err
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return 0, err
+	}
+	return strconv.Atoi(strings.TrimSpace(string(data)))
 }
 
 // Register after launch, so this callback runs before TempDir and environment
@@ -40,11 +63,7 @@ func cancelAndWaitForTestJob(t *testing.T, cwd, id, gate string) {
 	store := jobs.NewStore(cwd)
 	pid, err := store.ReadPID(id)
 	if os.IsNotExist(err) {
-		var data []byte
-		data, err = os.ReadFile(filepath.Join(store.Root, id, "test-worker.pid"))
-		if err == nil {
-			pid, err = strconv.Atoi(strings.TrimSpace(string(data)))
-		}
+		pid, err = readTestWorkerPID(store, id)
 	}
 	if err != nil || pid <= 1 {
 		t.Errorf("cleanup job %s: cannot identify its owned worker: pid=%d err=%v", id, pid, err)
@@ -93,12 +112,7 @@ func TestAsyncCleanupWaitsForWorkerBeforeTempDirRemoval(t *testing.T) {
 	// Register the assertion first: cleanupAsyncJob must finish before this check,
 	// and both callbacks must run before the TempDir's RemoveAll callback.
 	t.Cleanup(func() {
-		data, err := os.ReadFile(filepath.Join(jobs.NewStore(cwd).Root, id, "test-worker.pid"))
-		if err != nil {
-			t.Error(err)
-			return
-		}
-		pid, err := strconv.Atoi(string(data))
+		pid, err := readTestWorkerPID(jobs.NewStore(cwd), id)
 		if err != nil {
 			t.Error(err)
 			return

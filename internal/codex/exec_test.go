@@ -2,7 +2,9 @@ package codex
 
 import (
 	"context"
+	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -360,10 +362,43 @@ func TestOrphanFilteringPreservesQuotedFilename(t *testing.T) {
 }
 
 func TestResumeKeepsProfileOnParentCommand(t *testing.T) {
-	args := buildResumeArgs(Options{Profile: "retry-profile", Resume: "session", Prompt: "continue"})
+	args := buildArgs(Options{Profile: "retry-profile", Resume: "session", Prompt: "continue"}, "")
 	wantPrefix := []string{"exec", "--profile", "retry-profile", "resume", "--json"}
 	if !reflect.DeepEqual(args[:len(wantPrefix)], wantPrefix) {
 		t.Fatalf("resume profile: %q", args)
+	}
+}
+
+func TestNestedWorkspaceJobDirectoryGrant(t *testing.T) {
+	stubLookPath(t)
+	top := t.TempDir()
+	jobDir := filepath.Join(top, ".peeragent", "jobs", "job")
+	nested := filepath.Join(top, "nested")
+	for _, tc := range []struct {
+		name, cwd, dir, resume string
+		fullAccess, wantGrant  bool
+	}{
+		{name: "nested launch", cwd: nested, dir: jobDir, wantGrant: true},
+		{name: "nested resume", cwd: nested, dir: jobDir, resume: "session", wantGrant: true},
+		{name: "checkout launch", cwd: top, dir: jobDir},
+		{name: "full access", cwd: nested, dir: jobDir, fullAccess: true},
+		{name: "Git admin", cwd: nested, dir: filepath.Join(top, ".git", "peeragent", "jobs", "job")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			run := &testsupport.RecordingRunner{}
+			ctx := executil.WithJobContext(context.Background(), "job", tc.dir)
+			_, err := ExecWithRunner(ctx, run, Options{CWD: tc.cwd, Resume: tc.resume, FullAccess: tc.fullAccess})
+			if err != nil {
+				t.Fatal(err)
+			}
+			i := slices.Index(run.Args, "--add-dir")
+			if (i >= 0) != tc.wantGrant {
+				t.Fatalf("unexpected writable directory arguments: %q", run.Args)
+			}
+			if tc.wantGrant && (run.Args[i+1] != jobDir || (tc.resume != "" && i > slices.Index(run.Args, "resume"))) {
+				t.Fatalf("job directory grant must target the job on the parent command: %q", run.Args)
+			}
+		})
 	}
 }
 

@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/nklisch/peeragent/internal/agent"
 )
 
 // Status is the persisted lifecycle vocabulary for an asynchronous job.
@@ -85,19 +87,30 @@ type ExecSpec struct {
 }
 
 type Store struct {
-	Root       string
-	legacyRoot string
+	Root          string
+	workspaceRoot string
+	legacyRoot    string
 }
 
 const jobLockTimeout = 5 * time.Second
 
 func NewStore(cwd string) Store {
-	legacy := filepath.Join(cwd, ".peeragent", "jobs")
-	out, err := exec.Command("git", "-C", cwd, "rev-parse", "--absolute-git-dir").Output()
-	if err != nil || strings.TrimSpace(string(out)) == "" {
-		return Store{Root: legacy}
+	local := filepath.Join(cwd, ".peeragent", "jobs")
+	out, err := exec.Command("git", "-C", cwd, "rev-parse", "--absolute-git-dir", "--show-toplevel").Output()
+	gitDir, top, _ := strings.Cut(strings.TrimSpace(string(out)), "\n")
+	gitDir = strings.TrimSpace(gitDir)
+	if !filepath.IsAbs(gitDir) {
+		return Store{Root: local}
 	}
-	return Store{Root: filepath.Join(strings.TrimSpace(string(out)), "peeragent", "jobs"), legacyRoot: legacy}
+	// Bare repositories can report a Git directory even when --show-toplevel fails.
+	store := Store{Root: filepath.Join(gitDir, "peeragent", "jobs"), workspaceRoot: local}
+	if top = strings.TrimSpace(top); err == nil && filepath.IsAbs(top) {
+		store.workspaceRoot = filepath.Join(top, ".peeragent", "jobs")
+	}
+	if store.workspaceRoot != local {
+		store.legacyRoot = local
+	}
+	return store
 }
 
 func (s Store) Create(cwd string, spec ExecSpec, prompt string) (Job, error) {
@@ -106,10 +119,12 @@ func (s Store) Create(cwd string, spec ExecSpec, prompt string) (Job, error) {
 		return Job{}, err
 	}
 	now := time.Now().UTC()
-	dir, err := s.jobDir(id)
-	if err != nil {
-		return Job{}, err
+	root := s.Root
+	if s.workspaceRoot != "" && agent.ID(spec.Agent) == agent.CodexID && !spec.FullAccess {
+		// Workspace-write protects Git's admin directory, including mailbox locks.
+		root = s.workspaceRoot
 	}
+	dir := filepath.Join(root, id)
 	job := Job{
 		messagingRecorded: true,
 		MessagingEnabled:  !spec.NoPreamble,
@@ -348,19 +363,18 @@ func (s Store) jobDir(id string) (string, error) {
 		return "", err
 	}
 	primary := filepath.Join(s.Root, id)
-	if s.legacyRoot == "" {
+	if s.workspaceRoot == "" && s.legacyRoot == "" {
 		return primary, nil
 	}
-	// Keep all reads and writes for an existing job in its original folder,
-	// including locks and mailboxes used by workers from an older binary.
-	if _, err := os.Stat(primary); !os.IsNotExist(err) {
-		return primary, err
-	}
-	legacy := filepath.Join(s.legacyRoot, id)
-	if _, err := os.Stat(legacy); err == nil {
-		return legacy, nil
-	} else if !os.IsNotExist(err) {
-		return "", err
+	// Keep each job in its original folder, including locks held by older workers.
+	for _, root := range []string{s.Root, s.legacyRoot, s.workspaceRoot} {
+		if root == "" {
+			continue
+		}
+		dir := filepath.Join(root, id)
+		if _, err := os.Stat(dir); !os.IsNotExist(err) {
+			return dir, err
+		}
 	}
 	return primary, nil
 }

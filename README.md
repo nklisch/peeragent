@@ -568,13 +568,14 @@ Cancel the job:
 bin/peeragent --cancel <job-id>
 ```
 
-Job state for both blocking and async launches lives under `<git-dir>/peeragent/jobs/`
-inside the checkout's Git directory (`git rev-parse --git-dir`). Linked worktrees
-have separate job folders, and launches leave no job records in the working tree.
-Outside Git, records live under `.peeragent/jobs/` in the target directory.
-All job controls, message commands, listings, session resumes and index lookups
-also find existing `.peeragent/jobs/` records; those jobs keep their original
-folders, including while older workers are running. Job controls find newly launched jobs by
+Workspace-write Codex jobs use `.peeragent/jobs/` at the checkout root so the
+sandbox can lock the inbox and acknowledge messages. Ignore `.peeragent/` in Git
+if the checkout does not already exclude it. Other Git jobs use
+`<git-dir>/peeragent/jobs/`. Outside Git, jobs use `.peeragent/jobs/` in the target
+directory. Each linked worktree has its own job storage.
+
+Job controls, messaging, listings, and session resumes read both locations and
+update existing jobs in their original folders. Job controls find newly launched jobs by
 id from any directory. `--resume <agent-session>` uses the directory recorded
 when that session was last observed. An explicit `--cwd <path>` always
 wins when it contains the job. If that folder has no such job and the index
