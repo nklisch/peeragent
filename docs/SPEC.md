@@ -168,9 +168,9 @@ Target invocations (Codex shown with a selected model tier):
 codex exec --json --cd <repo> --sandbox workspace-write \
   --model <gpt-6.1-<sol|terra>|gpt-6-<astra|luna|sol>|gpt-5.6-<luna|terra|sol>> \
   -c approval_policy="on-request" -c approvals_reviewer="auto_review" ...
-agy --output-format json --model gemini-3.7-flash --effort high \
-  --mode accept-edits --sandbox --dangerously-skip-permissions \
-  --add-dir <repo> --print <prompt>
+agy --output-format stream-json --mode accept-edits --model gemini-4-neon \
+  --effort high --sandbox --dangerously-skip-permissions --add-dir <repo> \
+  --print <prompt>
 claude --print --output-format json --permission-mode auto --add-dir <repo> ...
 pi --provider zai --model glm-5.2 --thinking <effort> --no-session -p ...
 ```
@@ -197,11 +197,12 @@ Opus-tier, and Sol at high or xhigh is roughly Fable-tier. GPT-6 Astra is the
 flagship tier above Sol for the most demanding passes. Callers can jump
 directly from Luna to Sol or Astra.
 
-Gemini defaults to Gemini 3.7 Flash at `high` effort and accepts `low`,
-`medium`, and `high`. `flash` selects Gemini 3.7 Flash and `pro` selects Gemini
-3.1 Pro; explicit supported Flash family IDs for 3.5 through 3.7 are also
-accepted. Pro supports `low` and `high`, not `medium`. Peeragent passes the
-normalized model and effort to `agy`. Z.AI GLM
+Gemini defaults to `gemini-4-neon` at `high` effort and accepts only two models:
+`neon` (`gemini-4-neon`, supporting `low`, `medium`, `high`, and `xhigh`) and
+`carbon` (`gemini-4-carbon`, supporting `low`, `medium`, and `high`). Other
+Gemini model names are rejected. Peeragent passes the normalized model and
+effort to `agy` with `--output-format stream-json` for live progress and early
+session capture. Z.AI GLM
 5.2 defaults to `high` and maps `medium`, `high`, and `xhigh` to Pi `--thinking`.
 Claude reasoning effort defaults to `xhigh` and exposes `high` and `xhigh`.
 Claude supports `--model fable`, `--model sonnet`, `--model opus`, and `--model

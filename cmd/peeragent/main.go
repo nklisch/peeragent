@@ -65,12 +65,13 @@ Flags:
   --model <name>                  Model override (codex: astra|luna|terra|sol,
                                   sol selects gpt-6.1-sol; GPT-6 Astra
                                   flagship; claude: fable|sonnet|opus|haiku;
-                                  gemini: flash|pro|supported family id;
+                                  gemini: neon|carbon (gemini-4-neon|gemini-4-carbon);
                                   zai: glm-5.2 only).
   --effort <low|medium|high|xhigh>
                                   Reasoning effort (codex luna/terra default xhigh,
                                   other codex models default high; accepts all four;
-                                  gemini default high, accepts low|medium|high;
+                                  gemini default high, neon accepts low|medium|high|xhigh,
+                                  carbon accepts low|medium|high;
                                   zai default high, accepts medium+;
                                   claude default xhigh, accepts high|xhigh).
   --profile <name>                Codex profile override.

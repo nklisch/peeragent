@@ -4,7 +4,8 @@
 
 The `peer` skill accepts arbitrary task text from the host or user.
 
-The plugin exposes the same skill to Claude Code, Codex, and Pi hosts:
+The plugin exposes the same skill to Claude Code, Codex, Antigravity (`agy`),
+and Pi hosts:
 
 ```text
 /peer <task text>
@@ -84,19 +85,20 @@ Options:
   either mode; full access additionally removes its terminal sandbox.
 - `--worktree`: Reserved for future isolated worktree execution.
 - `--effort <low|medium|high|xhigh>`: Set target reasoning effort. Codex
-  defaults to `high` and accepts all four levels. Gemini defaults to `high` and
-  accepts `low`, `medium`, or `high`. Z.AI defaults to `high` and accepts
-  `medium`, `high`, or `xhigh`; Claude defaults to `xhigh` and accepts `high` or
-  `xhigh`. Gemini passes effort to `agy`; Z.AI maps it to Pi `--thinking`.
-- `--model <astra|luna|terra|sol|fable|sonnet|opus|haiku|flash|pro|glm-5.2>`:
-  Select a GPT-6.1, GPT-6, or GPT-5.6 Codex tier, Claude alias, Gemini family, or
+  defaults to `high` (or `xhigh` for Luna/Terra) and accepts all four levels.
+  Gemini defaults to `high`; `neon` (`gemini-4-neon`) accepts
+  `low|medium|high|xhigh`, while `carbon` (`gemini-4-carbon`) accepts
+  `low|medium|high`. Z.AI defaults to `high` and accepts `medium`, `high`, or
+  `xhigh`; Claude defaults to `xhigh` and accepts `high` or `xhigh`. Gemini
+  passes effort to `agy`; Z.AI maps it to Pi `--thinking`.
+- `--model <astra|luna|terra|sol|fable|sonnet|opus|haiku|neon|carbon|glm-5.2>`:
+  Select a GPT-6.1, GPT-6, or GPT-5.6 Codex tier, Claude alias, Gemini tier, or
   explicitly record the fixed Z.AI GLM 5.2 target. Codex also accepts canonical
   `gpt-6.1-<sol|terra>`, `gpt-6-<astra|luna|sol>`, and
   `gpt-5.6-<luna|terra|sol>` IDs.
-  Gemini defaults to `gemini-3.7-flash`; `flash`, `pro`, and supported explicit
-  Gemini family IDs normalize to an `agy --model` value. Flash accepts
-  `low|medium|high`, while Pro accepts `low|high`. Z.AI accepts only
-  `glm-5.2`; no other Z.AI models are surfaced.
+  Gemini defaults to `gemini-4-neon` and accepts only `neon` (`gemini-4-neon`)
+  and `carbon` (`gemini-4-carbon`); other Gemini model names are rejected. Z.AI
+  accepts only `glm-5.2`; no other Z.AI models are surfaced.
 - `--profile <name>`: Pass a Codex configuration profile.
 - `--keep-terminal-env`: Keep inherited terminal-control variables for a deliberate
   need. The default strips them from every target process, including resumes and
@@ -364,14 +366,16 @@ codex exec --json --cd <repo> --sandbox workspace-write \
 Default Gemini:
 
 ```text
-agy --output-format json --model gemini-3.7-flash --effort high \
-  --mode accept-edits --sandbox --dangerously-skip-permissions \
-  --add-dir <repo> --print-timeout 15m --print <prompt>
+agy --output-format stream-json --mode accept-edits --model gemini-4-neon \
+  --effort high --sandbox --dangerously-skip-permissions --add-dir <repo> \
+  --print <prompt>
 ```
 
 `--print` is a string-valued flag in current `agy`, so peeragent emits it after
 all other options. Putting it first causes the next option to be consumed as the
 prompt and silently drops the intended model, sandbox, and permission settings.
+`--print-timeout` is omitted so `agy` uses its default unlimited turn wait
+instead of cutting off long passes.
 
 Default Claude:
 
@@ -391,8 +395,9 @@ and pass through as `gpt-6-astra`, `gpt-6-luna`, `gpt-6.1-terra`, and
 are also accepted.
 For Claude, the wrapper passes `--model <alias>` to
 Claude Code; accepted aliases are `fable`, `sonnet`, `opus`, and `haiku`.
-For Gemini, `flash` normalizes to `gemini-3.7-flash`, `pro` normalizes to
-`gemini-3.1-pro`, and the wrapper passes the model and effort to `agy`. When
+For Gemini, `neon` normalizes to `gemini-4-neon` (the default) and `carbon`
+normalizes to `gemini-4-carbon`; no other Gemini models are accepted, and the
+wrapper passes the normalized model and effort to `agy`. When
 `--model glm-5.2` is provided for Z.AI, the wrapper records the fixed target and
 passes that model to Pi; other Z.AI model names are rejected.
 

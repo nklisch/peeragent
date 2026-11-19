@@ -130,7 +130,7 @@ fi
 # Pin the install hint to the plugin's own version so an unsupported-platform
 # build matches the installed plugin; fall back to @latest if no manifest.
 hint_version() {
-  for m in "$PLUGIN_ROOT/.claude-plugin/plugin.json" "$PLUGIN_ROOT/.codex-plugin/plugin.json"; do
+  for m in "$PLUGIN_ROOT/plugin.json" "$PLUGIN_ROOT/.claude-plugin/plugin.json" "$PLUGIN_ROOT/.codex-plugin/plugin.json"; do
     [ -f "$m" ] || continue
     awk -F'"' '/"version"[[:space:]]*:/ { print $4; exit }' "$m"
     return 0

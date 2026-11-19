@@ -331,8 +331,8 @@ func TestParseDefaultsGeminiModelAndEffort(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if req.Model != "gemini-3.7-flash" {
-		t.Fatalf("Model = %q", req.Model)
+	if req.Model != "gemini-4-neon" {
+		t.Fatalf("Model = %q, want gemini-4-neon", req.Model)
 	}
 	if req.Effort != "high" {
 		t.Fatalf("Effort = %q", req.Effort)
@@ -414,9 +414,20 @@ func TestParseRejectsMediumEffortForClaude(t *testing.T) {
 }
 
 func TestParseGeminiEfforts(t *testing.T) {
-	for _, effort := range []string{"low", "medium", "high"} {
-		t.Run(effort, func(t *testing.T) {
+	for _, effort := range []string{"low", "medium", "high", "xhigh"} {
+		t.Run("neon/"+effort, func(t *testing.T) {
 			req, err := Parse([]string{"--agent", "gemini", "--effort", effort, "task"}, nil, fixedCWD)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if req.Effort != effort {
+				t.Fatalf("Effort = %q", req.Effort)
+			}
+		})
+	}
+	for _, effort := range []string{"low", "medium", "high"} {
+		t.Run("carbon/"+effort, func(t *testing.T) {
+			req, err := Parse([]string{"--agent", "gemini", "--model", "carbon", "--effort", effort, "task"}, nil, fixedCWD)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -427,17 +438,10 @@ func TestParseGeminiEfforts(t *testing.T) {
 	}
 }
 
-func TestParseRejectsXHighEffortForGemini(t *testing.T) {
-	_, err := Parse([]string{"--agent", "gemini", "--effort", "xhigh", "task"}, nil, fixedCWD)
+func TestParseRejectsXHighEffortForGeminiCarbon(t *testing.T) {
+	_, err := Parse([]string{"--agent", "gemini", "--model", "carbon", "--effort", "xhigh", "task"}, nil, fixedCWD)
 	if err == nil {
-		t.Fatal("expected error")
-	}
-}
-
-func TestParseRejectsMediumEffortForGeminiPro(t *testing.T) {
-	_, err := Parse([]string{"--agent", "gemini", "--model", "pro", "--effort", "medium", "task"}, nil, fixedCWD)
-	if err == nil {
-		t.Fatal("expected error")
+		t.Fatal("expected error for carbon with xhigh")
 	}
 }
 
@@ -508,11 +512,10 @@ func TestParseRejectsUnsupportedClaudeModel(t *testing.T) {
 
 func TestParseGeminiModels(t *testing.T) {
 	tests := map[string]string{
-		"flash":            "gemini-3.7-flash",
-		"3.7":              "gemini-3.7-flash",
-		"gemini-3.6-flash": "gemini-3.6-flash",
-		"3.5":              "gemini-3.5-flash",
-		"pro":              "gemini-3.1-pro",
+		"neon":            "gemini-4-neon",
+		"gemini-4-neon":   "gemini-4-neon",
+		"carbon":          "gemini-4-carbon",
+		"gemini-4-carbon": "gemini-4-carbon",
 	}
 	for input, want := range tests {
 		t.Run(input, func(t *testing.T) {
@@ -528,9 +531,12 @@ func TestParseGeminiModels(t *testing.T) {
 }
 
 func TestParseRejectsUnsupportedGeminiModel(t *testing.T) {
-	_, err := Parse([]string{"--agent", "gemini", "--model", "ultra", "task"}, nil, fixedCWD)
-	if err == nil {
-		t.Fatal("expected error")
+	for _, model := range []string{"ultra", "flash", "pro", "argon", "hydrogen", "orchestrator", "gemini-3.8-flash", "gemini-4-argon"} {
+		t.Run(model, func(t *testing.T) {
+			if _, err := Parse([]string{"--agent", "gemini", "--model", model, "task"}, nil, fixedCWD); err == nil {
+				t.Fatalf("expected error for unsupported gemini model %q", model)
+			}
+		})
 	}
 }
 

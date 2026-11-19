@@ -36,6 +36,13 @@ else
   echo "Claude CLI not installed; skipped claude plugin validate"
 fi
 
+if command -v agy >/dev/null 2>&1; then
+  step "Antigravity plugin validation"
+  agy plugin validate --strict plugin
+else
+  echo "Antigravity CLI not installed; skipped agy plugin validate"
+fi
+
 # Curated-tree sync enforcement lives in CI (.github/workflows/build-binaries.yml),
 # which runs on committed state. It is intentionally NOT here: validate.sh runs
 # mid-bump (scripts/bump.sh regenerates plugin/ for the new version before
@@ -136,6 +143,15 @@ for skill in skills/*/SKILL.md plugin/skills/*/SKILL.md; do
     echo "$skill description exceeds 1024 characters ($description_length)" >&2
     exit 1
   fi
+  body_bytes=$(awk '
+    NR == 1 && $0 == "---" { in_frontmatter = 1; next }
+    in_frontmatter && $0 == "---" { in_frontmatter = 0; next }
+    !in_frontmatter { print }
+  ' "$skill" | wc -c | tr -d ' ')
+  if [ "$body_bytes" -gt 24000 ]; then
+    echo "$skill body exceeds Antigravity 24000-byte limit ($body_bytes bytes)" >&2
+    exit 1
+  fi
 done
 
 step "documentation examples"
@@ -155,7 +171,8 @@ grep -q -- '--model sol' README.md
 grep -q -- '--model astra' README.md
 grep -q -- '--model fable' README.md
 grep -q -- '--model opus' README.md
-grep -q -- '--model flash' README.md
+grep -q -- '--model neon' README.md
+grep -q -- '--model carbon' README.md
 grep -q -- '--model glm-5.2' README.md
 grep -q -- '--async' README.md
 grep -q -- '--status <job-id>' README.md

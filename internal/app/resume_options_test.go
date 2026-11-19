@@ -16,7 +16,8 @@ func TestResumeInheritsLatestJobOptions(t *testing.T) {
 		{"codex", "gpt-6-astra", "xhigh"},
 		{"codex", "gpt-6-luna", "high"},
 		{"claude", "opus", "high"},
-		{"gemini", "gemini-3.1-pro", "low"},
+		{"gemini", "gemini-4-neon", "xhigh"},
+		{"gemini", "gemini-4-carbon", "low"},
 		{"zai", "glm-5.2", "xhigh"},
 		{"codex", "", "medium"}, // No model override is itself a recorded choice.
 	} {
@@ -76,9 +77,9 @@ func TestResumeOverridesAndCombinedValidation(t *testing.T) {
 		{"effort-only", "codex", "gpt-6-astra", "xhigh", "", "high", "gpt-6-astra", "high", false},
 		{"model-only", "codex", "gpt-6-astra", "xhigh", "luna", "", "gpt-6-luna", "xhigh", false},
 		{"both", "codex", "gpt-6-astra", "xhigh", "sol", "low", "gpt-6.1-sol", "low", false},
-		{"model-equals-default", "gemini", "gemini-3.1-pro", "low", "flash", "", "gemini-3.7-flash", "low", false},
-		{"incompatible-effort-override", "gemini", "gemini-3.1-pro", "high", "", "medium", "", "", true},
-		{"incompatible-model-override", "gemini", "gemini-3.7-flash", "medium", "pro", "", "", "", true},
+		{"model-equals-carbon", "gemini", "gemini-4-neon", "low", "carbon", "", "gemini-4-carbon", "low", false},
+		{"incompatible-effort-override", "gemini", "gemini-4-carbon", "high", "", "xhigh", "", "", true},
+		{"incompatible-model-override", "gemini", "gemini-4-neon", "xhigh", "carbon", "", "", "", true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			delegation := normalizedDelegation(t, input.Delegation{TaskText: "continue", CWD: t.TempDir(), Agent: tc.agent, Resume: "session", Model: tc.model, Effort: tc.effort})

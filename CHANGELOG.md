@@ -1,11 +1,21 @@
 # Changelog
 
-## Unreleased
+## v0.18.0
+
+### Changes
+- Antigravity (`--agent gemini` / `agy`) now defaults to `gemini-4-neon` at `high` effort and accepts only `neon`
+  (`gemini-4-neon`, `low|medium|high|xhigh`) and `carbon` (`gemini-4-carbon`, `low|medium|high`).
+- `agy` runs with `--output-format stream-json` for live progress, early `conversation_id` capture, structured error
+  classification, and completion grace-period handling matching Codex, and omits the artificial `15m` print timeout.
+- Trimmed `skills/peer/SKILL.md` under Antigravity's 24,000-byte body cap (moving deep references to
+  `skills/peer/references/lifecycle-and-options.md`), added Antigravity as a first-class host target/monitor, and added
+  `agy plugin validate --strict` to `scripts/validate.sh`.
+- Codex effort defaults now derive per model (`xhigh` for Luna and Terra; `high` for Sol, Astra, and native default).
 
 ### Fixes
-- Workspace-write Codex jobs store their inbox and job records under the checkout's
-  .peeragent/jobs directory so inbox reads can lock and acknowledge messages in
-  both main checkouts and linked worktrees.
+- Workspace-write Codex jobs store their inbox and job records under the checkout's `.peeragent/jobs` directory so
+  inbox reads can lock and acknowledge messages in both main checkouts and linked worktrees.
+- Guarded Claude native launcher inbox detection against inherited `CLAUDECODE=1` inside Antigravity (`ANTIGRAVITY_AGENT`).
 - Exhausted Codex connection and transport failures before a completed model turn use `capacity_exhausted` and the
   existing `--retry-capacity` budget and backoff. Unrelated model and tool failures remain failed.
 - Usage-limit summaries preserve the provider's reset time and explain why `--retry-capacity` does not retry them.

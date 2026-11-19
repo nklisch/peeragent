@@ -87,8 +87,5 @@ func NormalizeModelAndEffort(agent, model, effort string) (string, string, error
 	if err != nil {
 		return "", "", err
 	}
-	if agent == "gemini" && model == "gemini-3.1-pro" && effort == "medium" {
-		return "", "", errors.New("--effort for Gemini 3.1 Pro must be low or high")
-	}
 	return model, effort, nil
 }

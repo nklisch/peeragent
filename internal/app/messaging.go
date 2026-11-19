@@ -38,7 +38,7 @@ func recordLauncher(job jobs.Job) error {
 			channel.PeerJob = &jobs.InboxSource{JobID: parent.ID, CWD: parent.CWD}
 		}
 	}
-	claude := parentID == "" && dir == "" && os.Getenv("CLAUDECODE") == "1" && os.Getenv("CODEX_THREAD_ID") == "" && os.Getenv("CODEX_SESSION_ID") == ""
+	claude := parentID == "" && dir == "" && os.Getenv("CLAUDECODE") == "1" && os.Getenv("CODEX_THREAD_ID") == "" && os.Getenv("CODEX_SESSION_ID") == "" && os.Getenv("ANTIGRAVITY_AGENT") == ""
 	if claude {
 		channel.ClaudeSocket = os.Getenv("CLAUDE_CODE_MESSAGING_SOCKET")
 		channel.ClaudeToken = os.Getenv("CLAUDE_CODE_MESSAGING_TOKEN")

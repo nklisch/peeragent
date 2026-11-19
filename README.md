@@ -1,15 +1,16 @@
 # Peeragent
 
-Peeragent is a Claude Code and Codex plugin that lets a host assistant
-delegate arbitrary task work to a peer local coding agent — Codex, Claude
-Code, Gemini through Google Antigravity, or Z.AI GLM 5.2 through Pi.
+Peeragent is a Claude Code, Codex, and Antigravity (`agy`) plugin that lets a
+host assistant delegate arbitrary task work to a peer local coding agent —
+Codex, Claude Code, Gemini through Google Antigravity, or Z.AI GLM 5.2 through
+Pi.
 
-Use it when you are working in Claude Code or Codex and want another local
-agent/model to take a focused task pass — implementation, research,
-review, debugging, refactors, docs, build fixes, anything. The host
-assistant keeps the conversation with you; the peer agent inspects or
-edits the repo, runs verification when it can, and returns a small result
-for the host to summarize.
+Use it when you are working in Claude Code, Codex, or Antigravity and want
+another local agent/model to take a focused task pass — implementation,
+research, review, debugging, refactors, docs, build fixes, anything. The host
+assistant keeps the conversation with you; the peer agent inspects or edits the
+repo, runs verification when it can, and returns a small result for the host to
+summarize.
 
 ## What It Can Call
 
@@ -38,6 +39,12 @@ Codex:
 ```sh
 codex plugin marketplace add nklisch/peeragent
 codex plugin add peeragent@peeragent
+```
+
+Google Antigravity (`agy`):
+
+```sh
+agy plugin install https://github.com/nklisch/peeragent/tree/main/plugin
 ```
 
 Pi:
@@ -272,7 +279,8 @@ the resolved options; an absent Codex/Claude model keeps the native CLI default.
 Codex, Gemini, Claude, and Z.AI GLM 5.2 support `--effort`. Codex defaults to
 `xhigh` for Luna and Terra, and `high` for Sol, Astra, and the native default
 model. It accepts `low`, `medium`, `high`, and `xhigh`. Gemini defaults to
-`high` and accepts `low`, `medium`, and `high`. Z.AI defaults to `high` and
+`gemini-4-neon` at `high` effort (`neon` accepts `low`, `medium`, `high`, and
+`xhigh`; `carbon` accepts `low`, `medium`, and `high`). Z.AI defaults to `high` and
 accepts `medium`, `high`, and `xhigh`. Claude defaults to `xhigh` and accepts
 only `high` or `xhigh` through peeragent:
 
@@ -285,7 +293,8 @@ bin/peeragent --agent codex --model terra --effort high "Use the optional middle
 bin/peeragent --agent codex --model astra --effort xhigh "Run the GPT-6 flagship pass."
 bin/peeragent --agent claude --model fable --effort xhigh "Untangle the hardest integration test."
 bin/peeragent --agent claude --model opus --effort xhigh "Run an Opus pass."
-bin/peeragent --agent gemini --model flash --effort high "Run a Gemini 3.7 Flash pass."
+bin/peeragent --agent gemini --model neon --effort high "Run a Gemini 4 Neon pass."
+bin/peeragent --agent gemini --model carbon --effort high "Run a Gemini 4 Carbon pass."
 bin/peeragent --agent zai --effort xhigh "Review the cross-module migration for hidden regressions."
 ```
 
@@ -294,16 +303,17 @@ Codex accepts the short aliases `astra`, `luna`, `terra`, and `sol` and passes
 and `terra` as `gpt-6.1-terra` to the Codex CLI. Explicit `gpt-6-sol` and
 GPT-5.6 IDs are also supported. Claude
 supports `--model
-fable`, `--model sonnet`, `--model opus`, and `--model haiku`. Gemini accepts
-`flash` (the default Gemini 3.7 Flash), `pro` (Gemini 3.1 Pro), and explicit
-supported family IDs for 3.7, 3.6, and 3.5 Flash or 3.1 Pro. Flash accepts
-`low|medium|high`; Pro accepts `low|high`. Peeragent passes the normalized model
-and effort to `agy`. Z.AI accepts only `--model glm-5.2`;
+fable`, `--model sonnet`, `--model opus`, and `--model haiku`. Gemini defaults
+to `gemini-4-neon` at `high` effort and accepts only `neon` (`gemini-4-neon`,
+`low|medium|high|xhigh`) and `carbon` (`gemini-4-carbon`, `low|medium|high`).
+Peeragent passes the normalized model and effort to `agy`; other Gemini models
+are rejected. Z.AI accepts only `--model glm-5.2`;
 peeragent intentionally does not surface the other Z.AI models that Pi may
 list.
 
 ```sh
-bin/peeragent --agent gemini --model flash --effort high "Implement the requested change."
+bin/peeragent --agent gemini --model neon --effort xhigh "Implement the requested change."
+bin/peeragent --agent gemini --model carbon --effort high "Implement the requested change."
 bin/peeragent --agent zai --model glm-5.2 "Implement the requested change."
 ```
 
@@ -330,9 +340,9 @@ checkout:
 
 ```text
 codex exec --json --cd <repo> --sandbox workspace-write ...
-agy --output-format json --model gemini-3.7-flash --effort high \
-  --mode accept-edits --sandbox --dangerously-skip-permissions \
-  --add-dir <repo> --print <prompt>
+agy --output-format stream-json --mode accept-edits --model gemini-4-neon \
+  --effort high --sandbox --dangerously-skip-permissions --add-dir <repo> \
+  --print <prompt>
 claude --print --output-format json --permission-mode auto --add-dir <repo> ...
 pi --provider zai --model glm-5.2 --thinking <effort> --no-session -p ...
 ```

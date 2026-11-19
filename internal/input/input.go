@@ -510,6 +510,16 @@ var codexModels = map[string]struct {
 	"gpt-5.6-sol":   {[]string{"gpt5.6-sol"}, "high"},
 }
 
+// Each Gemini model owns its aliases, supported efforts, and default effort.
+var geminiModels = map[string]struct {
+	aliases []string
+	efforts []string
+	effort  string
+}{
+	"gemini-4-neon":   {[]string{"neon"}, []string{"low", "medium", "high", "xhigh"}, "high"},
+	"gemini-4-carbon": {[]string{"carbon"}, []string{"low", "medium", "high"}, "high"},
+}
+
 func normalizeEffort(agent, model, effort string) (string, error) {
 	effort = strings.ToLower(strings.TrimSpace(effort))
 	switch agent {
@@ -547,15 +557,19 @@ func normalizeEffort(agent, model, effort string) (string, error) {
 			return "", errors.New("--effort for zai must be medium, high, or xhigh")
 		}
 	case "gemini":
+		spec, ok := geminiModels[model]
+		if !ok {
+			spec = geminiModels["gemini-4-neon"]
+		}
 		if effort == "" {
-			return "high", nil
+			return spec.effort, nil
 		}
-		switch effort {
-		case "low", "medium", "high":
-			return effort, nil
-		default:
-			return "", errors.New("--effort for gemini must be low, medium, or high")
+		for _, allowed := range spec.efforts {
+			if effort == allowed {
+				return effort, nil
+			}
 		}
+		return "", fmt.Errorf("--effort for %s must be %s", model, strings.Join(spec.efforts, ", "))
 	default:
 		return "", errors.New("--effort is supported only for codex, gemini, claude, or zai")
 	}
@@ -566,7 +580,7 @@ func normalizeModel(agent string, model string) (string, error) {
 	if model == "" {
 		switch agent {
 		case "gemini":
-			return "gemini-3.7-flash", nil
+			return "gemini-4-neon", nil
 		case "zai":
 			return "glm-5.2", nil
 		default:
@@ -594,18 +608,17 @@ func normalizeModel(agent string, model string) (string, error) {
 			return "", errors.New("--model for claude must be fable, sonnet, opus, or haiku")
 		}
 	case "gemini":
-		switch model {
-		case "gemini", "flash", "gemini-3.7", "3.7", "gemini-3.7-flash":
-			return "gemini-3.7-flash", nil
-		case "gemini-3.6", "3.6", "gemini-3.6-flash":
-			return "gemini-3.6-flash", nil
-		case "gemini-3.5", "3.5", "gemini-3.5-flash":
-			return "gemini-3.5-flash", nil
-		case "pro", "gemini-pro", "gemini-3.1", "3.1", "gemini-3.1-pro":
-			return "gemini-3.1-pro", nil
-		default:
-			return "", errors.New("--model for gemini must be flash, pro, or a supported gemini-<version>-<family> id")
+		for canonical, spec := range geminiModels {
+			if model == canonical {
+				return canonical, nil
+			}
+			for _, alias := range spec.aliases {
+				if model == alias {
+					return canonical, nil
+				}
+			}
 		}
+		return "", errors.New("--model for gemini must be neon (gemini-4-neon) or carbon (gemini-4-carbon)")
 	case "zai":
 		switch model {
 		case "glm", "glm-5.2", "glm5.2", "zai/glm-5.2", "z.ai/glm-5.2":
