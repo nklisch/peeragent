@@ -50,7 +50,7 @@ agy plugin install https://github.com/nklisch/peeragent/tree/main/plugin
 Pi:
 
 ```sh
-pi install git:github.com/nklisch/peeragent@v0.17.1
+pi install git:github.com/nklisch/peeragent@v0.18.0
 ```
 
 The Pi package loads the `peer` skill from `plugin/skills`, so its wrapper
@@ -749,23 +749,23 @@ published as downloadable archives for manual install.
 Build release archives locally:
 
 ```sh
-make release VERSION=0.17.1
+make release VERSION=0.18.0
 ```
 
 That writes:
 
 ```text
-dist/release/peeragent_0.17.1_linux_amd64.tar.gz
-dist/release/peeragent_0.17.1_linux_arm64.tar.gz
-dist/release/peeragent_0.17.1_darwin_amd64.tar.gz
-dist/release/peeragent_0.17.1_darwin_arm64.tar.gz
+dist/release/peeragent_0.18.0_linux_amd64.tar.gz
+dist/release/peeragent_0.18.0_linux_arm64.tar.gz
+dist/release/peeragent_0.18.0_darwin_amd64.tar.gz
+dist/release/peeragent_0.18.0_darwin_arm64.tar.gz
 dist/release/checksums.txt
 ```
 
 Publish a GitHub release from a machine with `gh` authenticated:
 
 ```sh
-make publish-release VERSION=0.17.1
+make publish-release VERSION=0.18.0
 ```
 
 The GitHub Actions workflow in `.github/workflows/release.yml` also publishes
