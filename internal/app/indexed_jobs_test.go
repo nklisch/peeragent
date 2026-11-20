@@ -53,7 +53,7 @@ func TestIndexedMetadataSurvivesRemovedWorktreeWithoutArchive(t *testing.T) {
 				t.Fatalf("list: %#v %v", records, err)
 			}
 			row := records[0]
-			if row.JobID != id || row.Agent != "codex" || row.Model != "gpt-6-astra" || row.Effort != "xhigh" || row.AgentSession != "saved-conversation" || row.CWD != cwd || row.Status != status || !row.IndexedOnly || !row.StartedAt.Equal(original.CreatedAt) || row.IndexWarning != jobs.IndexedOnlyWarning {
+			if row.JobID != id || row.Agent != "codex" || row.Model != "gpt-6.2-astra" || row.Effort != "xhigh" || row.AgentSession != "saved-conversation" || row.CWD != cwd || row.Status != status || !row.IndexedOnly || !row.StartedAt.Equal(original.CreatedAt) || row.IndexWarning != jobs.IndexedOnlyWarning {
 				t.Fatalf("indexed row: %#v", row)
 			}
 			if (row.FinishedAt != nil) != (status != result.StatusRunning) {

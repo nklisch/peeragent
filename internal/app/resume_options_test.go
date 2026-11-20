@@ -76,7 +76,7 @@ func TestResumeOverridesAndCombinedValidation(t *testing.T) {
 	}{
 		{"effort-only", "codex", "gpt-6-astra", "xhigh", "", "high", "gpt-6-astra", "high", false},
 		{"model-only", "codex", "gpt-6-astra", "xhigh", "luna", "", "gpt-6-luna", "xhigh", false},
-		{"both", "codex", "gpt-6-astra", "xhigh", "sol", "low", "gpt-6.1-sol", "low", false},
+		{"both", "codex", "gpt-6-astra", "xhigh", "sol", "low", "gpt-6.2-sol", "low", false},
 		{"model-equals-carbon", "gemini", "gemini-4-neon", "low", "carbon", "", "gemini-4-carbon", "low", false},
 		{"incompatible-effort-override", "gemini", "gemini-4-carbon", "high", "", "xhigh", "", "", true},
 		{"incompatible-model-override", "gemini", "gemini-4-neon", "xhigh", "carbon", "", "", "", true},

@@ -500,12 +500,14 @@ var codexModels = map[string]struct {
 	aliases []string
 	effort  string
 }{
-	"gpt-6-astra":   {[]string{"astra", "gpt6-astra"}, "high"},
+	"gpt-6.2-astra": {[]string{"astra", "gpt6.2-astra"}, "high"},
+	"gpt-6-astra":   {[]string{"gpt6-astra"}, "high"},
 	"gpt-6-luna":    {[]string{"luna", "gpt6-luna"}, "xhigh"},
 	"gpt-5.6-luna":  {[]string{"gpt5.6-luna"}, "xhigh"},
 	"gpt-6.1-terra": {[]string{"terra", "gpt6.1-terra"}, "xhigh"},
 	"gpt-5.6-terra": {[]string{"gpt5.6-terra"}, "xhigh"},
-	"gpt-6.1-sol":   {[]string{"sol", "gpt6.1-sol"}, "high"},
+	"gpt-6.2-sol":   {[]string{"sol", "gpt6.2-sol"}, "high"},
+	"gpt-6.1-sol":   {[]string{"gpt6.1-sol"}, "high"},
 	"gpt-6-sol":     {[]string{"gpt6-sol"}, "high"},
 	"gpt-5.6-sol":   {[]string{"gpt5.6-sol"}, "high"},
 }
@@ -599,7 +601,7 @@ func normalizeModel(agent string, model string) (string, error) {
 				}
 			}
 		}
-		return "", errors.New("--model for codex must be astra, luna, terra, sol, gpt-6.1-<sol|terra>, or a supported gpt-6-<astra|luna|sol> or gpt-5.6-<luna|terra|sol> model id")
+		return "", errors.New("--model for codex must be astra, luna, terra, sol, gpt-6.2-<astra|sol>, gpt-6.1-<sol|terra>, or a supported gpt-6-<astra|luna|sol> or gpt-5.6-<luna|terra|sol> model id")
 	case "claude":
 		switch model {
 		case "fable", "sonnet", "opus", "haiku":

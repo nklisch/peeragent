@@ -86,9 +86,10 @@ versa.
 
 ### Codex
 
-The `sol` alias selects `gpt-6.1-sol`; `luna` selects `gpt-6-luna`; `terra`
-selects `gpt-6.1-terra`; `astra` selects `gpt-6-astra`. Explicit `gpt-6-sol`
-and `gpt-5.6-<luna|terra|sol>` IDs remain supported.
+The `sol` alias selects `gpt-6.2-sol`; `luna` selects `gpt-6-luna`; `terra`
+selects `gpt-6.1-terra`; `astra` selects `gpt-6.2-astra`. Explicit
+`gpt-6.1-sol`, `gpt-6-<astra|sol>`, and `gpt-5.6-<luna|terra|sol>` IDs remain
+supported.
 
 | Desired pass | Codex recommendation | Claude equivalent |
 | --- | --- | --- |
@@ -97,7 +98,7 @@ and `gpt-5.6-<luna|terra|sol>` IDs remain supported.
 | Optional bridge | `--model terra --effort high` or `xhigh` | Between general and flagship |
 | Opus-tier | `--model sol --effort low` or `medium` | `--model opus --effort xhigh` |
 | Fable-tier | `--model sol --effort high` or `xhigh` | `--model fable --effort high` or `xhigh` |
-| GPT-6 flagship | `--model astra --effort high` or `xhigh` | Above Fable-tier |
+| GPT-6.2 flagship | `--model astra --effort high` or `xhigh` | Above Fable-tier |
 
 Codex defaults to `xhigh` for Luna and Terra, and `high` for Sol, Astra, and
 the native default model. Explicit `--effort` overrides the default; resumes

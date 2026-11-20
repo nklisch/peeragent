@@ -302,7 +302,7 @@ func TestAsyncCapacityRetryAndCrossDirectoryControls(t *testing.T) {
 			}
 			if wantCalls == 2 {
 				args := strings.Join(calls[1].Args, " ")
-				if calls[1].CWD != cwd || !strings.HasPrefix(args, "exec resume ") || !strings.Contains(args, "fake-session") || !strings.Contains(args, "--model gpt-6.1-sol") || !strings.Contains(args, "--dangerously-bypass-approvals-and-sandbox") {
+				if calls[1].CWD != cwd || !strings.HasPrefix(args, "exec resume ") || !strings.Contains(args, "fake-session") || !strings.Contains(args, "--model gpt-6.2-sol") || !strings.Contains(args, "--dangerously-bypass-approvals-and-sandbox") {
 					t.Fatalf("retry call: %#v", calls[1])
 				}
 			}

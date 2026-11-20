@@ -25,11 +25,11 @@ func TestResumeOptionsCLI(t *testing.T) {
 		{"inherit-blocking", "fake-session", "gpt-6-luna", "xhigh", nil, false, false},
 		{"override-effort-async", "fake-session", "gpt-6-luna", "high", []string{"--effort", "high"}, true, false},
 		{"inherit-most-recent", "fake-session", "gpt-6-luna", "high", nil, true, false},
-		{"override-model-blocking", "fake-session", "gpt-6-astra", "high", []string{"--model", "astra"}, false, false},
-		{"inherit-updated-model", "fake-session", "gpt-6-astra", "high", nil, true, false},
+		{"override-model-blocking", "fake-session", "gpt-6.2-astra", "high", []string{"--model", "astra"}, false, false},
+		{"inherit-updated-model", "fake-session", "gpt-6.2-astra", "high", nil, true, false},
 		{"unknown-defaults", "unknown-session", "", "high", nil, true, true},
-		{"unknown-partial-override", "another-unknown", "gpt-6.1-sol", "high", []string{"--model", "sol"}, true, true},
-		{"unknown-explicit-options", "third-unknown", "gpt-6.1-sol", "medium", []string{"--model", "sol", "--effort", "medium"}, false, false},
+		{"unknown-partial-override", "another-unknown", "gpt-6.2-sol", "high", []string{"--model", "sol"}, true, true},
+		{"unknown-explicit-options", "third-unknown", "gpt-6.2-sol", "medium", []string{"--model", "sol", "--effort", "medium"}, false, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			args := append([]string{"--resume", tc.session, "continue"}, tc.flags...)

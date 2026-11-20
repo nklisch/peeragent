@@ -145,7 +145,7 @@ func TestExecWithRunnerBuildsModelArgv(t *testing.T) {
 
 func TestExecWithRunnerBuildsGPT6ModelArgv(t *testing.T) {
 	stubLookPath(t)
-	for _, model := range []string{"gpt-6-astra", "gpt-6-luna", "gpt-6-sol", "gpt-6.1-sol"} {
+	for _, model := range []string{"gpt-6-astra", "gpt-6-luna", "gpt-6-sol", "gpt-6.1-sol", "gpt-6.2-sol", "gpt-6.2-astra"} {
 		t.Run(model, func(t *testing.T) {
 			run := &testsupport.RecordingRunner{Result: Result{ExitCode: 0}}
 

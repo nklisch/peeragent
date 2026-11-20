@@ -133,13 +133,14 @@ Peeragent does not automatically replace a host assistant's normal sub-agent
 pattern. If you want that behavior, add a project instruction to `CLAUDE.md` or
 `AGENTS.md` telling the host when to delegate through `/peer`.
 
-The `sol` alias selects `gpt-6.1-sol`; `luna` selects `gpt-6-luna`, and
-`terra` selects `gpt-6.1-terra`. Explicit `gpt-6-sol`, `gpt-5.6-luna`, `gpt-5.6-terra`, and
+The `sol` alias selects `gpt-6.2-sol`; `astra` selects `gpt-6.2-astra`; `luna`
+selects `gpt-6-luna`, and `terra` selects `gpt-6.1-terra`. Explicit
+`gpt-6.1-sol`, `gpt-6-astra`, `gpt-6-sol`, `gpt-5.6-luna`, `gpt-5.6-terra`, and
 `gpt-5.6-sol` IDs remain supported.
 
-Use GPT-6 for routine Codex work and jump to GPT-6 Astra for the most
-demanding passes. Luna is the fast default, Sol is the higher-capability GPT-6 tier,
-Astra is the GPT-6 flagship above Sol, and Terra is an optional bridge when
+Use GPT-6 for routine Codex work and jump to GPT-6.2 Astra for the most
+demanding passes. Luna is the fast default, Sol is the higher-capability GPT-6.2 tier,
+Astra is the GPT-6.2 flagship above Sol, and Terra is an optional bridge when
 Luna is not enough but Sol is more than the task needs:
 
 | Desired delegated pass | Recommended Codex target | Rough Claude tier |
@@ -149,7 +150,7 @@ Luna is not enough but Sol is more than the task needs:
 | Middle bridge | `--agent codex --model terra --effort high` (or `xhigh`) | Between the general and flagship tiers |
 | Opus-tier | `--agent codex --model sol --effort low` (or `medium`) | `--agent claude --model opus --effort xhigh` |
 | Fable-tier | `--agent codex --model sol --effort high` (or `xhigh`) | `--agent claude --model fable --effort high` (or `xhigh`) |
-| GPT-6 flagship | `--agent codex --model astra --effort high` (or `xhigh`) | Above Fable-tier |
+| GPT-6.2 flagship | `--agent codex --model astra --effort high` (or `xhigh`) | Above Fable-tier |
 
 Most callers can jump directly from Luna to Sol rather than routing through
 Terra. Gemini through Antigravity defaults to Gemini 3.7 Flash at high effort.
@@ -170,7 +171,7 @@ updates, build fixes, research passes, and review passes in this repository.
 - Use `/peer --agent codex --model luna --effort high` for routine work and
   Luna at `xhigh` when there is lots of work. Jump to Sol at `low|medium` for an
   Opus-tier pass or `high|xhigh` for a Fable-tier pass; Terra is an optional
-  bridge. Use GPT-6 Astra at `high|xhigh` for the most demanding passes.
+  bridge. Use GPT-6.2 Astra at `high|xhigh` for the most demanding passes.
 - Use `/peer --agent claude --model fable` for the strongest Claude pass.
 - Use `/peer --agent gemini` for a Gemini 3.7 Flash pass through Antigravity.
 - Use `/peer --agent zai` for a Z.AI GLM 5.2 pass through Pi.
@@ -195,7 +196,7 @@ updates, build fixes, research passes, and review passes in this repository.
 - For Codex, use GPT-6 Luna at `high` for routine work or `xhigh` for lots of
   work. Jump directly to Sol at `low|medium` for an Opus-tier pass or
   `high|xhigh` for a Fable-tier pass. Terra is an optional middle bridge. Use
-  GPT-6 Astra at `high|xhigh` for the most demanding passes.
+  GPT-6.2 Astra at `high|xhigh` for the most demanding passes.
 - Do not use peeragent for planning-only orchestration work.
 ```
 
@@ -290,7 +291,7 @@ bin/peeragent --agent codex --model luna --effort xhigh "Work through the large 
 bin/peeragent --agent codex --model sol --effort medium "Run an Opus-tier review."
 bin/peeragent --agent codex --model sol --effort xhigh "Run a Fable-tier migration."
 bin/peeragent --agent codex --model terra --effort high "Use the optional middle tier."
-bin/peeragent --agent codex --model astra --effort xhigh "Run the GPT-6 flagship pass."
+bin/peeragent --agent codex --model astra --effort xhigh "Run the GPT-6.2 flagship pass."
 bin/peeragent --agent claude --model fable --effort xhigh "Untangle the hardest integration test."
 bin/peeragent --agent claude --model opus --effort xhigh "Run an Opus pass."
 bin/peeragent --agent gemini --model neon --effort high "Run a Gemini 4 Neon pass."
@@ -299,9 +300,9 @@ bin/peeragent --agent zai --effort xhigh "Review the cross-module migration for 
 ```
 
 Codex accepts the short aliases `astra`, `luna`, `terra`, and `sol` and passes
-`astra` as `gpt-6-astra`, `luna` as `gpt-6-luna`, `sol` as `gpt-6.1-sol`,
-and `terra` as `gpt-6.1-terra` to the Codex CLI. Explicit `gpt-6-sol` and
-GPT-5.6 IDs are also supported. Claude
+`astra` as `gpt-6.2-astra`, `luna` as `gpt-6-luna`, `sol` as `gpt-6.2-sol`,
+and `terra` as `gpt-6.1-terra` to the Codex CLI. Explicit `gpt-6.1-sol`,
+`gpt-6-astra`, `gpt-6-sol`, and GPT-5.6 IDs are also supported. Claude
 supports `--model
 fable`, `--model sonnet`, `--model opus`, and `--model haiku`. Gemini defaults
 to `gemini-4-neon` at `high` effort and accepts only `neon` (`gemini-4-neon`,

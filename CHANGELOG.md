@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.18.1
+
+### Features
+- Add GPT-6.2 Sol and Astra support for Codex. The `sol` alias now selects
+  `gpt-6.2-sol` and `astra` selects `gpt-6.2-astra`; explicit `gpt-6.1-sol`,
+  `gpt-6-astra`, and older Sol IDs remain supported.
+
 ## v0.18.0
 
 ### Changes
